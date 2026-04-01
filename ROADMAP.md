@@ -9,18 +9,19 @@
 **核心特性**：
 
 - [ ] **Supervisor ReAct 主循环**：call_model + dynamic_tools_node + 路由判断
-- [ ] **Supervisor 三路决策**：
-  - 简单无工具任务：直接合成答案
-  - 简单需工具任务：生成简化 Plan 调单 Executor
-  - 复杂任务：先调 Planner 再调 Executor
-- [ ] **generate_plan 工具**（InjectedState）：从 state.messages 取历史，调 Planner 生成 Plan JSON
-- [ ] **execute_plan 工具**（InjectedState）：从 state.session.plan_json 取计划，调 Executor 执行
-- [ ] **Planner Agent**：单次 LLM 调用，输出意图层 Plan JSON（不含工具名）
+- [ ] **Supervisor 三种回复模式**：
+  - 模式1：Direct Response（简单事实、知识内化）
+  - 模式2：Tool-use ReAct（需少量工具、短流程）
+  - 模式3：Plan → Execute → Summarize（多步骤、长流程）
+- [ ] **Supervisor 结构化决策输出**：mode + reason + confidence
+- [ ] **generate_plan 工具**：接受 LLM 传参（task_core / plan_id），内部从 session.plan_json 获取 previous_plan，调 Planner 生成 Plan JSON
+- [ ] **execute_plan 工具**：接受 LLM 传参（task_description / plan_id），调 Executor 执行
+- [ ] **Planner Agent**：单次 LLM 调用，输出意图层 Plan JSON（含 version 字段，不含工具名）
 - [ ] **Executor Agent**：ReAct 循环（Thought → Action → Observation），自主选工具
-- [ ] **ExecutorResult 结构化返回**：status / updated_plan_json / summary
+- [ ] **ExecutorResult 结构化返回**：status / updated_plan_json（含 version） / summary
 - [ ] **失败处理双重保障**：正常失败上报 + 异常崩溃保底标记（`_mark_plan_steps_failed`）
-- [ ] **重规划闭环**：最多 MAX_REPLAN 次，带状态 Plan 传给 Planner 修订
-- [ ] **dynamic_tools_node 双向同步**：session.plan_json 始终最新
+- [ ] **重规划闭环**：最多 MAX_REPLAN 次，通过 plan_id 参数传递状态（内部从 session.plan_json 获取 previous_plan）
+- [ ] **dynamic_tools_node 双向同步**：session.plan_json 始终最新（含 version）
 - [ ] **基础 Executor 工具**：`write_file` + `run_local_command`
 - [ ] **基础单元测试**：JSON 提取 / 失败标记 / State 解析
 

@@ -42,15 +42,21 @@
 
 **核心行为**：
 
-| 行为 | 触发条件 | 动作 |
-|---|---|---|
-| 直接作答 | 简单问题，无需工具 | 从自身知识合成答案，不调用任何 Agent |
-| 调单 Executor | 简单任务，需工具，无需规划 | 生成简化 Plan 直接交 Executor 执行 |
-| Planner → Executor | 复杂任务，需拆解 | 先调 `generate_plan`，再调 `execute_plan` |
-| 轻干预 | 收到 Executor Snapshot，偏差小 | 局部调整 Plan 文本，发回 Executor 继续 |
-| 中/重干预 | 偏差大 或 里程碑阻塞 | 调 `generate_plan` 局部或全局重规划 |
-| 融合输出 | 收到所有 ExecutorResult | ReAct 循环融合多路结果，生成最终答案 |
-| 归档 Memory（V3） | 最终答案生成后 | 归档 Strategic Memory + Episodic Memory |
+| 行为 | 触发条件 | 动作 | 参数传递 |
+|---|---|---|---|
+| 模式1：Direct Response | 简单事实、知识内化、无需工具 | 内部思考后直接输出最终答案 | 无 |
+| 模式2：Tool-use ReAct | 需要少量工具、短流程、目标明确 | 调 Executor（只传 task_description）走 ReAct | `{"task_description": "..."}` |
+| 模式3：Plan → Execute → Summarize | 多步骤、长流程、有依赖、需一致性 | 先调 Planner 生成 Plan → 再调 Executor 执行 → 融合总结 | Planner: `{"task_core": "...", "plan_id": "..."}`<br>Executor: `{"plan_id": "..."}` |
+| 轻干预 | 收到 Executor Snapshot，偏差小 | 局部调整 Plan 文本，发回 Executor 继续 | - |
+| 中/重干预 | 偏差大 或 里程碑阻塞 | 调 `generate_plan` 局部或全局重规划 | - |
+| 融合输出 | 收到所有 ExecutorResult | ReAct 循环融合多路结果，生成最终答案 | - |
+| 归档 Memory（V3） | 最终答案生成后 | 归档 Strategic Memory + Episodic Memory | - |
+
+**决策输出**：Supervisor 在 Thought 阶段输出结构化决策（mode + reason + confidence）
+
+**模式选择原则**：
+- 能用模式 1 就绝不用 2，能用模式 2 就尽量不用 3（Occam's Razor）
+- 优先考虑 token 消耗：模式1（最低）< 模式2（中等）< 模式3（较高）
 
 **工具（对外暴露）**：`generate_plan`、`execute_plan`
 
@@ -62,9 +68,9 @@
 
 **职责**：将任务需求（含历史执行状态）转化为结构化意图层 JSON 执行计划。
 
-**输入**：
-- 用户完整消息历史（含对话上下文）
-- 可选：已有 Plan 的执行状态（重规划场景，含各步骤 status / failure_reason）
+**输入**（通过 LLM 传入的结构化参数）：
+- `task_core`：Supervisor 提炼后的精简 intent
+- `plan_id`：当前 Plan 的编号（内部从 session.plan_json 获取带执行状态的 previous_plan）
 
 **输出**：结构化 JSON 计划（Plan JSON，放在 ` ```json ``` ` 代码块中）
 
@@ -79,7 +85,10 @@
 
 **职责**：按 Plan 中每个 step 的意图，自主选择工具执行，输出带执行状态的 updated_plan。
 
-**输入**：Plan JSON（从 session 注入，不由 LLM 传参）  
+**输入**（通过 LLM 传入的结构化参数）：
+- Mode 2：`task_description`（极简任务描述）
+- Mode 3：`plan_id`（从 Plan ID 获取完整计划，内部查询 session.plan_json）
+
 **输出**：`ExecutorResult(status, updated_plan_json, summary)`
 
 **核心行为**：
@@ -103,6 +112,8 @@
 ```json
 {
   "plan_id": "string",
+  "version": "integer",
+  "goal": "string",
   "task_summary": "string",
   "milestones": ["string"],
   "risks": ["string"],
@@ -125,7 +136,9 @@
 
 | 字段 | 类型 | 约束 |
 |---|---|---|
-| `plan_id` | string | 唯一标识，格式 `plan_<uuid4[:8]>` |
+| `plan_id` | string | 唯一标识，格式 `plan_<date>_<sequence>`（如 `plan_v20260331_002`） |
+| `version` | integer | 版本号，初始为 1，每次重规划递增 |
+| `goal` | string | 任务总体目标，面向人类可读 |
 | `task_summary` | string | ≤ 200 字，面向人类可读 |
 | `milestones` | string[] | 可选，≥ 1 个里程碑 |
 | `risks` | string[] | 可选，提前识别阻塞点 |
@@ -154,15 +167,16 @@
 
 **包含**：
 - [x] Supervisor ReAct 主循环（call_model + dynamic_tools_node）
-- [x] Supervisor 三路决策（直接作答 / 单 Executor / Planner→Executor）
-- [x] `generate_plan` 工具（InjectedState，调用 Planner）
-- [x] `execute_plan` 工具（InjectedState，调用 Executor）
-- [x] Planner 单次 LLM 调用，输出意图层 Plan JSON
+- [x] Supervisor 三种回复模式（Direct Response / Tool-use ReAct / Plan → Execute）
+- [x] Supervisor 结构化决策输出（mode + reason + confidence）
+- [x] `generate_plan` 工具（接受 LLM 传参：task_core / plan_id）
+- [x] `execute_plan` 工具（接受 LLM 传参：task_description / plan_id）
+- [x] Planner 单次 LLM 调用，输出意图层 Plan JSON（含 version 字段）
 - [x] Executor ReAct 循环（Thought → Action → Observation）
 - [x] ExecutorResult 结构化返回（status / updated_plan_json / summary）
 - [x] 失败处理：正常失败上报 + 异常崩溃保底标记（`_mark_plan_steps_failed`）
-- [x] 重规划闭环：最多 MAX_REPLAN 次，带状态 Plan 传给 Planner 重规划
-- [x] dynamic_tools_node 双向同步 session.plan_json
+- [x] 重规划闭环：最多 MAX_REPLAN 次，通过 plan_id 参数传递状态（内部从 session.plan_json 获取 previous_plan）
+- [x] dynamic_tools_node 双向同步 session.plan_json（含 version）
 - [x] 基础 Executor 工具：`write_file` + `run_local_command`
 
 **不包含**：
