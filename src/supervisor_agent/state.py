@@ -27,6 +27,13 @@ class PlannerSession:
     plan_json: str | None = None             # 最新的规划 JSON 字符串（含步骤执行状态）
     last_executor_status: str | None = None  # 最近一次 Executor 的结果："completed" / "failed"
     last_executor_error: str | None = None   # 最近一次 Executor 失败时的原因（异常信息或摘要）
+    last_executor_summary: str | None = None  # 最近一次 Executor 返回的 summary
+    # 按 plan_id 复用 Planner 对话上下文（V1: 仅内存，不持久化）
+    planner_history_by_plan_id: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+    planner_last_version_by_plan_id: dict[str, int] = field(default_factory=dict)
+    planner_last_output_by_plan_id: dict[str, str] = field(default_factory=dict)
+    # 旧版计划归档（只读快照，按版本追加）
+    plan_archive_by_plan_id: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass

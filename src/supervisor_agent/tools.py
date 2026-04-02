@@ -3,7 +3,6 @@
 import json
 import logging
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated, Any, Callable, List
 
 from langchain_core.tools import tool
@@ -82,16 +81,13 @@ def _normalize_plan_json(plan_json: str, previous_plan_json: str | None = None) 
             prev = {}
 
     prev_plan_id = prev.get("plan_id")
-    plan_id = parsed.get("plan_id") or prev_plan_id or f"plan_{uuid.uuid4().hex[:8]}"
+    # plan_id/version 属于系统字段：忽略 LLM 输出，始终由历史或本地生成决定。
+    plan_id = prev_plan_id or f"plan_{uuid.uuid4().hex[:8]}"
     parsed["plan_id"] = plan_id
 
     prev_version = prev.get("version")
     prev_version = prev_version if isinstance(prev_version, int) else 0
-    current_version = parsed.get("version")
-    if isinstance(current_version, int):
-        parsed["version"] = max(current_version, prev_version + 1 if prev_plan_id else 1)
-    else:
-        parsed["version"] = prev_version + 1 if prev_plan_id else 1
+    parsed["version"] = prev_version + 1 if prev_plan_id else 1
 
     steps = parsed.get("steps", [])
     if isinstance(steps, list):
@@ -117,8 +113,8 @@ def _build_generate_plan_tool(runtime_context: Context):
 
         与架构一致：Planner 只接收 **task_core** 与（重规划时）由 **plan_id** 从状态中解析出的完整计划。
 
-        - **首次规划**：必须提供非空且**足够详细**的 ``task_core``（目标、约束、验收标准、关键上下文等），不要传 ``plan_id``。
-        - **重规划**：传入当前计划中的 ``plan_id``（与 ``PlannerSession`` 内 JSON 一致）；**强烈建议**同时提供详尽的 ``task_core`` 说明修订重点。完整带执行状态的计划由工具从状态中读取，无需在参数里粘贴 JSON。
+        - **首次规划**：必须提供非空且**有用的上下文与核心目标**的 ``task_core``，不要传 ``plan_id``。
+        - **重规划**：传入当前计划中的 ``plan_id``（与 ``PlannerSession`` 内 JSON 一致）；**强烈建议**同时提供详尽的 ``task_core`` 说明修订方向。完整带执行状态的计划由工具从状态中读取，无需在参数里粘贴 JSON。
         """
 
         if state.planner_session is None:
@@ -135,10 +131,16 @@ def _build_generate_plan_tool(runtime_context: Context):
             return err
 
         previous_plan_json = state.planner_session.plan_json if state.planner_session else None
+        normalized_pid = _normalize_plan_id_arg(plan_id)
+        planner_history_messages = None
+        if normalized_pid and state.planner_session is not None:
+            planner_history_messages = state.planner_session.planner_history_by_plan_id.get(normalized_pid)
 
         plan_json = await run_planner(
             task_core,
+            plan_id=plan_id,
             replan_plan_json=replan_plan_json,
+            planner_history_messages=planner_history_messages,
             context=runtime_context,
         )
         normalized = _normalize_plan_json(plan_json, previous_plan_json=previous_plan_json)
@@ -151,23 +153,63 @@ def _build_generate_plan_tool(runtime_context: Context):
 
 def _build_execute_plan_tool(runtime_context: Context):
     @tool
-    async def execute_plan(state: Annotated[State, InjectedState]) -> str:
-        """按当前计划执行深度学习任务。
-        从 State 中读取最新的 JSON 计划，交给 Executor Agent 执行。
-        调用前必须已经通过 generate_plan 生成了计划。
-        """
-        if state.planner_session is None:
-            return "错误：尚未生成计划，请先调用 generate_plan。"
-        if not state.planner_session.plan_json:
-            return "错误：计划内容为空，请先调用 generate_plan 生成有效计划。"
+    async def execute_plan(
+        state: Annotated[State, InjectedState],
+        task_description: str = "",
+        plan_id: str | None = None,
+    ) -> str:
+        """执行任务（Mode2 直执）或执行已有计划（Mode3）。
 
-        plan_json = state.planner_session.plan_json
+        参数约定（与架构一致）：
+        - Mode2：仅传 ``task_description``（简短、明确、可执行）
+        - Mode3：仅传 ``plan_id``（从 session 中读取对应计划）
+        """
+        td = (task_description or "").strip()
+        pid = _normalize_plan_id_arg(plan_id)
+
+        if td and pid:
+            return "错误：execute_plan 不能同时传 task_description 和 plan_id。Mode2/Mode3 二选一。"
+
+        if pid is not None:
+            if state.planner_session is None or not (state.planner_session.plan_json or "").strip():
+                return "错误：已指定 plan_id，但当前没有可执行的计划。请先调用 generate_plan。"
+            try:
+                plan_obj = json.loads(state.planner_session.plan_json or "")
+            except json.JSONDecodeError:
+                return "错误：当前 session 中的 plan_json 无法解析为 JSON。"
+            if not isinstance(plan_obj, dict):
+                return "错误：当前 plan_json 顶层必须是 JSON 对象。"
+            current_id = plan_obj.get("plan_id")
+            if current_id != pid:
+                return f"错误：plan_id 不匹配。当前计划中的 plan_id 为 {current_id!r}，收到 {pid!r}。"
+            plan_json = state.planner_session.plan_json or ""
+        else:
+            if not td:
+                return "错误：Mode2 需提供非空 task_description；Mode3 需提供 plan_id。"
+            mode2_plan = {
+                "plan_id": f"plan_{uuid.uuid4().hex[:8]}",
+                "version": 1,
+                "goal": td,
+                "steps": [
+                    {
+                        "step_id": "step_1",
+                        "intent": td,
+                        "expected_output": "完成任务并给出结果",
+                        "status": "pending",
+                        "result_summary": None,
+                        "failure_reason": None,
+                    }
+                ],
+            }
+            plan_json = json.dumps(mode2_plan, ensure_ascii=False, indent=2)
+
         executor_session_id = f"exec_{uuid.uuid4().hex[:8]}"
+        planner_session_id = state.planner_session.session_id if state.planner_session else None
 
         logger.info(
             "Executor 开始执行，executor_session_id=%s，planner_session_id=%s",
             executor_session_id,
-            state.planner_session.session_id,
+            planner_session_id,
         )
 
         try:
@@ -179,6 +221,11 @@ def _build_execute_plan_tool(runtime_context: Context):
             summary = executor_result.summary
             updated_plan_json = executor_result.updated_plan_json
             error_detail: str | None = None
+            # 文档约束：Mode3（按 plan_id 执行）在失败时必须返回可复用 plan 状态（updated_plan_json 非空）。
+            if pid is not None and status == "failed" and not (updated_plan_json or "").strip():
+                fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+                updated_plan_json = _mark_plan_steps_failed(plan_json, fallback_reason)
+                error_detail = fallback_reason
             logger.info(
                 "Executor 执行完成，status=%s，executor_session_id=%s",
                 status,
@@ -200,14 +247,12 @@ def _build_execute_plan_tool(runtime_context: Context):
                 error_detail,
             )
 
-        # 结构化返回，供 dynamic_tools_node 解析 updated_plan_json 写回 State
+        # 结构化返回，供 dynamic_tools_node 解析 updated_plan_json 写回 State。
+        # 注意：updated_plan_json 仅用于状态同步，不应直接暴露给 Supervisor LLM。
         # 格式约定：[EXECUTOR_RESULT] 标记行后接 JSON
         meta = {
-            "executor_session_id": executor_session_id,
-            "planner_session_id": state.planner_session.session_id,
             "status": status,
             "error_detail": error_detail,
-            "started_at": datetime.now(UTC).isoformat(),
             "updated_plan_json": updated_plan_json,
         }
         meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
@@ -218,11 +263,7 @@ def _build_execute_plan_tool(runtime_context: Context):
 
 
 def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
-    """将 plan_json 中所有 pending/running 步骤标记为 failed，并写入 failure_reason。
-
-    当 Executor 因异常崩溃，无法返回带状态的 updated_plan 时调用。
-    保证 Planner 重规划时能看到哪些步骤未完成及失败原因。
-    """
+    """将 plan_json 中 pending/running 步骤标记为 failed，并写入 failure_reason。"""
     if not plan_json or not plan_json.strip():
         return plan_json
     try:

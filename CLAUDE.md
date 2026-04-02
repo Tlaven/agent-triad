@@ -128,7 +128,7 @@ Executor 遇到无法继续的情况时**直接停止**，把带执行状态的 
 
 ```
 Supervisor 收到 Executor 结果
-  ├── status=completed → 合成最终答案，结束
+  ├── status=completed → 基于 summary 合成最终答案，结束
   └── status=failed
         ├── updated_plan_json 非空 + replan_count < MAX_REPLAN → 调 generate_plan（传 task_core，plan_id）→ 再 execute_plan（传 plan_id）
         ├── updated_plan_json 为空 → 直接把 `summary` 作为 Supervisor 最终回答生成（call_model）的输入（不使用 Planner；必要时由 Supervisor 显式切换为 Mode 3）
@@ -136,7 +136,7 @@ Supervisor 收到 Executor 结果
 ```
 
 当 Supervisor 收到 `ExecutorResult` 后：
-- 若 `status=completed`：读取 `ExecutorResult.updated_plan_json`（通常也已写回 `session.plan_json`），提取各步骤的执行结果/摘要，将其与 `goal` 一致性融合为最终回复并结束流程。
+- 若 `status=completed`：Supervisor LLM 仅基于 `ExecutorResult.summary` 生成最终回复并结束流程；`updated_plan_json` 仅用于状态同步/审计，不作为成功分支的 LLM 输入。
 - 若 `status=failed`：
   - 若 `ExecutorResult.updated_plan_json` 非空：读取 `ExecutorResult.summary`（自然语言失败与修改方向），将其转化为下一轮重规划的 `task_core`，并依赖 `session.plan_json` 中已有的失败步骤执行状态来避免重复执行；随后如果 `replan_count < MAX_REPLAN`，调用 `generate_plan` 生成新 `version` 的 plan 并写回 `session`，再调用 `execute_plan`（传 `plan_id`）继续执行。
   - 若 `ExecutorResult.updated_plan_json` 为空：直接使用 `ExecutorResult.summary` 完成本轮 Supervisor 的失败解释/反馈，并结束或由 Supervisor 决定显式切换为 Mode 3。
@@ -182,6 +182,10 @@ Supervisor 的决策规则（单一入口）如下：
 `session.plan_json` 在 `updated_plan_json` 非空时始终是**最新版本的 plan**（含执行进度、plan_id、version）。
 
 `dynamic_tools_node` 同时提取 `status` 和 `error_detail`，写入 `session.last_executor_status / last_executor_error`，供 Supervisor 决策用。
+
+补充约束（token 优化）：
+- 当 `status=completed` 时，Supervisor LLM 仅接收精简执行反馈（以 `summary` 为核心），不接收完整 `updated_plan_json`。
+- `updated_plan_json` 仅在系统内部用于状态写回、重规划上下文与可审计性。
 
 ---
 

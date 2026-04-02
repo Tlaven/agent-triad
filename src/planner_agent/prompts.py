@@ -17,6 +17,7 @@ _PLANNER_SYSTEM_PROMPT_TEMPLATE = """你是 Planner Agent，只负责"规划"，
 - Plan 中禁止出现具体工具名、命令名、API 名。
 - 每一步只描述意图（做什么）和验收结果（如何判定完成）。
 - 优先最小步骤集：覆盖目标即可，避免过度拆分。
+- `plan_id` 与 `version` 是系统托管字段：你不负责制订，若输出中出现它们也会被系统覆盖。
 
 ## Executor 能力边界（仅供你估算可执行性）
 
@@ -36,8 +37,6 @@ _PLANNER_SYSTEM_PROMPT_TEMPLATE = """你是 Planner Agent，只负责"规划"，
 
 ```json
 {
-  "plan_id": "plan_xxx",
-  "version": 1,
   "goal": "任务目标描述",
   "steps": [
     {

@@ -5,7 +5,10 @@
 """
 
 
+import json
 import re
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
@@ -21,11 +24,21 @@ from .prompts import get_planner_system_prompt
 def build_planner_messages(
     task_core: str,
     replan_plan_json: str | None,
+    planner_history_messages: list[dict[str, str]] | None = None,
 ) -> list[BaseMessage]:
     """组装 Planner LLM 输入：首条为完整系统提示词，第二条为 task_core，重规划时第三条为 plan JSON。"""
     capabilities = get_executor_capabilities_docs()
     system_text = get_planner_system_prompt(capabilities)
     messages: list[BaseMessage] = [SystemMessage(content=system_text)]
+    for msg in planner_history_messages or []:
+        role = (msg.get("role") or "").strip().lower()
+        content = (msg.get("content") or "").strip()
+        if not content:
+            continue
+        if role == "assistant":
+            messages.append(AIMessage(content=content, name="planner"))
+        else:
+            messages.append(HumanMessage(content=content))
 
     tc = (task_core or "").strip()
     has_replan = bool(replan_plan_json and replan_plan_json.strip())
@@ -91,7 +104,9 @@ planner_graph = builder.compile(name="Planner Agent")
 async def run_planner(
     task_core: str,
     *,
+    plan_id: str | None = None,
     replan_plan_json: str | None = None,
+    planner_history_messages: list[dict[str, str]] | None = None,
     context: Context | None = None,
 ) -> str:
     """
@@ -103,13 +118,18 @@ async def run_planner(
     Args:
         task_core: Supervisor 提供的任务核心（**须足够详细**；新规划必填；重规划时建议补充修订说明）。
         replan_plan_json: 重规划时由上层根据 plan_id 从 ``PlannerSession.plan_json`` 取出。
+        planner_history_messages: 同一 plan_id 下历史 Planner 对话（user/assistant），用于会话复用。
         context: 运行时上下文（模型等）；默认 ``Context()``，会从环境变量填充
 
     Returns:
-        str: 干净的 JSON 字符串
+        str: 干净且已规范化（含稳定 plan_id/version）的 JSON 字符串
     """
     ctx = context if context is not None else Context()
-    planner_messages = build_planner_messages(task_core, replan_plan_json)
+    planner_messages = build_planner_messages(
+        task_core,
+        replan_plan_json,
+        planner_history_messages=planner_history_messages,
+    )
     input_state = PlannerState(messages=planner_messages)
     result = await planner_graph.ainvoke(
         input_state,
@@ -118,7 +138,12 @@ async def run_planner(
     
     final_message = result["messages"][-1]
     content = final_message.content.strip()
-    return _extract_plan_json_from_planner_content(content)
+    extracted = _extract_plan_json_from_planner_content(content)
+    return _normalize_planner_output_plan_json(
+        extracted,
+        plan_id=plan_id,
+        previous_plan_json=replan_plan_json,
+    )
 
 
 def _extract_plan_json_from_planner_content(content: str) -> str:
@@ -134,3 +159,52 @@ def _extract_plan_json_from_planner_content(content: str) -> str:
     if len(matches) != 1:
         return content
     return matches[0].strip()
+
+
+def _generate_plan_id() -> str:
+    """生成默认 plan_id：plan_vYYYYMMDD_xxxx。"""
+    date_tag = datetime.now(UTC).strftime("%Y%m%d")
+    return f"plan_v{date_tag}_{uuid4().hex[:4]}"
+
+
+def _normalize_planner_output_plan_json(
+    plan_json: str,
+    *,
+    plan_id: str | None,
+    previous_plan_json: str | None,
+) -> str:
+    """确保 Planner 输出具备稳定 plan_id/version（系统字段强制托管）。"""
+    if not plan_json or not plan_json.strip():
+        return plan_json
+
+    try:
+        parsed = json.loads(plan_json)
+    except json.JSONDecodeError:
+        return plan_json
+
+    if not isinstance(parsed, dict):
+        return plan_json
+
+    previous: dict = {}
+    if previous_plan_json and previous_plan_json.strip():
+        try:
+            loaded_previous = json.loads(previous_plan_json)
+            if isinstance(loaded_previous, dict):
+                previous = loaded_previous
+        except json.JSONDecodeError:
+            previous = {}
+
+    normalized_arg_plan_id = (plan_id or "").strip() or None
+    previous_plan_id = previous.get("plan_id") if isinstance(previous.get("plan_id"), str) else None
+
+    # plan_id 为系统字段：忽略 LLM 输出，始终由上层/历史或本地生成决定。
+    normalized_plan_id = normalized_arg_plan_id or previous_plan_id or _generate_plan_id()
+    parsed["plan_id"] = normalized_plan_id
+
+    previous_version = previous.get("version")
+    previous_version = previous_version if isinstance(previous_version, int) and previous_version > 0 else 0
+
+    # version 为系统字段：忽略 LLM 输出，首次=1，重规划=上一版+1。
+    parsed["version"] = previous_version + 1 if previous_plan_id else 1
+
+    return json.dumps(parsed, ensure_ascii=False, indent=2)
