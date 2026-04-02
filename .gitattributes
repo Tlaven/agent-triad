@@ -1,0 +1,34 @@
+# 统一换行：检出为 LF，合并时按 Git 规则规范化
+* text=auto eol=lf
+
+# 源码与文档
+*.py    text diff=python
+*.md    text diff=markdown
+*.toml  text
+*.json  text
+*.yml   text
+*.yaml  text
+Makefile text
+
+# Shell / 脚本（若存在）
+*.sh text eol=lf
+
+# 二进制与生成物（避免被当作文本“修补”）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.pyc binary
+*.pyo binary
+*.pyd binary
+*.so binary
+*.dll binary
+*.dylib binary
+
+# 锁文件：保留为文本，便于 diff
+uv.lock text

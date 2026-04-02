@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# 构建与元数据
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 工具缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 环境与密钥（勿提交）
+.env
+.env.*
+!.env.example
+
+# LangGraph 本地 API / 状态
+.langgraph_api/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

@@ -2,28 +2,38 @@
 
 ---
 
+## 文档定位（执行视角）
+
+- 本文档只维护：版本任务拆解、推进顺序、勾选进度
+- 需求边界与验收口径：以 `PRD.md` 为准
+- 架构与实现决策：以 `CLAUDE.md` 为准
+
+> 若与其他文档表述重复，应优先保留“任务与进度信息”，其余改为引用。
+
+---
+
 ## V1.0 — 单线程闭环 MVP
 
 **目标**：验证 Supervisor → Planner → Executor 基础架构可行性，实现完整的单轮任务执行闭环。
 
 **核心特性**：
 
-- [ ] **Supervisor ReAct 主循环**：call_model + dynamic_tools_node + 路由判断
-- [ ] **Supervisor 三种回复模式**：
+- [x] **Supervisor ReAct 主循环**：call_model + dynamic_tools_node + 路由判断
+- [x] **Supervisor 三种回复模式**：
   - 模式1：Direct Response（简单事实、知识内化）
   - 模式2：Tool-use ReAct（需少量工具、短流程）
   - 模式3：Plan → Execute → Summarize（多步骤、长流程）
-- [ ] **Supervisor 结构化决策输出**：mode + reason + confidence
-- [ ] **generate_plan 工具**：接受 LLM 传参（task_core / plan_id），内部从 session.plan_json 获取 previous_plan，调 Planner 生成 Plan JSON
-- [ ] **execute_plan 工具**：接受 LLM 传参（task_description / plan_id），调 Executor 执行
-- [ ] **Planner Agent**：单次 LLM 调用，输出意图层 Plan JSON（含 version 字段，不含工具名）
-- [ ] **Executor Agent**：ReAct 循环（Thought → Action → Observation），自主选工具
-- [ ] **ExecutorResult 结构化返回**：status / updated_plan_json（含 version） / summary
-- [ ] **失败处理双重保障**：正常失败上报 + 异常崩溃保底标记（`_mark_plan_steps_failed`）
-- [ ] **重规划闭环**：最多 MAX_REPLAN 次，通过 plan_id 参数传递状态（内部从 session.plan_json 获取 previous_plan）
-- [ ] **dynamic_tools_node 双向同步**：session.plan_json 始终最新（含 version）
-- [ ] **基础 Executor 工具**：`write_file` + `run_local_command`
-- [ ] **基础单元测试**：JSON 提取 / 失败标记 / State 解析
+- [x] **Supervisor 结构化决策输出**：mode + reason + confidence
+- [x] **generate_plan 工具**：LLM 传入详尽 `task_core` / 重规划时 `plan_id`，`InjectedState` 校验并从 session 注入 plan；Planner 首条消息为完整系统提示、第二条为 `task_core`
+- [x] **execute_plan 工具**：基于 `InjectedState` 读取当前 plan，调用 Executor 执行并返回结构化结果
+- [x] **Planner Agent**：单次 LLM 调用，输出意图层 Plan JSON（含 version 字段，不含工具名）
+- [x] **Executor Agent**：ReAct 循环（Thought → Action → Observation），自主选工具
+- [x] **ExecutorResult 结构化返回**：status / updated_plan_json（含 version） / summary
+- [x] **失败处理双重保障**：正常失败上报 + 异常崩溃保底标记（`_mark_plan_steps_failed`）
+- [x] **重规划闭环**：最多 MAX_REPLAN 次，通过 `planner_session.plan_json` 传递带状态计划并持续修订
+- [x] **dynamic_tools_node 双向同步**：session.plan_json 始终最新（含 version）
+- [x] **基础 Executor 工具**：`write_file` + `run_local_command`
+- [x] **基础单元测试**：JSON 提取 / 失败标记 / State 解析
 
 **验收标准**：  
 给定一个多步骤任务，系统能完成"计划生成 → 工具执行 → 失败时重规划（最多 3 次）→ 最终答案"完整流程，无隐性崩溃，执行状态在 updated_plan_json 中完整可读。
