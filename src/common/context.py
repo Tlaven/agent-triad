@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from . import prompts
-
-
 @dataclass(kw_only=True)
 class Context:
     """The context for the agent.
@@ -15,14 +12,6 @@ class Context:
     三层 Agent 共享同一套运行时配置：通过 LangGraph `context=Context(...)` 传入；
     环境变量仅在 `__post_init__` 中用于填充默认字段，各 Agent 节点只读 `runtime.context`，不直接读 `os.environ`。
     """
-
-    system_prompt: str = field(
-        default=prompts.SYSTEM_PROMPT,
-        metadata={
-            "description": "The system prompt to use for the agent's interactions. "
-            "This prompt sets the context and behavior for the agent.",
-        },
-    )
 
     supervisor_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
         default="siliconflow:stepfun-ai/Step-3.5-Flash",

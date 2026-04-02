@@ -14,6 +14,7 @@ from langgraph.runtime import Runtime
 
 from src.common.context import Context
 from src.common.utils import load_chat_model
+from src.supervisor_agent.prompts import get_supervisor_system_prompt
 from src.supervisor_agent.tools import get_tools
 from src.supervisor_agent.state import (
     InputState,
@@ -56,7 +57,7 @@ async def call_model(
 
     available_tools = await get_tools(runtime.context)
     model = load_chat_model(runtime.context.supervisor_model).bind_tools(available_tools)
-    system_message = runtime.context.system_prompt
+    system_message = get_supervisor_system_prompt()
     response = cast(
         AIMessage,
         await model.ainvoke(
