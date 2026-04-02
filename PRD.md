@@ -6,16 +6,6 @@
 
 ---
 
-## 0. 文档边界（避免重复）
-
-- `PRD.md`：定义产品目标、功能范围、阶段边界与验收标准
-- `CLAUDE.md`：记录工程架构与实现决策，不在本文重复实现细节
-- `ROADMAP.md`：维护任务级拆解与执行进度（勾选项）
-
-> 本文不维护文件级开发清单，避免与 `ROADMAP.md` 重复。
-
----
-
 ## 1. 产品定位
 
 ### 1.1 一句话定义
@@ -55,12 +45,12 @@
 | 行为 | 触发条件 | 动作 | 参数传递 |
 |---|---|---|---|
 | 模式1：Direct Response | 简单事实、知识内化、无需工具 | 内部思考后直接输出最终答案 | 无 |
-| 模式2：Tool-use ReAct | 需要少量工具、短流程、目标明确 | 调 Executor 走 ReAct | 由工具内部通过 `InjectedState` 读取 |
-| 模式3：Plan → Execute → Summarize | 多步骤、长流程、有依赖、需一致性 | 先调 Planner 生成 Plan → 再调 Executor 执行 → 融合总结 | 由工具内部通过 `InjectedState` 读取 |
+| 模式2：Tool-use ReAct | 需要少量工具、短流程、目标明确 | 调 Executor（只传 task_description）走 ReAct | `{"task_description": "..."}` |
+| 模式3：Plan → Execute → Summarize | 多步骤、长流程、有依赖、需一致性 | 先调 Planner 生成 Plan → 再调 Executor 执行 → 融合总结 | Planner: `{"task_core": "..."}`（计划修改时才可增加 `plan_id`）<br>Executor: `{"plan_id": "..."}` |
 | 轻干预 | 收到 Executor Snapshot，偏差小 | 局部调整 Plan 文本，发回 Executor 继续 | - |
 | 中/重干预 | 偏差大 或 里程碑阻塞 | 调 `generate_plan` 局部或全局重规划 | - |
 | 融合输出 | 收到所有 ExecutorResult | ReAct 循环融合多路结果，生成最终答案 | - |
-| 归档 Memory（V3） | 最终答案生成后 | 归档 Strategic Memory + Episodic Memory | - |
+| 归档 Planner 会话上下文（仅 V1 复用） | 最终答案生成后 | 在 `AgentSession` 内存中保留该 `plan_id` 对应的 Planner 会话（用于后续重规划复用） | - |
 
 **决策输出**：Supervisor 在 Thought 阶段输出结构化决策（mode + reason + confidence）
 
@@ -78,9 +68,9 @@
 
 **职责**：将任务需求（含历史执行状态）转化为结构化意图层 JSON 执行计划。
 
-**输入**（当前实现）：
-- LLM 调用 `generate_plan(task_core=..., plan_id=...)`：Supervisor 提供 **足够详细**的 `task_core`（目标、约束、验收标准、关键上下文等）；重规划时传 `plan_id` 并由工具从 `PlannerSession` 注入带执行状态的 Plan 正文。
-- Planner 模型侧消息顺序：**第一条**为完整系统提示（`_PLANNER_SYSTEM_PROMPT_TEMPLATE` 经 `get_planner_system_prompt` 渲染）；**第二条**为 `task_core` 纯文本；**重规划时第三条**为当前 Plan JSON（含步骤状态）。
+**输入**（通过 LLM 传入的结构化参数）：
+- `task_core`：Supervisor 提炼后的精简 intent
+- `plan_id`：当前 Plan 的编号（仅在“计划修改/重规划”时需要；初次生成可不传；内部从 session.plan_json 获取带执行状态的 previous_plan）
 
 **输出**：结构化 JSON 计划（Plan JSON，放在 ` ```json ``` ` 代码块中）
 
@@ -95,9 +85,9 @@
 
 **职责**：按 Plan 中每个 step 的意图，自主选择工具执行，输出带执行状态的 updated_plan。
 
-**输入**（当前实现）：
-- 通过 `InjectedState` 读取当前 `planner_session.plan_json`
-- 不依赖 LLM 传入业务参数
+**输入**（通过 LLM 传入的结构化参数）：
+- Mode 2：`task_description`（极简任务描述）
+- Mode 3：`plan_id`（从 Plan ID 获取完整计划，内部查询 session.plan_json）
 
 **输出**：`ExecutorResult(status, updated_plan_json, summary)`
 
@@ -124,19 +114,14 @@
   "plan_id": "string",
   "version": "integer",
   "goal": "string",
-  "task_summary": "string",
-  "milestones": ["string"],
-  "risks": ["string"],
   "steps": [
     {
-      "step_id": "step_1",
-      "intent": "意图描述（不含工具名，面向人类可理解）",
-      "expected_output": "完成验收标准（用于 Executor 自检）",
-      "milestone": "optional: 此步骤对应的里程碑标签",
+      "step_id": 1,
+      "intent": "意图描述",
+      "expected_output": "完成验收标准",
       "status": "pending | completed | failed | skipped",
       "result_summary": "成功时的结果摘要（初始为 null）",
-      "failure_reason": "失败时的原因（初始为 null）",
-      "confidence": "optional: 0.0~1.0，Executor Reflection 用（V2）"
+      "failure_reason": "失败时的原因（初始为 null）"
     }
   ]
 }
@@ -146,22 +131,21 @@
 
 | 字段 | 类型 | 约束 |
 |---|---|---|
-| `plan_id` | string | 唯一标识，格式 `plan_<date>_<sequence>`（如 `plan_v20260331_002`） |
+| `plan_id` | string | 唯一标识（例如 `plan_v20260331`） |
 | `version` | integer | 版本号，初始为 1，每次重规划递增 |
 | `goal` | string | 任务总体目标，面向人类可读 |
-| `task_summary` | string | ≤ 200 字，面向人类可读 |
-| `milestones` | string[] | 可选，≥ 1 个里程碑 |
-| `risks` | string[] | 可选，提前识别阻塞点 |
-| `step_id` | string | 格式 `step_1`, `step_2`, ... |
+| `step_id` | integer | 步骤编号（从 1 开始） |
 | `intent` | string | **禁止**出现具体工具名或 API 名 |
-| `expected_output` | string | 可量化或可验证的完成标准 |
+| `expected_output` | string | 可验证的完成标准 |
 | `status` | enum | `pending`（初始）/ `completed` / `failed` / `skipped` |
 | `result_summary` | string \| null | 初始 `null`，Executor 完成后写入 |
 | `failure_reason` | string \| null | 初始 `null`，Executor 失败后写入 |
 
 ### 3.3 重规划时的 Plan 传递规则
 
-重规划时，Supervisor 将**当前带执行状态的 Plan JSON** 一并传给 Planner，Planner 的处理规则：
+重规划时，Supervisor 仅向 Planner/`generate_plan` 传入 `plan_id`（用于定位 session 中带执行状态的 previous_plan），Planner 从 `session.plan_json` 读取该计划的执行进度与失败原因，并据此生成新版本的计划。
+
+Planner 的处理规则：
 
 - `status=completed` 的步骤：**保持不变**（新计划不重复执行已完成步骤）
 - `status=failed` 的步骤：**根据 failure_reason 修订**（修改 intent 或拆分为子步骤）
@@ -175,21 +159,26 @@
 
 **目标**：最小可运行的 Supervisor → Planner → Executor 闭环，验证基础架构可行性。
 
-**包含（产品能力级）**：
-- Supervisor / Planner / Executor 三层闭环
-- 三种响应模式与基础重规划能力
-- 结构化执行结果与失败可见（无隐性失败）
-- 单 Executor 串行执行
+**包含**：
+- [x] Supervisor ReAct 主循环（call_model + dynamic_tools_node）
+- [x] Supervisor 三种回复模式（Direct Response / Tool-use ReAct / Plan → Execute）
+- [x] Supervisor 结构化决策输出（mode + reason + confidence）
+- [x] `generate_plan` 工具（接受 LLM 传参：task_core；计划修改时可附带 plan_id）
+- [x] `execute_plan` 工具（接受 LLM 传参：task_description / plan_id）
+- [x] Planner 单次 LLM 调用，输出意图层 Plan JSON（含 version 字段）
+- [x] Executor ReAct 循环（Thought → Action → Observation）
+- [x] ExecutorResult 结构化返回（status / updated_plan_json / summary）
+- [x] 失败处理：正常失败上报 + 异常崩溃保底标记（`_mark_plan_steps_failed`）
+- [x] 重规划闭环：最多 MAX_REPLAN 次，通过 plan_id 参数传递状态（内部从 session.plan_json 获取 previous_plan）
+- [x] dynamic_tools_node 双向同步 session.plan_json（在 `updated_plan_json` 非空时保持 plan 最新，含 version）
+- [x] 基础 Executor 工具：`write_file` + `run_local_command`
 
 **不包含**：
 - Executor Reflection / Snapshot 上报
 - 多 Executor 并行 fan-out
 - Memory 归档
-- Supervisor 干预分级（所有失败均触发 Replan）
 
 **验收标准**：给定一个多步骤任务，系统能完成"计划生成 → 工具执行 → 失败重规划 → 最终答案"完整流程，无隐性崩溃。
-
-**任务拆解与进度**：见 `ROADMAP.md`（本文不重复文件级清单）
 
 ---
 
@@ -197,25 +186,26 @@
 
 **目标**：引入 Executor 自我监控能力，使 Supervisor 可在任务执行中途干预。
 
-**新增（产品能力级）**：
-- Executor Reflection 与 Snapshot 上报
-- Supervisor 干预分级（轻干预 / 中重干预）
-- 反思触发参数可配置（步数阈值 + 置信度阈值）
-- 可选 MCP 能力接入与失败语义标准化
+**新增**：
+- [ ] Executor 步骤计数器（每 `REFLECTION_INTERVAL` 步触发，默认 3）
+- [ ] Executor Reflection 节点（LLM 自评：当前路径是否偏离目标？置信度评分）
+- [ ] Snapshot 数据结构（当前已完成步骤 + Reflection 结论 + 建议）
+- [ ] Executor → Supervisor Snapshot 上报通道
+- [ ] Supervisor 干预分级：轻干预（局部调整 Plan 文本）vs 中/重干预（调 Planner Replan）
+- [ ] 环境变量 `REFLECTION_INTERVAL`、`CONFIDENCE_THRESHOLD` 配置项
 
-**验收标准**：Executor 在执行第 N 步后触发 Reflection，检测到偏差时上报 Snapshot，Supervisor 正确识别干预级别并局部调整 Plan 后 Executor 继续执行。
+**验收标准**：Executor 在执行第 N 步后触发 Reflection，检测到偏差时上报 Snapshot，Supervisor 正确识别干预级别并据此调整计划（可能局部调整或触发重规划），然后在后续轮次继续执行。
 
 ---
 
-### V3：多 Executor 并行 + Memory 归档
+### V3：多 Executor 并行
 
-**目标**：支持复杂任务的并行执行与长期记忆，完成完整流程图设计目标。
+**目标**：支持复杂任务的并行执行与融合，完成完整流程图设计目标。
 
-**新增（产品能力级）**：
-- 多 Executor 并行（fan-out / fan-in）
-- 多路结果融合与冲突解决
-- Strategic / Episodic Memory 归档与检索
-- MCP 治理与 Skill 产品化
+**新增**：
+- [ ] Supervisor fan-out：将多个子 Plan 并行分发给多个 Executor 实例
+- [ ] 并行 Executor 管理（asyncio.gather 或 LangGraph Parallel 节点）
+- [ ] Supervisor 合并多路 CompletionReport（冲突解决策略）
 
 **验收标准**：给定一个可拆分为 N 条独立路径的任务，系统能并行执行并融合结果，最终答案质量优于单线程顺序执行。
 
