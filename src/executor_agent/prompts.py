@@ -24,7 +24,7 @@ _EXECUTOR_SYSTEM_PROMPT_TEMPLATE = """你是 Executor Agent，只负责执行，
 
 ```json
 {
-  "status": "completed | failed",
+  "status": "completed",
   "summary": "执行摘要：完成了什么、失败点是什么",
   "updated_plan": {
     "plan_id": "（与输入 plan 相同）",
@@ -43,6 +43,8 @@ _EXECUTOR_SYSTEM_PROMPT_TEMPLATE = """你是 Executor Agent，只负责执行，
   }
 }
 ```
+
+- `status` 只能是字符串 **`"completed"`** 或 **`"failed"`** 二者之一（禁止写成 `completed | failed` 这类占位合并形式）。
 
 ## 字段要求
 
