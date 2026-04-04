@@ -23,12 +23,12 @@ def _normalize_plan_id_arg(plan_id: str | None) -> str | None:
     return s if s else None
 
 
-def _resolve_planner_input_for_generate_plan(
+def _resolve_planner_input_for_call_planner(
     task_core: str,
     plan_id: str | None,
     planner_session: PlannerSession | None,
 ) -> tuple[str | None, str | None]:
-    """校验 generate_plan 参数，返回 (错误信息, 重规划用的 plan_json)。
+    """校验 call_planner 参数，返回 (错误信息, 重规划用的 plan_json)。
 
     若无需重规划，第二项为 None。
     """
@@ -102,9 +102,9 @@ def _normalize_plan_json(plan_json: str, previous_plan_json: str | None = None) 
     return json.dumps(parsed, ensure_ascii=False, indent=2)
 
 
-def _build_generate_plan_tool(runtime_context: Context):
+def _build_call_planner_tool(runtime_context: Context):
     @tool
-    async def generate_plan(
+    async def call_planner(
         state: Annotated[State, InjectedState],
         task_core: str = "",
         plan_id: str | None = None,
@@ -122,7 +122,7 @@ def _build_generate_plan_tool(runtime_context: Context):
         else:
             session_id = state.planner_session.session_id
 
-        err, replan_plan_json = _resolve_planner_input_for_generate_plan(
+        err, replan_plan_json = _resolve_planner_input_for_call_planner(
             task_core,
             plan_id,
             state.planner_session,
@@ -148,12 +148,12 @@ def _build_generate_plan_tool(runtime_context: Context):
         logger.info("Planner 生成计划，session_id=%s，长度=%d", session_id, len(normalized))
         return normalized
 
-    return generate_plan
+    return call_planner
 
 
-def _build_execute_plan_tool(runtime_context: Context):
+def _build_call_executor_tool(runtime_context: Context):
     @tool
-    async def execute_plan(
+    async def call_executor(
         state: Annotated[State, InjectedState],
         task_description: str = "",
         plan_id: str | None = None,
@@ -168,11 +168,11 @@ def _build_execute_plan_tool(runtime_context: Context):
         pid = _normalize_plan_id_arg(plan_id)
 
         if td and pid:
-            return "错误：execute_plan 不能同时传 task_description 和 plan_id。Mode2/Mode3 二选一。"
+            return "错误：call_executor 不能同时传 task_description 和 plan_id。Mode2/Mode3 二选一。"
 
         if pid is not None:
             if state.planner_session is None or not (state.planner_session.plan_json or "").strip():
-                return "错误：已指定 plan_id，但当前没有可执行的计划。请先调用 generate_plan。"
+                return "错误：已指定 plan_id，但当前没有可执行的计划。请先调用 call_planner。"
             try:
                 plan_obj = json.loads(state.planner_session.plan_json or "")
             except json.JSONDecodeError:
@@ -259,7 +259,7 @@ def _build_execute_plan_tool(runtime_context: Context):
 
         return f"{summary}\n\n{meta_line}"
 
-    return execute_plan
+    return call_executor
 
 
 def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
@@ -285,6 +285,6 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
     if runtime_context is None:
         runtime_context = Context()
     return [
-        _build_generate_plan_tool(runtime_context),
-        _build_execute_plan_tool(runtime_context),
+        _build_call_planner_tool(runtime_context),
+        _build_call_executor_tool(runtime_context),
     ]

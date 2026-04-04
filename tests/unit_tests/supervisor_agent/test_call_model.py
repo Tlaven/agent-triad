@@ -75,7 +75,7 @@ async def test_call_model_below_max_replan_does_not_force_terminate() -> None:
 
 async def test_call_model_mode2_to_mode3_upgrade_triggered() -> None:
     """When Mode2 executor fails with an upgrade-signal summary and plan_json is empty,
-    call_model should auto-generate a generate_plan tool_call without consulting the LLM."""
+    call_model should auto-generate a call_planner tool_call without consulting the LLM."""
     state = State(
         messages=[HumanMessage(content="original task")],
         planner_session=PlannerSession(
@@ -92,7 +92,7 @@ async def test_call_model_mode2_to_mode3_upgrade_triggered() -> None:
 
     assert result["supervisor_decision"].mode == 3
     tool_calls = result["messages"][0].tool_calls
-    assert any(tc.get("name") == "generate_plan" for tc in tool_calls)
+    assert any(tc.get("name") == "call_planner" for tc in tool_calls)
 
 
 async def test_call_model_mode2_to_mode3_not_triggered_if_plan_json_present() -> None:
@@ -130,7 +130,7 @@ async def test_call_model_is_last_step_with_tool_calls_forces_end() -> None:
     # LLM wants to call a tool, but is_last_step prevents it
     tool_response = AIMessage(
         content="",
-        tool_calls=[{"name": "execute_plan", "args": {}, "id": "c1", "type": "tool_call"}],
+        tool_calls=[{"name": "call_executor", "args": {}, "id": "c1", "type": "tool_call"}],
     )
     mock_llm = _make_mock_llm(tool_response)
 

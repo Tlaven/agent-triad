@@ -48,10 +48,10 @@ def _make_tool_node_mock(tool_message: ToolMessage) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# generate_plan → PlannerSession updated
+# call_planner → PlannerSession updated
 # ---------------------------------------------------------------------------
 
-async def test_generate_plan_creates_planner_session() -> None:
+async def test_call_planner_creates_planner_session() -> None:
     plan_json = json.dumps({
         "plan_id": "plan_newplan",
         "version": 1,
@@ -59,7 +59,7 @@ async def test_generate_plan_creates_planner_session() -> None:
         "steps": [],
     })
     state = _make_state_with_tool_call(
-        "generate_plan", {"task_core": "build something"}, call_id="call_gen1"
+        "call_planner", {"task_core": "build something"}, call_id="call_gen1"
     )
     tm = ToolMessage(content=plan_json, tool_call_id="call_gen1")
 
@@ -72,10 +72,10 @@ async def test_generate_plan_creates_planner_session() -> None:
     assert "plan_newplan" in session.planner_history_by_plan_id
 
 
-async def test_generate_plan_stores_task_core_in_history() -> None:
+async def test_call_planner_stores_task_core_in_history() -> None:
     plan_json = json.dumps({"plan_id": "plan_abc", "version": 1, "goal": "g", "steps": []})
     state = _make_state_with_tool_call(
-        "generate_plan", {"task_core": "my important task"}, call_id="call_gen2"
+        "call_planner", {"task_core": "my important task"}, call_id="call_gen2"
     )
     tm = ToolMessage(content=plan_json, tool_call_id="call_gen2")
 
@@ -86,8 +86,8 @@ async def test_generate_plan_stores_task_core_in_history() -> None:
     assert any("my important task" in msg.get("content", "") for msg in history)
 
 
-async def test_generate_plan_archives_old_version() -> None:
-    """When generate_plan produces a newer version, the old plan must be archived."""
+async def test_call_planner_archives_old_version() -> None:
+    """When call_planner produces a newer version, the old plan must be archived."""
     old_plan = json.dumps({"plan_id": "plan_same", "version": 1, "goal": "g", "steps": []})
     new_plan = json.dumps({"plan_id": "plan_same", "version": 2, "goal": "g", "steps": []})
 
@@ -96,7 +96,7 @@ async def test_generate_plan_archives_old_version() -> None:
         plan_json=old_plan,
     )
     state = _make_state_with_tool_call(
-        "generate_plan", {"task_core": "update", "plan_id": "plan_same"},
+        "call_planner", {"task_core": "update", "plan_id": "plan_same"},
         call_id="call_gen3",
         planner_session=existing_session,
     )
@@ -110,14 +110,14 @@ async def test_generate_plan_archives_old_version() -> None:
 
 
 # ---------------------------------------------------------------------------
-# execute_plan → replan_count updated, planner_session synced
+# call_executor → replan_count updated, planner_session synced
 # ---------------------------------------------------------------------------
 
-async def test_execute_plan_completed_resets_replan_count(
+async def test_call_executor_completed_resets_replan_count(
     sample_executor_result_completed,
 ) -> None:
     state = _make_state_with_tool_call(
-        "execute_plan", {"plan_id": "plan_test0001"},
+        "call_executor", {"plan_id": "plan_test0001"},
         call_id="call_exec1",
         planner_session=PlannerSession(
             session_id="s1",
@@ -134,11 +134,11 @@ async def test_execute_plan_completed_resets_replan_count(
     assert result["planner_session"].last_executor_status == "completed"
 
 
-async def test_execute_plan_failed_increments_replan_count(
+async def test_call_executor_failed_increments_replan_count(
     sample_executor_result_failed,
 ) -> None:
     state = _make_state_with_tool_call(
-        "execute_plan", {"plan_id": "plan_test0001"},
+        "call_executor", {"plan_id": "plan_test0001"},
         call_id="call_exec2",
         planner_session=PlannerSession(
             session_id="s1",
@@ -155,12 +155,12 @@ async def test_execute_plan_failed_increments_replan_count(
     assert result["planner_session"].last_executor_status == "failed"
 
 
-async def test_execute_plan_failed_writes_updated_plan_to_session(
+async def test_call_executor_failed_writes_updated_plan_to_session(
     sample_executor_result_failed,
     sample_failed_plan_json,
 ) -> None:
     state = _make_state_with_tool_call(
-        "execute_plan", {"plan_id": "plan_test0001"},
+        "call_executor", {"plan_id": "plan_test0001"},
         call_id="call_exec3",
         planner_session=PlannerSession(
             session_id="s1",
@@ -176,12 +176,12 @@ async def test_execute_plan_failed_writes_updated_plan_to_session(
     assert (result["planner_session"].plan_json or "").strip()
 
 
-async def test_execute_plan_llm_receives_sanitized_feedback(
+async def test_call_executor_llm_receives_sanitized_feedback(
     sample_executor_result_completed,
 ) -> None:
     """The ToolMessage visible to the LLM must NOT contain updated_plan_json."""
     state = _make_state_with_tool_call(
-        "execute_plan", {"plan_id": "plan_test0001"},
+        "call_executor", {"plan_id": "plan_test0001"},
         call_id="call_exec4",
         planner_session=PlannerSession(
             session_id="s1",
@@ -202,7 +202,7 @@ async def test_execute_plan_llm_receives_sanitized_feedback(
 
 
 # ---------------------------------------------------------------------------
-# Non generate_plan / execute_plan tools pass through unchanged
+# Non call_planner / call_executor tools pass through unchanged
 # ---------------------------------------------------------------------------
 
 async def test_unknown_tool_passthrough() -> None:

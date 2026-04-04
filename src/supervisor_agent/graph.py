@@ -79,7 +79,7 @@ async def call_model(
                     tool_calls=[
                         {
                             "id": f"call_{uuid.uuid4().hex[:8]}",
-                            "name": "generate_plan",
+                            "name": "call_planner",
                             "args": {"task_core": task_core},
                             "type": "tool_call",
                         }
@@ -129,8 +129,8 @@ async def dynamic_tools_node(
 ) -> Dict:
     """动态执行工具，并同步更新 PlannerSession 状态。
 
-    - generate_plan 执行后：将新 plan_json 写入 planner_session
-    - execute_plan 执行后：将 updated_plan_json（带执行状态）写回 planner_session
+    - call_planner 执行后：将新 plan_json 写入 planner_session
+    - call_executor 执行后：将 updated_plan_json（带执行状态）写回 planner_session
     """
     available_tools = await get_tools(runtime.context)
     tool_node = ToolNode(available_tools)
@@ -149,7 +149,7 @@ async def dynamic_tools_node(
         tool_name = id_to_name.get(tm.tool_call_id, "")
         content = tm.content if isinstance(tm.content, str) else str(tm.content)
 
-        if tool_name == "generate_plan" and content.strip():
+        if tool_name == "call_planner" and content.strip():
             sanitized_tool_messages.append(tm)
             session_id = (
                 state.planner_session.session_id
@@ -222,9 +222,9 @@ async def dynamic_tools_node(
                 planner_last_output_by_plan_id=existing_last_output,
                 plan_archive_by_plan_id=existing_archive,
             )
-            logger.info("PlannerSession 已更新（generate_plan），session_id=%s", session_id)
+            logger.info("PlannerSession 已更新（call_planner），session_id=%s", session_id)
 
-        elif tool_name == "execute_plan":
+        elif tool_name == "call_executor":
             updated_plan = _extract_updated_plan_from_executor(content)
             exec_status, exec_error = _extract_executor_status(content)
             exec_summary = _extract_executor_summary(content)
@@ -274,7 +274,7 @@ async def dynamic_tools_node(
                 plan_archive_by_plan_id=existing_archive,
             )
             logger.info(
-                "PlannerSession 已更新（execute_plan 回填），session_id=%s，status=%s，replan_count=%s",
+                "PlannerSession 已更新（call_executor 回填），session_id=%s，status=%s，replan_count=%s",
                 session_id,
                 exec_status,
                 next_replan_count,
@@ -327,7 +327,7 @@ def _parse_plan_meta(plan_json: str) -> tuple[str | None, int | None]:
 
 
 def _extract_updated_plan_from_executor(content: str) -> str | None:
-    """从 execute_plan 返回的 ToolMessage 内容中提取 updated_plan_json。
+    """从 call_executor 返回的 ToolMessage 内容中提取 updated_plan_json。
 
     约定格式：内容末尾有一行 `[EXECUTOR_RESULT] {...json...}`
     """
@@ -341,12 +341,12 @@ def _extract_updated_plan_from_executor(content: str) -> str | None:
         updated = meta.get("updated_plan_json", "")
         return updated if updated else None
     except _json.JSONDecodeError:
-        logger.warning("execute_plan 返回的 EXECUTOR_RESULT 解析失败")
+        logger.warning("call_executor 返回的 EXECUTOR_RESULT 解析失败")
         return None
 
 
 def _extract_executor_status(content: str) -> tuple[str | None, str | None]:
-    """从 execute_plan 返回的 ToolMessage 内容中提取 status 和 error_detail。
+    """从 call_executor 返回的 ToolMessage 内容中提取 status 和 error_detail。
 
     返回 (status, error_detail)，解析失败时返回 (None, None)。
     """
@@ -363,7 +363,7 @@ def _extract_executor_status(content: str) -> tuple[str | None, str | None]:
 
 
 def _extract_executor_summary(content: str) -> str:
-    """从 execute_plan 返回中提取 summary（[EXECUTOR_RESULT] 前正文）。"""
+    """从 call_executor 返回中提取 summary（[EXECUTOR_RESULT] 前正文）。"""
     marker = "[EXECUTOR_RESULT]"
     return content.split(marker, 1)[0].strip() if marker in content else content.strip()
 
@@ -408,9 +408,9 @@ def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
     tool_names = [tc.get("name", "") for tc in response.tool_calls] if response.tool_calls else []
     if not tool_names:
         return SupervisorDecision(mode=1, reason="无需工具即可回答", confidence=0.85)
-    if "generate_plan" in tool_names:
+    if "call_planner" in tool_names:
         return SupervisorDecision(mode=3, reason="检测到多步规划需求，先规划后执行", confidence=0.8)
-    if "execute_plan" in tool_names:
+    if "call_executor" in tool_names:
         return SupervisorDecision(mode=2, reason="目标明确，直接工具执行", confidence=0.75)
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
 

@@ -181,22 +181,22 @@ def test_build_id_to_name_with_tool_calls() -> None:
     msg = AIMessage(
         content="",
         tool_calls=[
-            {"id": "call_abc", "name": "generate_plan", "args": {}, "type": "tool_call"},
-            {"id": "call_def", "name": "execute_plan", "args": {}, "type": "tool_call"},
+            {"id": "call_abc", "name": "call_planner", "args": {}, "type": "tool_call"},
+            {"id": "call_def", "name": "call_executor", "args": {}, "type": "tool_call"},
         ],
     )
     state = State(messages=[msg])
     mapping = _build_id_to_name(state)
-    assert mapping == {"call_abc": "generate_plan", "call_def": "execute_plan"}
+    assert mapping == {"call_abc": "call_planner", "call_def": "call_executor"}
 
 
 def test_build_id_to_call_with_tool_calls() -> None:
-    tc = {"id": "call_xyz", "name": "execute_plan", "args": {"task_description": "run task"}, "type": "tool_call"}
+    tc = {"id": "call_xyz", "name": "call_executor", "args": {"task_description": "run task"}, "type": "tool_call"}
     msg = AIMessage(content="", tool_calls=[tc])
     state = State(messages=[msg])
     mapping = _build_id_to_call(state)
     assert "call_xyz" in mapping
-    assert mapping["call_xyz"]["name"] == "execute_plan"
+    assert mapping["call_xyz"]["name"] == "call_executor"
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ def test_route_model_output_no_tool_calls_returns_end() -> None:
 def test_route_model_output_with_tool_calls_returns_tools() -> None:
     msg = AIMessage(
         content="",
-        tool_calls=[{"name": "execute_plan", "args": {}, "id": "1", "type": "tool_call"}],
+        tool_calls=[{"name": "call_executor", "args": {}, "id": "1", "type": "tool_call"}],
     )
     state = State(messages=[msg])
     assert route_model_output(state) == "tools"

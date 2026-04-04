@@ -9,19 +9,19 @@ def test_infer_supervisor_decision_mode_1_without_tools() -> None:
     assert decision.confidence > 0
 
 
-def test_infer_supervisor_decision_mode_3_with_generate_plan() -> None:
+def test_infer_supervisor_decision_mode_3_with_call_planner() -> None:
     msg = AIMessage(
         content="",
-        tool_calls=[{"name": "generate_plan", "args": {}, "id": "1", "type": "tool_call"}],
+        tool_calls=[{"name": "call_planner", "args": {}, "id": "1", "type": "tool_call"}],
     )
     decision = _infer_supervisor_decision(msg)
     assert decision.mode == 3
 
 
-def test_infer_supervisor_decision_mode_2_with_execute_plan() -> None:
+def test_infer_supervisor_decision_mode_2_with_call_executor() -> None:
     msg = AIMessage(
         content="",
-        tool_calls=[{"name": "execute_plan", "args": {}, "id": "1", "type": "tool_call"}],
+        tool_calls=[{"name": "call_executor", "args": {}, "id": "1", "type": "tool_call"}],
     )
     decision = _infer_supervisor_decision(msg)
     assert decision.mode == 2

@@ -12,8 +12,8 @@
     │
     ▼
 Supervisor Agent          ← 主循环：评估复杂度、调度、重规划、合成答案
-    ├── generate_plan ──▶ Planner Agent   ← 生成意图层 JSON 计划（不含工具名）
-    └── execute_plan ───▶ Executor Agent  ← ReAct 循环自主选工具执行
+    ├── call_planner ──▶ Planner Agent   ← 生成意图层 JSON 计划（不含工具名）
+    └── call_executor ───▶ Executor Agent  ← ReAct 循环自主选工具执行
 ```
 
 三个 Agent 职责分离，通过结构化 Plan JSON 传递意图，Planner 与 Executor 工具集完全解耦。

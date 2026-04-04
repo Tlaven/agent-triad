@@ -14,8 +14,8 @@
   - 模式2：Tool-use ReAct（需少量工具、短流程）
   - 模式3：Plan → Execute → Summarize（多步骤、长流程）
 - [x] **Supervisor 结构化决策输出**：mode + reason + confidence
-- [x] **generate_plan 工具**：接受 LLM 传参（task_core；计划修改时可附带 plan_id），内部从 session.plan_json 获取 previous_plan，调 Planner 生成 Plan JSON
-- [x] **execute_plan 工具**：接受 LLM 传参（Mode 2：`task_description`；Mode 3：`plan_id`），调 Executor 执行
+- [x] **call_planner 工具**：接受 LLM 传参（task_core；计划修改时可附带 plan_id），内部从 session.plan_json 获取 previous_plan，调 Planner 生成 Plan JSON
+- [x] **call_executor 工具**：接受 LLM 传参（Mode 2：`task_description`；Mode 3：`plan_id`），调 Executor 执行
 - [x] **Planner Agent**：单次 LLM 调用，输出意图层 Plan JSON（含 version 字段，不含工具名）
 - [x] **Executor Agent**：ReAct 循环（Thought → Action → Observation），自主选工具
 - [x] **ExecutorResult 结构化返回**：status / updated_plan_json（含 version） / summary
@@ -67,7 +67,7 @@
 
 ### V2-c — Executor Reflection + Snapshot（精简版，对应 `CLAUDE.md` 决策 10）
 
-**目标**：在**不扩大 Executor 重规划权限**的前提下，让 Supervisor 在「正常 completed / failed 之外」多一种**结构化中间信号**：执行中途自检偏离并**暂停上报**，由 Supervisor 沿用既有 **generate_plan / execute_plan** 管线决策（**不**单独实现「轻/中/重干预」三套并行逻辑，避免与决策 4 打架）。
+**目标**：在**不扩大 Executor 重规划权限**的前提下，让 Supervisor 在「正常 completed / failed 之外」多一种**结构化中间信号**：执行中途自检偏离并**暂停上报**，由 Supervisor 沿用既有 **call_planner / call_executor** 管线决策（**不**单独实现「轻/中/重干预」三套并行逻辑，避免与决策 4 打架）。
 
 **核心特性**：
 

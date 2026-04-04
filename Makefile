@@ -50,7 +50,7 @@ test_v1_acceptance: test_v1_auto
 	@echo "接下来执行手测："
 	@echo "1) make dev_ui 启动 LangGraph Studio（读取 langgraph.json）"
 	@echo "2) 场景A：简单问答，期望不调用工具或快速结束"
-	@echo "3) 场景B：短流程任务，期望调用 execute_plan 并返回结构化结果"
+	@echo "3) 场景B：短流程任务，期望调用 call_executor 并返回结构化结果"
 	@echo "4) 场景C：故意失败任务，期望触发重规划并在 MAX_REPLAN 后收敛停止"
 
 help:

@@ -91,10 +91,10 @@ async def test_supervisor_mode1_direct_response() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Mode 2: execute_plan → completed → final answer
+# Mode 2: call_executor → completed → final answer
 # ---------------------------------------------------------------------------
 
-async def test_supervisor_mode2_execute_plan_completed() -> None:
+async def test_supervisor_mode2_call_executor_completed() -> None:
     exec_result = _make_completed_executor_result()
 
     llm_responses = [
@@ -103,7 +103,7 @@ async def test_supervisor_mode2_execute_plan_completed() -> None:
             content="",
             tool_calls=[{
                 "id": "call_exec1",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"task_description": "write hello world to a file"},
                 "type": "tool_call",
             }],
@@ -128,11 +128,11 @@ async def test_supervisor_mode2_execute_plan_completed() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Mode 3: generate_plan → execute_plan → final answer
+# Mode 3: call_planner → call_executor → final answer
 # ---------------------------------------------------------------------------
 
 async def test_supervisor_mode3_plan_then_execute() -> None:
-    """Full Mode 3 flow: Supervisor calls generate_plan, then execute_plan."""
+    """Full Mode 3 flow: Supervisor calls call_planner, then call_executor."""
     # We patch uuid in tools.py so the plan_id is predictable
     fixed_plan_id = "plan_mode3test"
     plan_json = _make_plan_json(fixed_plan_id)
@@ -151,7 +151,7 @@ async def test_supervisor_mode3_plan_then_execute() -> None:
             content="",
             tool_calls=[{
                 "id": "call_gen1",
-                "name": "generate_plan",
+                "name": "call_planner",
                 "args": {"task_core": "multi-step integration task"},
                 "type": "tool_call",
             }],
@@ -161,7 +161,7 @@ async def test_supervisor_mode3_plan_then_execute() -> None:
             content="",
             tool_calls=[{
                 "id": "call_exec1",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"plan_id": fixed_plan_id},
                 "type": "tool_call",
             }],
@@ -182,7 +182,7 @@ async def test_supervisor_mode3_plan_then_execute() -> None:
     # The final plan_id from _normalize_plan_json will be: "plan_" + uuid.hex[:8]
     # So if uuid.hex = "mode3test12345678" then plan_id = "plan_mode3te"
     # Let's use a simpler approach: let run_planner return a plan that _normalize_plan_json will
-    # process, and adjust the execute_plan tool_call to use the real plan_id from session.
+    # process, and adjust the call_executor tool_call to use the real plan_id from session.
 
     # Better approach: patch _normalize_plan_json in tools.py to return fixed plan_json
     with (
@@ -213,14 +213,14 @@ async def test_supervisor_max_replan_forces_termination() -> None:
     without calling the LLM again."""
     exec_result = _make_failed_executor_result()
 
-    # LLM is consulted for the first two rounds (both choose execute_plan),
+    # LLM is consulted for the first two rounds (both choose call_executor),
     # then the third call_model invocation short-circuits WITHOUT calling the LLM.
     llm_responses = [
         AIMessage(
             content="",
             tool_calls=[{
                 "id": "call_exec1",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"task_description": "attempt 1"},
                 "type": "tool_call",
             }],
@@ -229,7 +229,7 @@ async def test_supervisor_max_replan_forces_termination() -> None:
             content="",
             tool_calls=[{
                 "id": "call_exec2",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"task_description": "attempt 2"},
                 "type": "tool_call",
             }],
@@ -263,7 +263,7 @@ async def test_supervisor_max_replan_forces_termination() -> None:
 
 async def test_supervisor_mode2_to_mode3_upgrade_via_call_model() -> None:
     """When Mode2 executor fails with upgrade-signal summary and plan_json is empty,
-    call_model automatically generates a generate_plan call without LLM consultation."""
+    call_model automatically generates a call_planner call without LLM consultation."""
     # The failed executor result has an upgrade signal and empty plan
     failed_no_plan = ExecutorResult(
         status="failed",
@@ -279,23 +279,23 @@ async def test_supervisor_mode2_to_mode3_upgrade_via_call_model() -> None:
     exec_result2 = _make_completed_executor_result(fixed_plan_id)
 
     llm_responses = [
-        # Round 1: Mode2 - Supervisor chooses execute_plan directly
+        # Round 1: Mode2 - Supervisor chooses call_executor directly
         AIMessage(
             content="",
             tool_calls=[{
                 "id": "call_exec1",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"task_description": "try to do the task"},
                 "type": "tool_call",
             }],
         ),
-        # Round 3 (after auto-upgrade generate_plan + execute_plan):
+        # Round 3 (after auto-upgrade call_planner + call_executor):
         # Supervisor executes the plan (LLM called again after Mode3 plan is ready)
         AIMessage(
             content="",
             tool_calls=[{
                 "id": "call_exec2",
-                "name": "execute_plan",
+                "name": "call_executor",
                 "args": {"plan_id": fixed_plan_id},
                 "type": "tool_call",
             }],

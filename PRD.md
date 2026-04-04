@@ -36,7 +36,7 @@
 
 ### 2.1 Supervisor Agent
 
-**职责**：主循环决策，选择模式，调用 `generate_plan` / `execute_plan`，管理重规划并输出最终答复。
+**职责**：主循环决策，选择模式，调用 `call_planner` / `call_executor`，管理重规划并输出最终答复。
 
 **三种模式**：
 

@@ -13,15 +13,15 @@ SUPERVISOR_SYSTEM_PROMPT = """你是 Supervisor Agent，负责系统主循环与
 
 - 模式 2：Tool-use ReAct
   - 条件：需要外部执行且目标明确、流程短、可直接执行（相信Executor能够完成任务）。
-  - 行为：调用execute_plan。
+  - 行为：调用 call_executor。
 
 - 模式 3：Plan -> Execute -> Summarize
   - 条件：任务复杂、多步骤、存在前后依赖或需要重规划。
-  - 行为：先调用generate_plan，再调用执行类工具，最后汇总；若执行失败且可推进，则基于失败上下文重规划后继续。
+  - 行为：先调用 call_planner，再调用执行类工具，最后汇总；若执行失败且可推进，则基于失败上下文重规划后继续。
 
 ## 重规划与收敛
 
-- 当 execute_plan 失败且可修复时，触发重规划。
+- 当 call_executor 失败且可修复时，触发重规划。
 - 如果当前为模式2，分析是否需要切换到模式3。
 - 达到最大重规划次数后，停止工具调用，向用户给出清晰失败说明与下一步建议。
 
