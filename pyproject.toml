@@ -9,7 +9,8 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11,<4.0"
 dependencies = [
-    "langgraph>=0.6.0,<0.7.0",
+    # 1.1+ 与 langgraph-sdk 0.3 对齐，便于 dev 依赖 langgraph-api 0.7（见 dependency-groups）
+    "langgraph>=1.1.0,<2.0",
     "langchain-openai>=0.1.22",
     "langchain-anthropic>=0.1.23",
     "langchain>=0.2.14",
@@ -79,9 +80,11 @@ filterwarnings = [
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]>=0.1.71",
+    # 与 langgraph-cli[inmem] 配套；0.5.x 已 EOL，锁定 0.7 以消除 dev 服务器版本告警
+    "langgraph-api>=0.7.0,<0.8.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.23.0",
-    "langgraph-sdk>=0.1.0",
+    "langgraph-sdk>=0.3.5",
     "mypy>=1.17.1",
     "ruff>=0.9.10",
     "openevals>=0.1.0",
