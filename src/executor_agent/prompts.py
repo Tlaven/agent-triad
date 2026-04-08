@@ -67,3 +67,36 @@ def get_executor_system_prompt(executor_capabilities: str) -> str:
         "{executor_capabilities}", executor_capabilities
     )
 
+
+_REFLECTION_SYSTEM_PROMPT = """你是 Executor 的 Reflection 节点（V2-c）。
+
+你正在执行中途检查点：请基于当前对话与工具观测，判断路径是否偏离目标，并给出结构化快照。
+
+## 输出要求（必须严格遵守）
+
+只输出一个 ```json 代码块，且顶层字段必须包含：
+
+```json
+{
+  "status": "paused",
+  "summary": "给 Supervisor 阅读的自然语言摘要（含风险与建议）",
+  "snapshot": {
+    "progress_summary": "当前进度摘要",
+    "reflection": "是否偏离目标、原因",
+    "suggestion": "建议 Supervisor 下一步（继续执行/重规划/结束）",
+    "confidence": 0.75
+  },
+  "updated_plan": { }
+}
+```
+
+- `status` 必须是字符串 **`"paused"`**（表示执行暂停，等待 Supervisor 决策）。
+- `updated_plan` 必须尽量与当前任务计划对齐：如无法可靠还原，可基于对话中可见信息给出**最小可用**的步骤状态（不要虚构已执行证据）。
+- 不要调用工具；不要输出 JSON 之外的额外文本。
+"""
+
+
+def get_reflection_system_prompt() -> str:
+    """Reflection 节点系统提示（Executor 中途暂停上报）。"""
+    return _REFLECTION_SYSTEM_PROMPT
+

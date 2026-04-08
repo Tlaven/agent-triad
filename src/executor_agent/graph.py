@@ -1,20 +1,25 @@
 # executor_agent/graph.py
+import asyncio
 import json
 import logging
+import operator
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Annotated, Any, List, Literal, cast
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
-from langgraph.graph import StateGraph, START
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+from langgraph.graph import END, START, StateGraph
 from langgraph.managed import IsLastStep
+from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
 from src.common.context import Context
-from src.common.utils import load_chat_model
-from .prompts import get_executor_system_prompt
-from .tools import get_executor_capabilities_docs, get_executor_tools
+from src.common.observation import normalize_tool_message_content
+from src.common.utils import invoke_chat_model, load_chat_model
 
+from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
+from src.executor_agent.tools import get_executor_capabilities_docs, get_executor_tools
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +30,9 @@ logger = logging.getLogger(__name__)
 class ExecutorState:
     messages: Annotated[List[BaseMessage], lambda x, y: x + y] = field(default_factory=list)
     is_last_step: IsLastStep = field(default=False)  # type: ignore[assignment]
+    tool_rounds: Annotated[int, operator.add] = 0
+    reflection_interval: int = 0
+    confidence_threshold: float = 0.6
 
 
 # ==================== 返回值结构体 ====================
@@ -32,29 +40,43 @@ class ExecutorState:
 @dataclass
 class ExecutorResult:
     """run_executor 的结构化返回值"""
-    status: Literal["completed", "failed"]
-    updated_plan_json: str   # 带执行状态的完整 plan JSON 字符串
-    summary: str             # 给 Supervisor LLM 读的文字摘要
+
+    status: Literal["completed", "failed", "paused"]
+    updated_plan_json: str  # 带执行状态的完整 plan JSON 字符串
+    summary: str  # 给 Supervisor LLM 读的文字摘要
+    snapshot_json: str = ""  # V2-c：status=paused 时的结构化快照 JSON
+
+
+# ==================== 工具加载（本地 + 可选 MCP） ====================
+
+
+async def _load_executor_tools(ctx: Context) -> list[object]:
+    tools: list[object] = list(get_executor_tools())
+    if ctx.enable_deepwiki:
+        from src.common.mcp import get_readonly_mcp_tools
+
+        tools.extend(await get_readonly_mcp_tools())
+    return tools
 
 
 # ==================== 节点 ====================
 
 async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
     """Executor 核心节点：ReAct 循环的 LLM 调用"""
-    available_tools = get_executor_tools()
+    available_tools = await _load_executor_tools(runtime.context)
     capabilities = get_executor_capabilities_docs()
     executor_system_prompt = get_executor_system_prompt(capabilities)
-    model = load_chat_model(runtime.context.executor_model).bind_tools(
-        available_tools
-    )
+    model = load_chat_model(runtime.context.executor_model).bind_tools(available_tools)
 
     response = cast(
         AIMessage,
-        await model.ainvoke(
+        await invoke_chat_model(
+            model,
             [{"role": "system", "content": executor_system_prompt}, *state.messages]
+            ,
+            enable_streaming=runtime.context.enable_llm_streaming,
         ),
     )
-
 
     # 达到最大步数时强制终止工具调用
     if state.is_last_step and response.tool_calls:
@@ -70,14 +92,22 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
     return {"messages": [response]}
 
 
-async def tools_node(state: ExecutorState) -> dict[str, Any]:
-    """执行工具调用"""
-    from langgraph.prebuilt import ToolNode
-
-    available_tools = get_executor_tools()
+async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
+    """执行工具调用，并对 Observation 做 V2-a 规范化。"""
+    ctx = runtime.context
+    available_tools = await _load_executor_tools(ctx)
     tool_node = ToolNode(available_tools)
     result = await tool_node.ainvoke(state)
-    return result  # type: ignore[return-value]
+    messages = result.get("messages", [])
+    cwd = await asyncio.to_thread(os.getcwd)
+    out: list[BaseMessage] = []
+    for m in messages:
+        if isinstance(m, ToolMessage):
+            text = normalize_tool_message_content(m.content, context=ctx, cwd=cwd)
+            out.append(m.model_copy(update={"content": text}))
+        else:
+            out.append(m)
+    return {"messages": out, "tool_rounds": 1}
 
 
 def route_executor_output(state: ExecutorState) -> Literal["__end__", "tools"]:
@@ -91,23 +121,56 @@ def route_executor_output(state: ExecutorState) -> Literal["__end__", "tools"]:
     return "tools"
 
 
+def route_after_tools(state: ExecutorState) -> Literal["reflection", "call_executor"]:
+    """工具执行后：按间隔触发 Reflection（V2-c），否则回到主循环。"""
+    if state.reflection_interval <= 0:
+        return "call_executor"
+    if state.tool_rounds > 0 and state.tool_rounds % state.reflection_interval == 0:
+        return "reflection"
+    return "call_executor"
+
+
+async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
+    """V2-c：中途 Reflection，产出 paused 结构化结果并结束本轮 Executor。"""
+    prompt = get_reflection_system_prompt()
+    model = load_chat_model(runtime.context.executor_model)
+    response = cast(
+        AIMessage,
+        await invoke_chat_model(
+            model,
+            [{"role": "system", "content": prompt}, *state.messages],
+            enable_streaming=runtime.context.enable_llm_streaming,
+        ),
+    )
+    return {"messages": [response]}
+
+
 # ==================== 构建 Graph ====================
 
 builder = StateGraph(ExecutorState, context_schema=Context)
 
 builder.add_node("call_executor", call_executor)
 builder.add_node("tools", tools_node)
+builder.add_node("reflection", reflection_node)
 
 builder.add_edge(START, "call_executor")
 builder.add_conditional_edges("call_executor", route_executor_output)
-builder.add_edge("tools", "call_executor")
+builder.add_conditional_edges(
+    "tools",
+    route_after_tools,
+    {
+        "reflection": "reflection",
+        "call_executor": "call_executor",
+    },
+)
+builder.add_edge("reflection", END)
 
 executor_graph = builder.compile(name="Executor Agent")
 
 
 # ==================== 辅助函数：解析最终输出 ====================
 
-def _normalize_executor_status_token(s: str) -> Literal["completed", "failed"] | None:
+def _normalize_executor_status_token(s: str) -> Literal["completed", "failed", "paused"] | None:
     """Map a single status token (no composite placeholders)."""
     if not s:
         return None
@@ -126,16 +189,20 @@ def _normalize_executor_status_token(s: str) -> Literal["completed", "failed"] |
         return "completed"
     if sl in ("failed", "fail", "failure", "error", "errors"):
         return "failed"
+    if sl in ("paused", "pause", "checkpoint", "halt"):
+        return "paused"
     # 中文常见写法（大小写不敏感不适用）
     st = s.strip()
     if st in ("成功", "完成", "已完成"):
         return "completed"
     if st in ("失败", "未完成", "错误"):
         return "failed"
+    if st in ("暂停", "已暂停"):
+        return "paused"
     return None
 
 
-def _normalize_executor_status(raw: Any) -> Literal["completed", "failed"] | None:
+def _normalize_executor_status(raw: Any) -> Literal["completed", "failed", "paused"] | None:
     """Map model status strings to completed/failed, or None if unrecognized."""
     if raw is True:
         return "completed"
@@ -180,8 +247,8 @@ def _validate_executor_payload(data: Any) -> dict[str, Any] | None:
     out = dict(data)
     out["status"] = norm
 
-    # 标准形态：含 updated_plan / summary（summary 可为 null）
-    if "updated_plan" in data or "summary" in data:
+    # 标准形态：含 updated_plan / summary（summary 可为 null）；paused 可含 snapshot
+    if "updated_plan" in data or "summary" in data or "snapshot" in data:
         return out
 
     # 极少数模型只输出 {"status": "completed"}，summary 在 _parse_executor_output 中回退为全文
@@ -226,9 +293,14 @@ def _iter_json_objects(text: str):
 
 
 def _executor_payload_sort_key(p: dict[str, Any]) -> tuple[int, int, int]:
-    """Sort key: prefer completed, then richer updated_plan, then larger payload."""
+    """Sort key: prefer completed, then paused, then failed; then richer updated_plan."""
     st = p.get("status")
-    status_rank = 2 if st == "completed" else 1
+    if st == "completed":
+        status_rank = 3
+    elif st == "paused":
+        status_rank = 2
+    else:
+        status_rank = 1
     up = p.get("updated_plan")
     plan_len = 0
     if isinstance(up, dict):
@@ -298,7 +370,9 @@ def _parse_executor_output(content: str) -> ExecutorResult:
     status = _normalize_executor_status(data.get("status")) or "failed"
 
     updated_plan = data.get("updated_plan", {})
-    updated_plan_json = json.dumps(updated_plan, ensure_ascii=False, indent=2) if updated_plan else ""
+    updated_plan_json = (
+        json.dumps(updated_plan, ensure_ascii=False, indent=2) if updated_plan else ""
+    )
 
     raw_summary = data.get("summary")
     if raw_summary is None:
@@ -308,10 +382,19 @@ def _parse_executor_output(content: str) -> ExecutorResult:
     else:
         summary_text = str(raw_summary)
 
+    snapshot_json = ""
+    snap = data.get("snapshot")
+    if snap is not None:
+        try:
+            snapshot_json = json.dumps(snap, ensure_ascii=False, indent=2)
+        except TypeError:
+            snapshot_json = str(snap)
+
     return ExecutorResult(
-        status=cast(Literal["completed", "failed"], status),
+        status=cast(Literal["completed", "failed", "paused"], status),
         updated_plan_json=updated_plan_json,
         summary=summary_text,
+        snapshot_json=snapshot_json,
     )
 
 
@@ -380,6 +463,8 @@ async def run_executor(
 
     input_state = ExecutorState(
         messages=[HumanMessage(content=f"请按照以下计划执行：\n\n{plan_json}")],
+        reflection_interval=ctx.reflection_interval,
+        confidence_threshold=ctx.confidence_threshold,
     )
 
     result = await executor_graph.ainvoke(

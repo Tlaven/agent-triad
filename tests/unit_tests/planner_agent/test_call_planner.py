@@ -46,6 +46,7 @@ async def test_call_planner_returns_ai_message_with_plan() -> None:
     runtime = _make_runtime()
 
     mock_llm = MagicMock()
+    mock_llm.bind_tools = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=AIMessage(
         content=_make_plan_content("train a classifier"), name="planner"
     ))
@@ -71,27 +72,28 @@ async def test_call_planner_empty_content_raises_runtime_error() -> None:
     runtime = _make_runtime()
 
     mock_llm = MagicMock()
+    mock_llm.bind_tools = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=""))
 
     with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm):
-        with pytest.raises(RuntimeError, match="未返回文本内容"):
+        with pytest.raises(RuntimeError, match="未返回文本内容且无工具调用"):
             await call_planner(state, runtime)
 
 
 # ---------------------------------------------------------------------------
-# AIMessages with tool_calls are filtered before being sent to the model
+# ReAct：完整消息历史（含带 tool_calls 的 AIMessage）会传入模型
 # ---------------------------------------------------------------------------
 
-async def test_call_planner_filters_ai_messages_with_tool_calls() -> None:
-    """AIMessage entries that have tool_calls must be excluded from the LLM input."""
+async def test_call_planner_passes_full_history_including_tool_calls() -> None:
+    """V2-b：Planner ReAct 需要保留 tool_calls 轮次，供下一轮模型理解 Observation。"""
     state = PlannerState(messages=[
         SystemMessage(content="system"),
         HumanMessage(content="human task"),
-        AIMessage(content="assistant text"),      # kept (no tool_calls)
+        AIMessage(content="assistant text"),
         AIMessage(
             content="",
             tool_calls=[{"name": "some_tool", "args": {}, "id": "x", "type": "tool_call"}],
-        ),  # MUST be filtered out
+        ),
     ])
     runtime = _make_runtime()
 
@@ -102,15 +104,12 @@ async def test_call_planner_filters_ai_messages_with_tool_calls() -> None:
         return AIMessage(content=_make_plan_content())
 
     mock_llm = MagicMock()
+    mock_llm.bind_tools = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(side_effect=capture_ainvoke)
 
     with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm):
         await call_planner(state, runtime)
 
-    # The AIMessage with tool_calls should NOT be in the received messages
-    for msg in received_messages:
-        if isinstance(msg, AIMessage):
-            assert not msg.tool_calls, "AIMessage with tool_calls should have been filtered"
-
-    # But the system, human, and plain AIMessage should be there
-    assert len(received_messages) == 3
+    assert len(received_messages) == 4
+    assert isinstance(received_messages[-1], AIMessage)
+    assert received_messages[-1].tool_calls

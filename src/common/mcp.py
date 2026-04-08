@@ -111,6 +111,15 @@ async def get_all_mcp_tools() -> List[Callable[..., Any]]:
     return all_tools
 
 
+async def get_readonly_mcp_tools() -> List[Callable[..., Any]]:
+    """Shared read-only MCP tools (Planner + Executor may both bind these).
+
+    V2-b: Currently all configured MCP servers are treated as read-only capabilities.
+    Side-effect tools must remain Executor-local / not exposed here.
+    """
+    return await get_all_mcp_tools()
+
+
 def add_mcp_server(name: str, config: Dict[str, Any]) -> None:
     """Add a new MCP server configuration."""
     MCP_SERVERS[name] = config

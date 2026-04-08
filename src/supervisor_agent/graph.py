@@ -14,15 +14,15 @@ from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
 from src.common.context import Context
-from src.common.utils import load_chat_model
+from src.common.utils import invoke_chat_model, load_chat_model
 from src.supervisor_agent.prompts import get_supervisor_system_prompt
-from src.supervisor_agent.tools import get_tools
 from src.supervisor_agent.state import (
     InputState,
     PlannerSession,
     State,
     SupervisorDecision,
 )
+from src.supervisor_agent.tools import get_tools
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,11 @@ async def call_model(
     system_message = get_supervisor_system_prompt()
     response = cast(
         AIMessage,
-        await model.ainvoke(
+        await invoke_chat_model(
+            model,
             [{"role": "system", "content": system_message}, *state.messages]
+            ,
+            enable_streaming=runtime.context.enable_llm_streaming,
         ),
     )
 
@@ -235,6 +238,8 @@ async def dynamic_tools_node(
                 next_replan_count = state.replan_count + 1
             elif exec_status == "completed":
                 next_replan_count = 0
+            elif exec_status == "paused":
+                next_replan_count = state.replan_count
             if state.planner_session is not None:
                 session_id = state.planner_session.session_id
                 next_plan_json = updated_plan if updated_plan else state.planner_session.plan_json
@@ -400,6 +405,8 @@ def _build_executor_feedback_for_llm(
     if status == "failed":
         detail = error_detail or "未知错误"
         return f"Executor 执行结果：failed\n失败原因：{detail}\n摘要：{summary_text}"
+    if status == "paused":
+        return f"Executor 执行暂停（checkpoint）：\n{summary_text}"
     return summary_text
 
 

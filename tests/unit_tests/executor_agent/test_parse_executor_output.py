@@ -52,6 +52,30 @@ def test_completed_with_non_empty_plan() -> None:
     assert parsed["steps"][0]["status"] == "completed"
 
 
+def test_paused_with_snapshot() -> None:
+    data = {
+        "status": "paused",
+        "summary": "checkpoint reached",
+        "snapshot": {
+            "progress_summary": "halfway",
+            "reflection": "on track",
+            "suggestion": "continue",
+            "confidence": 0.8,
+        },
+        "updated_plan": {
+            "plan_id": "plan_abc",
+            "version": 1,
+            "goal": "g",
+            "steps": [],
+        },
+    }
+    content = f"```json\n{json.dumps(data, ensure_ascii=False)}\n```"
+    result = _parse_executor_output(content)
+    assert result.status == "paused"
+    assert result.summary == "checkpoint reached"
+    assert "halfway" in result.snapshot_json
+
+
 def test_failed_with_failure_reason_in_plan() -> None:
     plan = {
         "plan_id": "plan_abc",

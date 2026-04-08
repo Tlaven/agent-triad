@@ -10,6 +10,7 @@ from src.planner_agent.graph import run_planner
 
 def _make_mock_llm(content: str) -> MagicMock:
     mock = MagicMock()
+    mock.bind_tools = MagicMock(return_value=mock)
     mock.ainvoke = AsyncMock(return_value=AIMessage(content=content, name="planner"))
     return mock
 

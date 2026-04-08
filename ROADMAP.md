@@ -43,9 +43,9 @@
 
 **核心特性**：
 
-- [ ] **统一工具结果策略**：对 Executor（及后续 Planner 若绑定工具）的 tool 返回做规范化（例如：硬上限截断 + 明确提示「已截断」、或超大结果写入 workspace 仅回传路径；具体策略可配置）
-- [ ] **与 `CLAUDE.md` 决策 6 一致**：成功分支仍以 `ExecutorResult.summary` 等精简反馈进 Supervisor LLM；治理层保证**进入 ReAct 消息历史**的 observation 不越界
-- [ ] **配置项**（示例）：单条 observation 最大字符数、是否启用「落盘引用」模式、可选摘要（若引入二次 LLM 调用需单独开关）
+- [x] **统一工具结果策略**：对 Executor（及后续 Planner 若绑定工具）的 tool 返回做规范化（例如：硬上限截断 + 明确提示「已截断」、或超大结果写入 workspace 仅回传路径；具体策略可配置）
+- [x] **与 `CLAUDE.md` 决策 6 一致**：成功分支仍以 `ExecutorResult.summary` 等精简反馈进 Supervisor LLM；治理层保证**进入 ReAct 消息历史**的 observation 不越界
+- [x] **配置项**（示例）：单条 observation 最大字符数、是否启用「落盘引用」模式、可选摘要（若引入二次 LLM 调用需单独开关）
 
 **验收标准**：  
 构造「工具返回远超上下文安全长度」的用例，系统行为确定（不静默丢失败信息：用户或模型能感知截断/外置），且主循环不因单条 observation 崩溃。
@@ -56,11 +56,11 @@
 
 **核心特性**：
 
-- [ ] 从业务需要出发，将 `src/planner_agent/tools.py` 中工具接入 Planner 的 ReAct 图（保持 Plan 仍为意图层、自身工具只为提升 Plan 质量）
-- [ ] **MCP 只读能力接入**：优先把“读取文件/检索/文档查询”等无副作用能力封装为共享 MCP（Planner 与 Executor 可共用）
-- [ ] **工具权限分层**：Planner 仅可用只读工具；`write_file` / `run_local_command` 等副作用工具保持 Executor-only（避免规划层越权）
-- [ ] **避免重复定义**：Planner 不再维护与 Executor 语义重复的本地读工具；通过同一 MCP 接口保证行为一致
-- [ ] Planner 侧若产生大段检索/阅读结果，复用 **V2-a** 的边界策略
+- [x] 从业务需要出发，将 `src/planner_agent/tools.py` 中工具接入 Planner 的 ReAct 图（保持 Plan 仍为意图层、自身工具只为提升 Plan 质量）
+- [x] **MCP 只读能力接入**：优先把“读取文件/检索/文档查询”等无副作用能力封装为共享 MCP（Planner 与 Executor 可共用）
+- [x] **工具权限分层**：Planner 仅可用只读工具；`write_file` / `run_local_command` 等副作用工具保持 Executor-only（避免规划层越权）
+- [x] **避免重复定义**：Planner 不再维护与 Executor 语义重复的本地读工具；通过同一 MCP 接口保证行为一致
+- [x] Planner 侧若产生大段检索/阅读结果，复用 **V2-a** 的边界策略
 
 **验收标准**：  
 至少一条规划路径可在 Planner 内调用辅助工具完成「查资料 → 再产出 Plan JSON」，且 Plan 结构仍符合决策 3；同时存在一项只读能力被 Planner/Executor 共同复用（同一 MCP 接口），并通过权限配置保证 Planner 无法调用副作用工具。
@@ -71,10 +71,10 @@
 
 **核心特性**：
 
-- [ ] **步骤计数器** + 可配置 **`REFLECTION_INTERVAL`**
-- [ ] **Reflection 节点**：LLM 自评路径是否偏离、置信度（0.0~1.0）；低于 **`CONFIDENCE_THRESHOLD`** 时可额外触发
-- [ ] **Snapshot 最小结构**：当前进度摘要 + Reflection 结论 + 建议（结构化，便于 Supervisor 解析）
-- [ ] **上报语义**：Executor **停止当前轮次**，将 Snapshot 经与 `ExecutorResult` **可并列或可扩展**的通道交给 Supervisor；Supervisor **只**决定：继续执行（传 `plan_id`）/ 重规划（`task_core` + `plan_id`）/ 结束——与 V1 失败分支一致，**不**在 V2 引入新的「干预分级」状态机
+- [x] **步骤计数器** + 可配置 **`REFLECTION_INTERVAL`**
+- [x] **Reflection 节点**：LLM 自评路径是否偏离、置信度（0.0~1.0）；低于 **`CONFIDENCE_THRESHOLD`** 时可额外触发
+- [x] **Snapshot 最小结构**：当前进度摘要 + Reflection 结论 + 建议（结构化，便于 Supervisor 解析）
+- [x] **上报语义**：Executor **停止当前轮次**，将 Snapshot 经与 `ExecutorResult` **可并列或可扩展**的通道交给 Supervisor；Supervisor **只**决定：继续执行（传 `plan_id`）/ 重规划（`task_core` + `plan_id`）/ 结束——与 V1 失败分支一致，**不**在 V2 引入新的「干预分级」状态机
 - [ ] **可选（降低范围）**：Plan **milestone** 字段与「到达必上报」可列为 V2-c 的 stretch，未做则不影响 V2-a/V2-b 验收
 
 **验收标准**：  
@@ -111,3 +111,5 @@
 > 推荐在 V2 内按 **a → b → c** 顺序交付：先可运维、再增强 Planner、最后加执行中检查点。  
 > 若资源有限，可**先发布 V2-a 单独小版本**，再合入 b/c。  
 > 每个版本发布前须通过对应的验收标准测试。
+>
+> 实施备注（2026-04）：V2-a/V2-b/V2-c 已完成代码落地并通过 unit + integration 测试；`REFLECTION_INTERVAL` 默认值为 `0`（关闭），按需配置为正整数即可开启周期性 Reflection。

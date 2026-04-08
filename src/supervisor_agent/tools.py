@@ -109,14 +109,13 @@ def _build_call_planner_tool(runtime_context: Context):
         task_core: str = "",
         plan_id: str | None = None,
     ) -> str:
-        """生成或更新意图层 Plan（JSON）。
+        """调用 Planner Agent 生成或更新意图层 Plan（JSON）。
 
         与架构一致：Planner 只接收 **task_core** 与（重规划时）由 **plan_id** 从状态中解析出的完整计划。
 
         - **首次规划**：必须提供非空且**有用的上下文与核心目标**的 ``task_core``，不要传 ``plan_id``。
         - **重规划**：传入当前计划中的 ``plan_id``（与 ``PlannerSession`` 内 JSON 一致）；**强烈建议**同时提供详尽的 ``task_core`` 说明修订方向。完整带执行状态的计划由工具从状态中读取，无需在参数里粘贴 JSON。
         """
-
         if state.planner_session is None:
             session_id = f"plan_{uuid.uuid4().hex[:8]}"
         else:
@@ -158,7 +157,7 @@ def _build_call_executor_tool(runtime_context: Context):
         task_description: str = "",
         plan_id: str | None = None,
     ) -> str:
-        """执行任务（Mode2 直执）或执行已有计划（Mode3）。
+        """调用 Executor Agent 执行任务（Mode2 直执）或执行已有计划（Mode3）。
 
         参数约定（与架构一致）：
         - Mode2：仅传 ``task_description``（简短、明确、可执行）
@@ -212,6 +211,7 @@ def _build_call_executor_tool(runtime_context: Context):
             planner_session_id,
         )
 
+        snapshot_json = ""
         try:
             executor_result = await run_executor(
                 plan_json,
@@ -220,9 +220,14 @@ def _build_call_executor_tool(runtime_context: Context):
             status = executor_result.status
             summary = executor_result.summary
             updated_plan_json = executor_result.updated_plan_json
+            snapshot_json = getattr(executor_result, "snapshot_json", "") or ""
             error_detail: str | None = None
             # 文档约束：Mode3（按 plan_id 执行）在失败时必须返回可复用 plan 状态（updated_plan_json 非空）。
-            if pid is not None and status == "failed" and not (updated_plan_json or "").strip():
+            if (
+                pid is not None
+                and status == "failed"
+                and not (updated_plan_json or "").strip()
+            ):
                 fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
                 updated_plan_json = _mark_plan_steps_failed(plan_json, fallback_reason)
                 error_detail = fallback_reason
@@ -254,6 +259,7 @@ def _build_call_executor_tool(runtime_context: Context):
             "status": status,
             "error_detail": error_detail,
             "updated_plan_json": updated_plan_json,
+            "snapshot_json": snapshot_json,
         }
         meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
 

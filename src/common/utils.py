@@ -1,11 +1,14 @@
 """Utility & helper functions."""
 
-from typing import Optional, Union
+import logging
+from typing import Any, Optional, Union
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_qwq import ChatQwen, ChatQwQ
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_region(region: str) -> Optional[str]:
@@ -65,3 +68,46 @@ def load_chat_model(
 
     # Use standard langchain initialization for other providers
     return init_chat_model(model, model_provider=provider)
+
+
+async def invoke_chat_model(
+    model: Any,
+    messages: list[dict[str, Any]] | list[BaseMessage],
+    *,
+    enable_streaming: bool = False,
+) -> AIMessage:
+    """Invoke chat model with optional streaming aggregation.
+
+    When streaming is enabled, aggregate `astream` chunks into one final AIMessage.
+    Falls back to `ainvoke` when streaming aggregation fails.
+    """
+    if not enable_streaming:
+        return await model.ainvoke(messages)
+
+    try:
+        chunks: list[Any] = []
+        async for chunk in model.astream(messages):
+            if chunk is not None:
+                chunks.append(chunk)
+
+        if not chunks:
+            return await model.ainvoke(messages)
+
+        merged = chunks[0]
+        for chunk in chunks[1:]:
+            merged = merged + chunk
+
+        if isinstance(merged, AIMessage):
+            return merged
+
+        if hasattr(merged, "to_message"):
+            msg = merged.to_message()
+            if isinstance(msg, AIMessage):
+                return msg
+
+        return await model.ainvoke(messages)
+    except Exception:
+        logger.warning(
+            "LLM astream 聚合失败，回退到 ainvoke", exc_info=True
+        )
+        return await model.ainvoke(messages)

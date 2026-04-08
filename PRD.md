@@ -1,8 +1,8 @@
 # PRD：通用三层 Multi-Agent 自主任务系统
 
 > **文档性质**：产品需求文档（Product Requirements Document）  
-> **版本**：v0.2  
-> **日期**：2026-04-02  
+> **版本**：v0.3  
+> **日期**：2026-04-06  
 > **说明**：本版本与 `CLAUDE.md`（架构决策）和 `ROADMAP.md`（版本路线）对齐，替换已过时描述。
 
 ---
@@ -167,21 +167,22 @@
 **验收**：
 多步骤任务可完成“计划 → 执行 → 失败重规划（最多 N 次）→ 最终答复”闭环，无隐性崩溃。
 
-### 5.2 V2（进行中）
+### 5.2 V2（已完成）
 
-**V2-a：上下文与工具输出治理**
+**V2-a：上下文与工具输出治理（已完成）**
 - 工具输出预算、截断、外置引用、可选摘要
 - 验收：超长工具输出不导致主循环崩溃，且截断/外置可感知
 
-**V2-b：Planner 工具接入 + MCP 复用**
+**V2-b：Planner 工具接入 + MCP 复用（已完成）**
 - Planner 辅助工具接入 graph
 - 只读 MCP 在 Planner/Executor 复用
 - 验收：至少一项只读能力共享复用，且 Planner 无法调用副作用工具
 
-**V2-c：Reflection + Snapshot（精简版）**
+**V2-c：Reflection + Snapshot（精简版，已完成）**
 - 步骤计数与低置信触发 Reflection
 - Snapshot 上报后由 Supervisor 决策续跑/重规划
 - 验收：触发条件下能稳定上报并走现有决策闭环
+ - 当前默认：`REFLECTION_INTERVAL=0`（关闭）；配置为正整数后启用
 
 ### 5.3 V3（规划中）
 
@@ -220,9 +221,10 @@
 |---|---|
 | `MAX_REPLAN` | Supervisor 最大重规划次数 |
 | `MAX_EXECUTOR_ITERATIONS` | Executor 最大 ReAct 轮次 |
+| `MAX_PLANNER_ITERATIONS` | Planner ReAct 最大轮次（含工具循环） |
 | `REFLECTION_INTERVAL` | V2-c 反思步长 |
 | `CONFIDENCE_THRESHOLD` | V2-c 低置信触发阈值 |
-| （V2-a 新增）observation 预算项 | 单条 observation 长度、外置开关、摘要开关 |
+| （V2-a 新增）observation 预算项 | 单条 observation 长度、外置阈值、落盘开关、摘要开关 |
 
 ---
 

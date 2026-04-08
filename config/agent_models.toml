@@ -1,0 +1,4 @@
+[models]
+supervisor = "siliconflow:stepfun-ai/Step-3.5-Flash"
+planner = "siliconflow:Pro/zai-org/GLM-5"
+executor = "siliconflow:stepfun-ai/Step-3.5-Flash"

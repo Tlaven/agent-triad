@@ -141,4 +141,4 @@ async def generate_plan_template(_: str = "general") -> str:
 
 def get_planner_tools():
     """获取规划辅助工具集合（当前默认不绑定到 Planner graph）。"""
-    return [analyze_task_complexity, decompose_task, validate_plan, generate_plan_template]
+    return []

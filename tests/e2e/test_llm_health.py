@@ -276,7 +276,9 @@ async def test_siliconflow_executor_model_responds() -> None:
 @pytest.mark.skipif(not _has_dashscope_key(), reason="DASHSCOPE_API_KEY not set")
 async def test_dashscope_model_responds() -> None:
     """If DASHSCOPE_API_KEY is present, verify a Qwen model responds."""
-    model_name = os.getenv("SUPERVISOR_MODEL", "qwen:qwen-plus")
+    from src.common.context import Context
+
+    model_name = os.getenv("DASHSCOPE_MODEL", Context().supervisor_model)
     print(f"\n  model: {model_name}")  # noqa: T201
 
     content, elapsed = await _ping_model(model_name)
