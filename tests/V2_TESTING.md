@@ -2,7 +2,7 @@
 
 > **版本**: v0.2.1 (V2-complete)
 > **日期**: 2026-04-09
-> **状态**: 331 项测试全部通过 ✅
+> **状态**: 352 项测试全部通过 ✅
 
 本文档说明 V2 功能的测试覆盖和执行方法。
 
@@ -14,19 +14,20 @@
 
 | 测试类型 | 测试数量 | V2 专项 | 通过率 |
 |---------|---------|---------|--------|
-| 单元测试 | 266 项 | +42 项 | 100% |
+| 单元测试 | 287 项 | +63 项 | 100% |
 | 集成测试 | 65 项 | +21 项 | 100% |
-| **总计** | **331 项** | **+107 项** | **100%** |
+| **总计** | **352 项** | **+128 项** | **100%** |
 
 ### V2 功能测试覆盖
 
 | V2 功能 | 单元测试 | 集成测试 | 总计 | 状态 |
 |---------|---------|---------|------|------|
-| **V2-a**: 工具输出治理 | ✅ 多项 | ✅ 多项 | 多项 | ✅ 完成 |
+| **V2-a**: 工具输出治理 | ✅ 8 项 | ✅ 多项 | 8+ 项 | ✅ 完成 |
 | **V2-b**: Planner 工具 + MCP | ✅ 30 项 | ✅ 32 项 | 62 项 | ✅ 完成 |
 | **V2-c**: Reflection/Snapshot | ✅ 26 项 | ✅ 20 项 | 46 项 | ✅ 完成 |
+| **V2 集成**: 综合测试 | ✅ - | ✅ 21 项 | 21 项 | ✅ 完成 |
 
-**测试改进**：从 V1 基线 224 项增至 331 项（+107 项 V2 专项测试）
+**测试改进**：从 V1 基线 224 项增至 352 项（+128 项 V2 专项测试）
 
 ---
 
@@ -276,10 +277,12 @@ pytest tests/unit_tests tests/integration -v
 pytest tests/unit_tests tests/integration -v -s
 
 # 只运行 V2 专项测试
-pytest tests/unit_tests/test_executor_reflection.py \
+pytest tests/unit_tests/test_observation.py \
+       tests/unit_tests/test_executor_reflection.py \
        tests/unit_tests/planner_agent/test_tools_registry.py \
        tests/integration/test_reflection_integration.py \
-       tests/integration/test_mcp_integration.py -v
+       tests/integration/test_mcp_integration.py \
+       tests/integration/test_v2_features.py -v
 ```
 
 ### 测试覆盖率
