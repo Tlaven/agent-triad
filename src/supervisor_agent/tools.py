@@ -1,5 +1,6 @@
 """AutoDL-Agent 主循环工具 - 永远只绑定两个工具"""
 
+import asyncio
 import json
 import logging
 import uuid
@@ -11,6 +12,12 @@ from langgraph.prebuilt import InjectedState
 from src.common.context import Context
 from src.executor_agent.graph import run_executor
 from src.planner_agent.graph import run_planner
+from src.supervisor_agent.parallel import (
+    build_execution_batches,
+    merge_fanin_summaries,
+    merge_parallel_step_states,
+    serialize_plan_with_steps,
+)
 from src.supervisor_agent.state import PlannerSession, State
 
 logger = logging.getLogger(__name__)
@@ -229,29 +236,118 @@ def _build_call_executor_tool(runtime_context: Context):
 
         snapshot_json = ""
         try:
-            executor_result = await run_executor(
-                plan_json,
-                context=runtime_context,
-            )
-            status = executor_result.status
-            summary = executor_result.summary
-            updated_plan_json = executor_result.updated_plan_json
-            snapshot_json = getattr(executor_result, "snapshot_json", "") or ""
-            error_detail: str | None = None
-            # 文档约束：Mode3（按 plan_id 执行）在失败时必须返回可复用 plan 状态（updated_plan_json 非空）。
-            if (
-                pid is not None
-                and status == "failed"
-                and not (updated_plan_json or "").strip()
-            ):
-                fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
-                updated_plan_json = _mark_plan_steps_failed(plan_json, fallback_reason)
-                error_detail = fallback_reason
-            logger.info(
-                "Executor 执行完成，status=%s，executor_session_id=%s",
-                status,
-                executor_session_id,
-            )
+            # V3: 检查是否可以并行执行
+            plan_obj = json.loads(plan_json)
+            steps = plan_obj.get("steps", [])
+
+            # 尝试构建执行批次
+            try:
+                batches = build_execution_batches(steps)
+                can_parallelize = len(batches) > 1 or any(
+                    len(batch.step_ids) > 1 for batch in batches
+                )
+            except (ValueError, KeyError):
+                # 如果无法构建批次（循环依赖等），回退到串行执行
+                can_parallelize = False
+
+            if can_parallelize and pid is not None:
+                # V3 并行执行模式（仅 Mode3 支持）
+                logger.info(
+                    "V3: 检测到可并行步骤，使用并行执行模式，批次数=%d",
+                    len(batches),
+                )
+
+                # 为每个批次创建子计划并执行
+                batch_results = []
+                for batch in batches:
+                    # 创建仅包含当前批次步骤的子计划
+                    batch_steps = [
+                        step for step in steps if step.get("step_id") in batch.step_ids
+                    ]
+                    batch_plan_json = serialize_plan_with_steps(plan_obj, batch_steps)
+
+                    # 并行执行批次
+                    batch_result = await run_executor(
+                        batch_plan_json,
+                        context=runtime_context,
+                    )
+                    batch_results.append(batch_result)
+
+                # 合并结果
+                all_summaries = [br.summary for br in batch_results]
+                merged_summary = merge_fanin_summaries(
+                    all_summaries,
+                    max_chars=runtime_context.max_observation_chars,
+                )
+
+                # 合并步骤状态
+                partial_step_sets = []
+                for br in batch_results:
+                    if br.updated_plan_json:
+                        try:
+                            partial_plan = json.loads(br.updated_plan_json)
+                            partial_step_sets.append(partial_plan.get("steps", []))
+                        except json.JSONDecodeError:
+                            pass
+
+                if partial_step_sets:
+                    merged_steps = merge_parallel_step_states(steps, partial_step_sets)
+                    updated_plan_json = serialize_plan_with_steps(plan_obj, merged_steps)
+                else:
+                    updated_plan_json = plan_json
+
+                # 确定最终状态
+                statuses = [br.status for br in batch_results]
+                if "failed" in statuses:
+                    status = "failed"
+                elif all(s == "completed" for s in statuses):
+                    status = "completed"
+                else:
+                    status = "failed"
+
+                summary = merged_summary
+                snapshot_json = ""
+                for br in batch_results:
+                    if hasattr(br, "snapshot_json") and br.snapshot_json:
+                        snapshot_json = br.snapshot_json
+                        break
+
+                error_detail: str | None = None
+                if status == "failed" and not (updated_plan_json or "").strip():
+                    fallback_reason = "并行执行失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+                    updated_plan_json = _mark_plan_steps_failed(plan_json, fallback_reason)
+                    error_detail = fallback_reason
+
+                logger.info(
+                    "V3: 并行执行完成，status=%s，executor_session_id=%s",
+                    status,
+                    executor_session_id,
+                )
+            else:
+                # V2 串行执行模式（原逻辑）
+                executor_result = await run_executor(
+                    plan_json,
+                    context=runtime_context,
+                )
+                status = executor_result.status
+                summary = executor_result.summary
+                updated_plan_json = executor_result.updated_plan_json
+                snapshot_json = getattr(executor_result, "snapshot_json", "") or ""
+                error_detail: str | None = None
+                # 文档约束：Mode3（按 plan_id 执行）在失败时必须返回可复用 plan 状态（updated_plan_json 非空）。
+                if (
+                    pid is not None
+                    and status == "failed"
+                    and not (updated_plan_json or "").strip()
+                ):
+                    fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+                    updated_plan_json = _mark_plan_steps_failed(plan_json, fallback_reason)
+                    error_detail = fallback_reason
+                logger.info(
+                    "Executor 执行完成，status=%s，executor_session_id=%s",
+                    status,
+                    executor_session_id,
+                )
         except Exception as e:
             import traceback
 
