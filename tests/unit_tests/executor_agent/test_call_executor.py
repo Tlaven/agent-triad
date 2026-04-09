@@ -135,4 +135,5 @@ async def test_call_executor_passes_executor_llm_kwargs() -> None:
         top_p=1.0,
         max_tokens=1500,
         seed=33,
+        extra_body={'enable_thinking': True},
     )

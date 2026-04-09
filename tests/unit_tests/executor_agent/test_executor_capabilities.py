@@ -5,7 +5,8 @@ from src.executor_agent.tools import get_executor_capabilities_docs, get_executo
 
 def test_get_executor_tools_returns_two_tools() -> None:
     tools = get_executor_tools()
-    assert len(tools) == 2
+    # Executor now has 4 tools: write_file, run_local_command, and 2 MCP readonly tools
+    assert len(tools) == 4
 
 
 def test_get_executor_tools_have_names() -> None:

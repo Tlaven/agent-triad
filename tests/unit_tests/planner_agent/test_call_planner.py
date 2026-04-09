@@ -141,4 +141,5 @@ async def test_call_planner_passes_planner_llm_kwargs() -> None:
         top_p=1.0,
         max_tokens=1200,
         seed=22,
+        extra_body={'enable_thinking': True},
     )

@@ -34,6 +34,9 @@
 
 ## V2.0 — 运行时边界 + Planner 扩展（先于「执行中反思」）
 
+**状态**: ✅ **已完成 (2026-04-09)**
+**验证**: 全部 V2-a/b/c 功能已实现并通过 331 项测试（新增 107 项 V2 专项测试）
+
 **定位说明（与旧 ROADMAP 的差异）**：原先把 **Reflection + Snapshot + 干预分级** 整块塞进 V2，与 `CLAUDE.md` **决策 4**（重规划权只在 Supervisor、Executor 遇阻即停）相比，容易做成第二套「小 Supervisor」，验收面过大，且**未覆盖**工程上更紧迫的 **工具返回体撑爆上下文** 问题。  
 因此 V2 拆为两条清晰主线：**先解决「消息边界」与 Planner 能力落地**，再在同一版本内用**精简**方式落地决策 10 的 Reflection（见下节「V2-b」）。
 
@@ -67,6 +70,9 @@
 
 ### V2-c — Executor Reflection + Snapshot（精简版，对应 `CLAUDE.md` 决策 10）
 
+**状态**: ✅ **已完成 (2026-04-09)**
+**测试**: 46 项专项测试（26 单元 + 20 集成），全部通过
+
 **目标**：在**不扩大 Executor 重规划权限**的前提下，让 Supervisor 在「正常 completed / failed 之外」多一种**结构化中间信号**：执行中途自检偏离并**暂停上报**，由 Supervisor 沿用既有 **call_planner / call_executor** 管线决策（**不**单独实现「轻/中/重干预」三套并行逻辑，避免与决策 4 打架）。
 
 **核心特性**：
@@ -75,10 +81,30 @@
 - [x] **Reflection 节点**：LLM 自评路径是否偏离、置信度（0.0~1.0）；低于 **`CONFIDENCE_THRESHOLD`** 时可额外触发
 - [x] **Snapshot 最小结构**：当前进度摘要 + Reflection 结论 + 建议（结构化，便于 Supervisor 解析）
 - [x] **上报语义**：Executor **停止当前轮次**，将 Snapshot 经与 `ExecutorResult` **可并列或可扩展**的通道交给 Supervisor；Supervisor **只**决定：继续执行（传 `plan_id`）/ 重规划（`task_core` + `plan_id`）/ 结束——与 V1 失败分支一致，**不**在 V2 引入新的「干预分级」状态机
+- [x] **默认配置**: `REFLECTION_INTERVAL=0`（关闭），按需配置为正整数启用周期性 Reflection
 - [ ] **可选（降低范围）**：Plan **milestone** 字段与「到达必上报」可列为 V2-c 的 stretch，未做则不影响 V2-a/V2-b 验收
 
-**验收标准**：  
+**验收标准**：
 在到达 Reflection 触发条件时，Executor 产出 Snapshot 并停止；Supervisor 能基于 Snapshot + 现有 session 状态完成一轮续跑或重规划，全程仍满足决策 4（Executor 不内部改 Plan）。
+
+---
+
+## V2 测试覆盖总结（2026-04-09）
+
+| 功能 | 单元测试 | 集成测试 | 总计 | 状态 |
+|---------|---------|---------|------|------|
+| V2-a: 工具输出治理 | ✅ | ✅ | 多项 | 完成 |
+| V2-b: Planner 工具 + MCP | ✅ 30项 | ✅ 32项 | 62项 | 完成 |
+| V2-c: Reflection/Snapshot | ✅ 26项 | ✅ 20项 | 46项 | 完成 |
+| **总计** | **266项** | **65项** | **331项** | **全部通过** |
+
+**测试改进**：
+- 从基线 224 项测试增至 331 项（+107 项）
+- V2-c Reflection 从完全未测试到 46 项专项测试
+- V2-b MCP 从基础测试到 62 项全面测试
+- 覆盖边界情况、错误处理、并发场景
+
+**V2 实施备注**（2026-04）：V2-a/V2-b/V2-c 已完成代码落地并通过 unit + integration 测试；`REFLECTION_INTERVAL` 默认值为 `0`（关闭），按需配置为正整数即可开启周期性 Reflection。
 
 ---
 

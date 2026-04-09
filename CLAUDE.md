@@ -61,6 +61,25 @@ class ExecutorResult:
 ```
 （`step_id` 经 `call_planner` 归一化后为字符串。）
 
+### Snapshot JSON 结构（V2-c Reflection）
+```json
+{
+  "trigger_type": "interval|confidence",
+  "current_step": "step_2",
+  "confidence_score": 0.5,
+  "reflection_analysis": "任务可能偏离目标...",
+  "suggestion": "continue|replan|abort",
+  "progress_summary": "已完成2/5步骤，遇到..."
+}
+```
+**字段说明**：
+- `trigger_type`: 触发类型（间隔触发 / 置信度触发）
+- `current_step`: 当前执行步骤
+- `confidence_score`: LLM 评估的置信度（0.0~1.0）
+- `reflection_analysis`: 偏离分析
+- `suggestion`: 建议下一步（continue 继续执行 / replan 重规划 / abort 终止）
+- `progress_summary`: 进度摘要
+
 ---
 
 ## Supervisor 三种模式（决策 8）
