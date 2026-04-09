@@ -112,3 +112,27 @@ async def test_call_executor_not_last_step_preserves_tool_calls() -> None:
 
     # Tool calls should be preserved
     assert result["messages"][0].tool_calls
+
+
+async def test_call_executor_passes_executor_llm_kwargs() -> None:
+    state = ExecutorState(messages=[HumanMessage(content="plan")])
+    runtime = _make_runtime(
+        Context(
+            executor_temperature=0.0,
+            executor_top_p=1.0,
+            executor_max_tokens=1500,
+            executor_seed=33,
+        )
+    )
+    mock_llm = _make_mock_llm(AIMessage(content=_make_completed_content()))
+
+    with patch("src.executor_agent.graph.load_chat_model", return_value=mock_llm) as mock_loader:
+        await call_executor(state, runtime)
+
+    mock_loader.assert_called_once_with(
+        runtime.context.executor_model,
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=1500,
+        seed=33,
+    )

@@ -63,11 +63,12 @@ async def test_scenario_a_simple_qa_mode1() -> None:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.skipif(not _has_api_keys(), reason="No API keys configured")
-async def test_scenario_b_short_task_executor_completes(tmp_path) -> None:
+async def test_scenario_b_short_task_executor_completes(tmp_path, monkeypatch) -> None:
     """A short coding task should trigger tool usage and complete successfully."""
+    monkeypatch.setenv("AGENT_WORKSPACE_DIR", str(tmp_path))
     ctx = Context(max_replan=1, max_executor_iterations=10)
     task = (
-        f"请在目录 {tmp_path} 下创建一个名为 hello.txt 的文件，"
+        "请在当前工作区创建一个名为 hello.txt 的文件，"
         "内容为 'Hello, World!'。完成后告诉我文件路径。"
     )
     result = await graph.ainvoke(
@@ -88,6 +89,8 @@ async def test_scenario_b_short_task_executor_completes(tmp_path) -> None:
     )
     assert final_ai is not None
     assert final_ai.content
+    created = tmp_path / "hello.txt"
+    assert created.exists(), f"Expected file not found: {created}"
 
 
 # ---------------------------------------------------------------------------

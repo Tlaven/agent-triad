@@ -22,6 +22,16 @@ def test_context_default_enable_deepwiki_is_false() -> None:
     assert ctx.enable_deepwiki is False
 
 
+def test_context_default_enable_implicit_thinking_is_true() -> None:
+    ctx = Context()
+    assert ctx.enable_implicit_thinking is True
+
+
+def test_context_default_supervisor_thinking_visibility_is_implicit() -> None:
+    ctx = Context()
+    assert ctx.supervisor_thinking_visibility == "implicit"
+
+
 def test_context_default_supervisor_model() -> None:
     ctx = Context()
     assert "Step-3.5-Flash" in ctx.supervisor_model or "siliconflow" in ctx.supervisor_model
@@ -73,6 +83,25 @@ def test_env_false_does_not_enable_bool(monkeypatch) -> None:
     assert ctx.enable_deepwiki is False
 
 
+def test_env_overrides_enable_implicit_thinking_false(monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_IMPLICIT_THINKING", "false")
+    ctx = Context()
+    assert ctx.enable_implicit_thinking is False
+
+
+def test_env_overrides_supervisor_thinking_visibility(monkeypatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_THINKING_VISIBILITY", "visible")
+    ctx = Context()
+    assert ctx.supervisor_thinking_visibility == "visible"
+
+
+def test_deprecated_thinking_visibility_env_applies_when_supervisor_env_unset(monkeypatch) -> None:
+    monkeypatch.delenv("SUPERVISOR_THINKING_VISIBILITY", raising=False)
+    monkeypatch.setenv("THINKING_VISIBILITY", "visible")
+    ctx = Context()
+    assert ctx.supervisor_thinking_visibility == "visible"
+
+
 # ---------------------------------------------------------------------------
 # Explicit constructor arg overrides env var
 # ---------------------------------------------------------------------------
@@ -107,3 +136,26 @@ def test_invalid_int_env_var_keeps_default(monkeypatch) -> None:
     monkeypatch.setenv("MAX_REPLAN", "not_a_number")
     ctx = Context()
     assert ctx.max_replan == 3
+
+
+def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
+    ctx = Context(
+        supervisor_temperature=0.2,
+        supervisor_top_p=0.9,
+        supervisor_max_tokens=1024,
+        supervisor_seed=7,
+    )
+    kwargs = ctx.get_agent_llm_kwargs("supervisor")
+    assert kwargs == {
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "max_tokens": 1024,
+        "seed": 7,
+        "extra_body": {"enable_thinking": True},
+    }
+
+
+def test_get_agent_llm_kwargs_skips_sentinel_defaults() -> None:
+    ctx = Context()
+    kwargs = ctx.get_agent_llm_kwargs("executor")
+    assert kwargs.get("extra_body") == {"enable_thinking": True}

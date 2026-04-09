@@ -1,0 +1,18 @@
+可用的工具及其功能描述：
+
+1. write_file
+   - 功能：写入文本文件并返回结构化确认信息
+   - 参数：
+     * path (string, required): 文件路径
+     * content (string, required): 文件内容
+     * overwrite (boolean, optional, default=true): 是否覆盖已存在文件
+   - 返回：结构化确认信息，包含 success 状态和 path 信息
+
+2. run_local_command
+   - 功能：在本地执行命令并返回执行结果
+   - 参数：
+     * command (string, required): 要执行的命令
+     * cwd (string|null, optional, default=null): 工作目录
+     * timeout (integer, optional, default=600): 超时时间（秒）
+   - 返回：执行结果，包含 stdout、stderr、returncode 和成功状态
+   - 安全原则：必须使用安全、最小权限原则；禁止关机/重启/格式化/高风险删除命令；优先只读命令

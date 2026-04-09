@@ -7,6 +7,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import re
 from dataclasses import replace
@@ -26,6 +27,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
 from src.common.context import Context
+from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.utils import invoke_chat_model, load_chat_model
 from src.executor_agent.tools import get_executor_capabilities_docs
@@ -33,6 +35,8 @@ from src.executor_agent.tools import get_executor_capabilities_docs
 from src.planner_agent.prompts import get_planner_system_prompt
 from src.planner_agent.state import PlannerState
 from src.planner_agent.tools import get_planner_tools
+
+logger = logging.getLogger(__name__)
 
 
 def build_planner_messages(
@@ -79,11 +83,14 @@ def build_planner_messages(
 
 async def _load_planner_tools(ctx: Context) -> list[object]:
     """Planner 仅绑定规划辅助工具 + 只读 MCP（不含 Executor 副作用工具）。"""
-    tools: list[object] = list(get_planner_tools())
-    if ctx.enable_deepwiki:
-        from src.common.mcp import get_readonly_mcp_tools
-
-        tools.extend(await get_readonly_mcp_tools())
+    tools: list[object] = list(get_planner_tools(ctx))
+    mcp_tools = list(await get_readonly_mcp_tools(ctx))
+    tools.extend(mcp_tools)
+    if ctx.enable_deepwiki and not mcp_tools:
+        logger.warning(
+            "Planner 已启用 DeepWiki MCP，但未加载到任何工具（enable_deepwiki=%s）",
+            ctx.enable_deepwiki,
+        )
     return tools
 
 
@@ -91,7 +98,10 @@ async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[s
     """Planner 核心节点：ReAct 循环；最终应产出无 tool_calls 的 Plan JSON 文本。"""
     ctx = replace(runtime.context, readonly_tools_only=True)
     tools = await _load_planner_tools(ctx)
-    model = load_chat_model(ctx.planner_model).bind_tools(tools)
+    model = load_chat_model(
+        ctx.planner_model,
+        **ctx.get_agent_llm_kwargs("planner"),
+    ).bind_tools(tools)
 
     response = await invoke_chat_model(
         model,

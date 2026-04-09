@@ -108,6 +108,15 @@ def test_no_json_fence_degrades_to_failed() -> None:
     assert result.summary == content
 
 
+def test_no_json_fence_with_explicit_status_completed() -> None:
+    content = "执行完成\nstatus: completed\nsummary: hello.txt created"
+    result = _parse_executor_output(content)
+
+    assert result.status == "completed"
+    assert result.updated_plan_json == ""
+    assert "hello.txt" in result.summary
+
+
 def test_multiple_json_fences_degrades_to_failed() -> None:
     content = (
         "```json\n{\"a\": 1}\n```\n"

@@ -2,12 +2,13 @@
 import os
 import re
 import subprocess
+import sys
 from pathlib import PurePath
 from typing import TypedDict
 
-
-
 from langchain_core.tools import tool
+
+from src.common.tools import list_workspace_entries, read_workspace_text_file
 
 
 class WriteFileResult(TypedDict):
@@ -32,6 +33,8 @@ class LocalCommandResult(TypedDict):
 MAX_WRITE_FILE_BYTES = 1_000_000
 MAX_LOCAL_COMMAND_LENGTH = 2_000
 MAX_LOCAL_COMMAND_TIMEOUT = 3_600
+DEFAULT_AGENT_WORKSPACE_DIR = "workspace"
+DEFAULT_AGENT_VENV_DIRNAME = ".venv"
 _BLOCKED_COMMAND_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\brm\s+-rf\s+/", "禁止执行高风险删除命令"),
     (r"\bdel\b.*\/(?:s|f).*\b[a-z]:", "禁止执行高风险删除命令"),
@@ -44,9 +47,73 @@ _BLOCKED_COMMAND_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 RUN_LOCAL_COMMAND_LLM_HINT = (
     "- run_local_command 使用提示：执行命令时必须使用安全、最小权限原则；"
-    "禁止关机/重启/格式化/高风险删除命令；优先只读命令。"
+    "禁止关机/重启/格式化/高风险删除命令；默认在 Agent 工作区执行，且自动使用工作区内 Python venv。"
 )
 
+
+def _project_root() -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _agent_workspace_root() -> str:
+    configured = os.environ.get("AGENT_WORKSPACE_DIR", DEFAULT_AGENT_WORKSPACE_DIR).strip()
+    if not configured:
+        configured = DEFAULT_AGENT_WORKSPACE_DIR
+    root = os.path.join(_project_root(), configured)
+    os.makedirs(root, exist_ok=True)
+    return os.path.abspath(root)
+
+
+def _agent_venv_dir() -> str:
+    dirname = os.environ.get("AGENT_VENV_DIRNAME", DEFAULT_AGENT_VENV_DIRNAME).strip()
+    if not dirname:
+        dirname = DEFAULT_AGENT_VENV_DIRNAME
+    return os.path.join(_agent_workspace_root(), dirname)
+
+
+def _ensure_agent_venv() -> str:
+    venv_dir = _agent_venv_dir()
+    if os.path.isdir(venv_dir):
+        return venv_dir
+    completed = subprocess.run(
+        [sys.executable, "-m", "venv", venv_dir],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise OSError(
+            f"创建 venv 失败（exit={completed.returncode}）：{completed.stderr.strip() or completed.stdout.strip()}"
+        )
+    return venv_dir
+
+
+def _resolve_workspace_path(relative_path: str) -> str:
+    workspace_root = _agent_workspace_root()
+    # 兼容两种输入：
+    # - 传统相对路径（拼到 workspace_root 下）
+    # - 已在 workspace_root 内的绝对路径（直接使用）
+    if os.path.isabs(relative_path):
+        abs_path = os.path.abspath(relative_path)
+    else:
+        abs_path = os.path.abspath(os.path.join(workspace_root, relative_path))
+    if os.path.commonpath([workspace_root, abs_path]) != workspace_root:
+        raise ValueError("path 超出 Agent 工作区范围")
+    return abs_path
+
+
+def _venv_bin_dir(venv_dir: str) -> str:
+    return os.path.join(venv_dir, "Scripts" if os.name == "nt" else "bin")
+
+
+def _build_subprocess_env_with_venv(venv_dir: str) -> dict[str, str]:
+    env = os.environ.copy()
+    bin_dir = _venv_bin_dir(venv_dir)
+    env["VIRTUAL_ENV"] = venv_dir
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    return env
 
 
 def _validate_write_file_input(path: str, content: str) -> str | None:
@@ -74,7 +141,14 @@ def write_file(path: str, content: str, overwrite: bool = True) -> WriteFileResu
     """写入文本文件并返回结构化确认信息。"""
     normalized_path = path.strip()
     validation_error = _validate_write_file_input(normalized_path, content)
-    abs_path = os.path.abspath(normalized_path) if normalized_path else ""
+    abs_path = ""
+    if normalized_path:
+        try:
+            abs_path = _resolve_workspace_path(normalized_path)
+        except ValueError as e:
+            validation_error = str(e)
+        except OSError as e:
+            validation_error = str(e)
 
     if validation_error:
         return {
@@ -142,7 +216,10 @@ def _validate_run_local_command_input(command: str, timeout: int, cwd: str | Non
             return reason
 
     if cwd:
-        exec_cwd = os.path.abspath(cwd)
+        try:
+            exec_cwd = _resolve_workspace_path(cwd)
+        except ValueError as e:
+            return str(e)
         if not os.path.isdir(exec_cwd):
             return "cwd 不存在或不是目录"
 
@@ -150,10 +227,10 @@ def _validate_run_local_command_input(command: str, timeout: int, cwd: str | Non
 
 
 @tool
-def run_local_command(command: str, cwd: str | None = None, timeout: int = 600) -> LocalCommandResult:
+def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) -> LocalCommandResult:
     """在本地执行命令并返回执行结果。"""
     normalized_command = command.strip()
-    exec_cwd = os.path.abspath(cwd) if cwd else os.getcwd()
+    workspace_root = _agent_workspace_root()
 
     validation_error = _validate_run_local_command_input(
         command=normalized_command,
@@ -164,7 +241,7 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 600) 
         return {
             "ok": False,
             "command": normalized_command,
-            "cwd": exec_cwd,
+            "cwd": workspace_root,
             "returncode": None,
             "timed_out": False,
             "stdout": "",
@@ -172,18 +249,33 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 600) 
             "error": validation_error,
         }
 
+    exec_cwd = _resolve_workspace_path(cwd) if cwd else workspace_root
+
     try:
-        completed = subprocess.run(
-            normalized_command,
-            cwd=exec_cwd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            check=False,
-        )
+        venv_dir = _ensure_agent_venv()
+        run_env = _build_subprocess_env_with_venv(venv_dir)
+        run_kwargs: dict[str, object] = {
+            "cwd": exec_cwd,
+            "capture_output": True,
+            "env": run_env,
+            "text": True,
+            "encoding": "utf-8",
+            "errors": "replace",
+            "timeout": timeout,
+            "check": False,
+        }
+        if os.name == "nt":
+            completed = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", normalized_command],
+                shell=False,
+                **run_kwargs,
+            )
+        else:
+            completed = subprocess.run(
+                normalized_command,
+                shell=True,
+                **run_kwargs,
+            )
         return {
             "ok": completed.returncode == 0,
             "command": normalized_command,
@@ -218,10 +310,9 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 600) 
         }
 
 
-
 def get_executor_tools() -> list[object]:
     """返回 Executor 可用的工具列表。"""
-    return [write_file, run_local_command]
+    return [write_file, run_local_command, list_workspace_entries, read_workspace_text_file]
 
 
 def get_executor_capabilities_docs() -> str:

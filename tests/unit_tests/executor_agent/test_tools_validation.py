@@ -1,6 +1,8 @@
 """Unit tests for executor_agent.tools input validation helpers."""
 
 
+import os
+import tempfile
 
 from src.executor_agent.tools import (
     MAX_LOCAL_COMMAND_LENGTH,
@@ -80,8 +82,17 @@ def test_run_command_valid_without_cwd_returns_none() -> None:
     assert _validate_run_local_command_input("echo hello", 60, None) is None
 
 
-def test_run_command_valid_with_existing_cwd_returns_none(tmp_path) -> None:
-    assert _validate_run_local_command_input("echo hello", 60, str(tmp_path)) is None
+def test_run_command_absolute_cwd_is_error() -> None:
+    assert _validate_run_local_command_input("echo hello", 60, "C:\\tmp") is not None
+
+
+def test_run_command_absolute_cwd_inside_workspace_is_ok() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.environ["AGENT_WORKSPACE_DIR"] = tmpdir
+        try:
+            assert _validate_run_local_command_input("echo hello", 60, tmpdir) is None
+        finally:
+            os.environ.pop("AGENT_WORKSPACE_DIR", None)
 
 
 def test_run_command_blocked_rm_rf_root() -> None:

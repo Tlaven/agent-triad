@@ -15,7 +15,9 @@ from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
 from src.common.context import Context
+from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
+from src.common.tools import apply_context_workspace_root
 from src.common.utils import invoke_chat_model, load_chat_model
 
 from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
@@ -51,11 +53,15 @@ class ExecutorResult:
 
 
 async def _load_executor_tools(ctx: Context) -> list[object]:
+    apply_context_workspace_root(ctx)
     tools: list[object] = list(get_executor_tools())
-    if ctx.enable_deepwiki:
-        from src.common.mcp import get_readonly_mcp_tools
-
-        tools.extend(await get_readonly_mcp_tools())
+    mcp_tools = list(await get_readonly_mcp_tools(ctx))
+    tools.extend(mcp_tools)
+    if ctx.enable_deepwiki and not mcp_tools:
+        logger.warning(
+            "Executor 已启用 DeepWiki MCP，但未加载到任何工具（enable_deepwiki=%s）",
+            ctx.enable_deepwiki,
+        )
     return tools
 
 
@@ -66,7 +72,10 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
     available_tools = await _load_executor_tools(runtime.context)
     capabilities = get_executor_capabilities_docs()
     executor_system_prompt = get_executor_system_prompt(capabilities)
-    model = load_chat_model(runtime.context.executor_model).bind_tools(available_tools)
+    model = load_chat_model(
+        runtime.context.executor_model,
+        **runtime.context.get_agent_llm_kwargs("executor"),
+    ).bind_tools(available_tools)
 
     response = cast(
         AIMessage,
@@ -133,7 +142,10 @@ def route_after_tools(state: ExecutorState) -> Literal["reflection", "call_execu
 async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
     """V2-c：中途 Reflection，产出 paused 结构化结果并结束本轮 Executor。"""
     prompt = get_reflection_system_prompt()
-    model = load_chat_model(runtime.context.executor_model)
+    model = load_chat_model(
+        runtime.context.executor_model,
+        **runtime.context.get_agent_llm_kwargs("executor"),
+    )
     response = cast(
         AIMessage,
         await invoke_chat_model(
@@ -350,6 +362,17 @@ def _extract_executor_payload(content: str) -> dict[str, Any] | None:
         validated = _validate_executor_payload(obj)
         if validated is not None:
             return validated
+
+    # 4) 文本兜底：当模型未输出 JSON，但给出了明确 status 行时，避免误判为 failed。
+    status_match = re.search(
+        r"(?:^|\n)\s*(?:status|状态)\s*[:：]\s*([^\n]+)",
+        content,
+        flags=re.IGNORECASE,
+    )
+    if status_match:
+        normalized = _normalize_executor_status(status_match.group(1).strip())
+        if normalized is not None:
+            return {"status": normalized}
     return None
 
 def _parse_executor_output(content: str) -> ExecutorResult:

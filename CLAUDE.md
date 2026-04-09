@@ -20,9 +20,9 @@
 
 | Agent | 模型 | 职责 |
 |-------|------|------|
-| Supervisor | siliconflow:stepfun-ai/Step-3.5-Flash | 理解意图、调度 Planner/Executor、管理重规划、合成答案 |
-| Planner | siliconflow:Pro/zai-org/GLM-5 | 将任务转化为意图层 Plan JSON（不含工具名） |
-| Executor | siliconflow:stepfun-ai/Step-3.5-Flash | 按 Plan 自主选工具执行，返回 `ExecutorResult` |
+| Supervisor | 见config\agent_models.toml | 理解意图、调度 Planner/Executor、管理重规划、合成答案 |
+| Planner | 见config\agent_models.toml | 将任务转化为意图层 Plan JSON（不含工具名） |
+| Executor | 见config\agent_models.toml | 按 Plan 自主选工具执行，返回 `ExecutorResult` |
 
 入口：`langgraph.json` → `src/supervisor_agent/graph.py:graph`
 
@@ -94,7 +94,7 @@ class ExecutorResult:
 - `call_planner` 后：新 `plan_json` 写入 `PlannerSession`
 - `call_executor` 后：始终更新 `last_executor_*`；`updated_plan_json` 非空则用它刷新 `plan_json`，**为空则保留**上一份 `plan_json`
 - 有非空回填时，`plan_json` 为当前最新执行快照（含进度）
-- `status=completed` 时 Supervisor LLM 仅收 `summary`，不收完整 plan
+- `status=completed` 时 Supervisor LLM 默认仅收 `summary`，不收完整 plan；可通过 `get_executor_full_output` 按需查阅步骤级详情
 
 ---
 
@@ -102,11 +102,19 @@ class ExecutorResult:
 
 - **意图层 Plan**（决策 3）：Planner 不知道工具名，只描述 intent + expected_output
 - **Executor 遇阻即停**（决策 4）：不内部重规划，重规划权只在 Supervisor
+- **Executor 工作区边界**：内置副作用工具仅在 `AGENT_WORKSPACE_DIR`（默认 `workspace/agent`）内执行/写入
 - **单线程**（决策 11）：Supervisor 每次只调用一个 Executor
 - **Planner 只读**（决策 12）：Planner 仅可用只读工具/MCP，不可调用副作用工具
 - **Planner 会话复用**（决策 9）：同一 `plan_id` 复用同一 Planner 对话线程
 - **Observation 治理**（V2-a）：所有工具返回进入消息历史前走统一规范化（截断/外置）
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关闭；配置为正整数启用
+- **只读 MCP 可共享**：Planner/Executor 可按配置启用 `enable_deepwiki` / `enable_filesystem_mcp`
+- **MCP 生效条件**：需在 `.env` 显式开启对应开关（如 `ENABLE_DEEPWIKI=true`）
+- **分 Agent LLM 参数**：支持 `SUPERVISOR_*` / `PLANNER_*` / `EXECUTOR_*`（`TEMPERATURE`、`TOP_P`、`MAX_TOKENS`、`SEED`）独立配置；未设置时沿用模型默认
+- **Thinking（推理）**：
+  - `ENABLE_IMPLICIT_THINKING`：是否向兼容接口请求 `enable_thinking`（默认 `true`；名称沿用，与「是否把思考写进对外 `content`」无关）。
+  - `SUPERVISOR_THINKING_VISIBILITY`：`visible` | `implicit`（默认 **`implicit`**）。仅 **Supervisor** 在 `call_model` 中可将推理拼入用户侧 `content`（`[思考过程]` / `[最终回答]`）；**Planner / Executor 永不拼接**，以免破坏 Plan JSON 与 Executor 结构化输出的解析。
+  - 兼容：未设置 `SUPERVISOR_THINKING_VISIBILITY` 时仍读取弃用名 `THINKING_VISIBILITY`。
 
 ---
 
@@ -117,7 +125,7 @@ class ExecutorResult:
 | `src/supervisor_agent/graph.py` | 主循环图：`call_model` + `dynamic_tools_node` + 路由 |
 | `src/supervisor_agent/state.py` | `State`、`AgentSession`（含 `last_executor_status/error/replan_count`） |
 | `src/supervisor_agent/prompts.py` | `SUPERVISOR_SYSTEM_PROMPT` |
-| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`、`_mark_plan_steps_failed` |
+| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`、`get_executor_full_output`、`_mark_plan_steps_failed` |
 | `src/planner_agent/graph.py` | Planner ReAct 图 + 只读 MCP，`run_planner()` |
 | `src/planner_agent/prompts.py` | `PLANNER_SYSTEM_PROMPT`（含 Plan JSON 格式要求） |
 | `src/planner_agent/tools.py` | 规划辅助工具 |

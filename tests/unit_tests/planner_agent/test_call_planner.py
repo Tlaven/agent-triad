@@ -113,3 +113,32 @@ async def test_call_planner_passes_full_history_including_tool_calls() -> None:
     assert len(received_messages) == 4
     assert isinstance(received_messages[-1], AIMessage)
     assert received_messages[-1].tool_calls
+
+
+async def test_call_planner_passes_planner_llm_kwargs() -> None:
+    state = PlannerState(messages=[
+        SystemMessage(content="system"),
+        HumanMessage(content="task"),
+    ])
+    runtime = _make_runtime(
+        Context(
+            planner_temperature=0.0,
+            planner_top_p=1.0,
+            planner_max_tokens=1200,
+            planner_seed=22,
+        )
+    )
+    mock_llm = MagicMock()
+    mock_llm.bind_tools = MagicMock(return_value=mock_llm)
+    mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=_make_plan_content()))
+
+    with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm) as mock_loader:
+        await call_planner(state, runtime)
+
+    mock_loader.assert_called_once_with(
+        runtime.context.planner_model,
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=1200,
+        seed=22,
+    )

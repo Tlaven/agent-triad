@@ -101,7 +101,7 @@
   "goal": "任务总体目标",
   "steps": [
     {
-      "step_id": 1,
+      "step_id": "step_1",
       "intent": "意图描述",
       "expected_output": "可验证完成标准",
       "status": "pending",

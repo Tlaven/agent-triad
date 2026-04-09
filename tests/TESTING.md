@@ -10,6 +10,26 @@ make test_e2e           # 全链路验收，真实 LLM，分钟级
 make test_all           # unit + integration（不含 e2e）
 ```
 
+### 本次变更：按 Agent 独立 LLM 参数（回归建议）
+
+```bash
+# 仅跑本次相关用例（Context + 三层 call_model 参数透传）
+uv run pytest \
+  tests/unit_tests/common/test_context.py \
+  tests/unit_tests/supervisor_agent/test_call_model.py \
+  tests/unit_tests/planner_agent/test_call_planner.py \
+  tests/unit_tests/executor_agent/test_call_executor.py -q
+```
+
+可选：本地临时验证 Executor 更稳定（低随机）
+
+```env
+EXECUTOR_TEMPERATURE=0
+EXECUTOR_TOP_P=1
+# EXECUTOR_SEED=42         # 模型支持时可开启
+# EXECUTOR_MAX_TOKENS=2048 # 视任务复杂度调整
+```
+
 ---
 
 ## 测试分层结构

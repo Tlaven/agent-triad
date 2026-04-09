@@ -14,7 +14,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
 from src.common.context import Context
-from src.common.utils import invoke_chat_model, load_chat_model
+from src.common.utils import extract_reasoning_text, invoke_chat_model, load_chat_model
 from src.supervisor_agent.prompts import get_supervisor_system_prompt
 from src.supervisor_agent.state import (
     InputState,
@@ -94,7 +94,10 @@ async def call_model(
         }
 
     available_tools = await get_tools(runtime.context)
-    model = load_chat_model(runtime.context.supervisor_model).bind_tools(available_tools)
+    model = load_chat_model(
+        runtime.context.supervisor_model,
+        **runtime.context.get_agent_llm_kwargs("supervisor"),
+    ).bind_tools(available_tools)
     system_message = get_supervisor_system_prompt()
     response = cast(
         AIMessage,
@@ -105,6 +108,9 @@ async def call_model(
             enable_streaming=runtime.context.enable_llm_streaming,
         ),
     )
+
+    if _is_thinking_visible(runtime.context) and not response.tool_calls:
+        response = _inject_reasoning_for_visible_mode(response)
 
     decision = _infer_supervisor_decision(response)
 
@@ -231,6 +237,10 @@ async def dynamic_tools_node(
             updated_plan = _extract_updated_plan_from_executor(content)
             exec_status, exec_error = _extract_executor_status(content)
             exec_summary = _extract_executor_summary(content)
+            snapshot_json = _extract_snapshot_json(content)
+            full_output = _build_executor_full_output(
+                exec_summary, exec_status, exec_error, updated_plan, snapshot_json
+            )
             public_feedback = _build_executor_feedback_for_llm(content, exec_status, exec_error)
             sanitized_tool_messages.append(tm.model_copy(update={"content": public_feedback}))
             next_replan_count = state.replan_count
@@ -273,6 +283,7 @@ async def dynamic_tools_node(
                 last_executor_status=exec_status,
                 last_executor_error=exec_error,
                 last_executor_summary=exec_summary,
+                last_executor_full_output=full_output,
                 planner_history_by_plan_id=existing_history,
                 planner_last_version_by_plan_id=existing_last_version,
                 planner_last_output_by_plan_id=existing_last_output,
@@ -367,6 +378,21 @@ def _extract_executor_status(content: str) -> tuple[str | None, str | None]:
         return None, None
 
 
+def _extract_snapshot_json(content: str) -> str | None:
+    """从 call_executor 返回中提取 snapshot_json。"""
+    import json as _json
+    import re as _re
+    match = _re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, _re.DOTALL)
+    if not match:
+        return None
+    try:
+        meta = _json.loads(match.group(1))
+        snap = meta.get("snapshot_json", "")
+        return snap if snap else None
+    except _json.JSONDecodeError:
+        return None
+
+
 def _extract_executor_summary(content: str) -> str:
     """从 call_executor 返回中提取 summary（[EXECUTOR_RESULT] 前正文）。"""
     marker = "[EXECUTOR_RESULT]"
@@ -391,6 +417,51 @@ def _needs_mode3_upgrade(summary: str | None, error_detail: str | None) -> bool:
     return any(sig in text for sig in signals)
 
 
+def _build_executor_full_output(
+    summary_text: str,
+    status: str | None,
+    error_detail: str | None,
+    updated_plan_json: str | None,
+    snapshot_json: str | None,
+) -> str:
+    """构建 Supervisor 可按需查阅的完整执行详情（含步骤级结果）。"""
+    import json as _json
+
+    parts: list[str] = []
+    parts.append(f"## Executor 执行详情\n\n状态：{status or '未知'}")
+    if error_detail:
+        parts.append(f"错误详情：{error_detail}")
+    parts.append(f"\n### 执行摘要\n\n{summary_text}")
+
+    if updated_plan_json:
+        try:
+            plan = _json.loads(updated_plan_json)
+            steps = plan.get("steps", []) if isinstance(plan, dict) else []
+            if steps:
+                parts.append("\n### 步骤级执行结果\n")
+                for s in steps:
+                    if not isinstance(s, dict):
+                        continue
+                    sid = s.get("step_id", "?")
+                    intent = s.get("intent", "")
+                    st = s.get("status", "unknown")
+                    rs = s.get("result_summary") or ""
+                    fr = s.get("failure_reason") or ""
+                    line = f"- **{sid}** [{st}] {intent}"
+                    if rs:
+                        line += f"\n  结果：{rs}"
+                    if fr:
+                        line += f"\n  失败原因：{fr}"
+                    parts.append(line)
+        except _json.JSONDecodeError:
+            parts.append(f"\n### 原始 updated_plan_json\n\n{updated_plan_json}")
+
+    if snapshot_json:
+        parts.append(f"\n### Checkpoint 快照\n\n{snapshot_json}")
+
+    return "\n".join(parts)
+
+
 def _build_executor_feedback_for_llm(
     content: str,
     status: str | None,
@@ -399,14 +470,14 @@ def _build_executor_feedback_for_llm(
     """构造给 Supervisor LLM 的精简反馈，避免注入大体量 updated_plan_json。"""
     marker = "[EXECUTOR_RESULT]"
     summary_text = content.split(marker, 1)[0].strip() if marker in content else content.strip()
+    hint = "\n\n（如需查看完整的步骤级执行详情，请调用 get_executor_full_output）"
     if status == "completed":
-        # 成功分支仅保留 summary，避免给 Supervisor LLM 注入冗余结构化负载。
-        return summary_text
+        return summary_text + hint
     if status == "failed":
         detail = error_detail or "未知错误"
-        return f"Executor 执行结果：failed\n失败原因：{detail}\n摘要：{summary_text}"
+        return f"Executor 执行结果：failed\n失败原因：{detail}\n摘要：{summary_text}" + hint
     if status == "paused":
-        return f"Executor 执行暂停（checkpoint）：\n{summary_text}"
+        return f"Executor 执行暂停（checkpoint）：\n{summary_text}" + hint
     return summary_text
 
 
@@ -420,6 +491,20 @@ def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
     if "call_executor" in tool_names:
         return SupervisorDecision(mode=2, reason="目标明确，直接工具执行", confidence=0.75)
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
+
+
+def _is_thinking_visible(ctx: Context) -> bool:
+    mode = (ctx.supervisor_thinking_visibility or "").strip().lower()
+    return mode in ("visible", "show", "on", "1", "true", "display")
+
+
+def _inject_reasoning_for_visible_mode(response: AIMessage) -> AIMessage:
+    reasoning = extract_reasoning_text(response)
+    if not reasoning:
+        return response
+    answer = response.content if isinstance(response.content, str) else str(response.content)
+    decorated = f"[思考过程]\n{reasoning}\n\n[最终回答]\n{answer}".strip()
+    return response.model_copy(update={"content": decorated})
 
 
 # ==================== 图定义 ====================

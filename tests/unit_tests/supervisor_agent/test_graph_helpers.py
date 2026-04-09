@@ -66,10 +66,11 @@ def _make_full_content(summary: str) -> str:
     return f"{summary}\n\n[EXECUTOR_RESULT] {json.dumps(meta)}"
 
 
-def test_feedback_completed_returns_only_summary() -> None:
+def test_feedback_completed_returns_summary_with_hint() -> None:
     content = _make_full_content("All tasks done successfully")
     feedback = _build_executor_feedback_for_llm(content, "completed", None)
-    assert feedback == "All tasks done successfully"
+    assert feedback.startswith("All tasks done successfully")
+    assert "get_executor_full_output" in feedback
     assert "[EXECUTOR_RESULT]" not in feedback
 
 

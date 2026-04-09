@@ -111,7 +111,7 @@ def _build_call_planner_tool(runtime_context: Context):
     ) -> str:
         """调用 Planner Agent 生成或更新意图层 Plan（JSON）。
 
-        与架构一致：Planner 只接收 **task_core** 与（重规划时）由 **plan_id** 从状态中解析出的完整计划。
+        Planner 只接收 **task_core** 与（重规划时）由 **plan_id** 从状态中解析出的完整计划。
 
         - **首次规划**：必须提供非空且**有用的上下文与核心目标**的 ``task_core``，不要传 ``plan_id``。
         - **重规划**：传入当前计划中的 ``plan_id``（与 ``PlannerSession`` 内 JSON 一致）；**强烈建议**同时提供详尽的 ``task_core`` 说明修订方向。完整带执行状态的计划由工具从状态中读取，无需在参数里粘贴 JSON。
@@ -150,6 +150,22 @@ def _build_call_planner_tool(runtime_context: Context):
     return call_planner
 
 
+def _build_get_executor_full_output_tool():
+    @tool
+    def get_executor_full_output(
+        state: Annotated[State, InjectedState],
+    ) -> str:
+        """查看最近一次 Executor 执行的完整详情（含每个步骤的 result_summary / failure_reason 等）。
+
+        仅在 call_executor 的摘要不足以做出判断时调用。
+        """
+        if state.planner_session is None or not state.planner_session.last_executor_full_output:
+            return "当前没有可查看的 Executor 完整输出。"
+        return state.planner_session.last_executor_full_output
+
+    return get_executor_full_output
+
+
 def _build_call_executor_tool(runtime_context: Context):
     @tool
     async def call_executor(
@@ -157,11 +173,11 @@ def _build_call_executor_tool(runtime_context: Context):
         task_description: str = "",
         plan_id: str | None = None,
     ) -> str:
-        """调用 Executor Agent 执行任务（Mode2 直执）或执行已有计划（Mode3）。
+        """调用 Executor Agent 执行任务或执行已有计划。
 
-        参数约定（与架构一致）：
-        - Mode2：仅传 ``task_description``（简短、明确、可执行）
-        - Mode3：仅传 ``plan_id``（从 session 中读取对应计划）
+        参数约定下列方式任选其一：
+        - 仅传 ``task_description``（简短、明确、可执行）
+        - 仅传 ``plan_id``（从 session 中读取对应计划）
         """
         td = (task_description or "").strip()
         pid = _normalize_plan_id_arg(plan_id)
@@ -287,10 +303,11 @@ def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
 
 
 async def get_tools(runtime_context: Context | None = None) -> List[Callable[..., Any]]:
-    """主 ReAct 循环永远只返回这两个工具。"""
+    """主 ReAct 循环返回的工具集。"""
     if runtime_context is None:
         runtime_context = Context()
     return [
         _build_call_planner_tool(runtime_context),
         _build_call_executor_tool(runtime_context),
+        _build_get_executor_full_output_tool(),
     ]

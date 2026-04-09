@@ -155,3 +155,46 @@ async def test_call_model_direct_response_sets_mode1() -> None:
 
     assert result["supervisor_decision"].mode == 1
     assert result["messages"][0].content == "Python 是一种编程语言。"
+
+
+async def test_call_model_passes_supervisor_llm_kwargs() -> None:
+    state = State(messages=[HumanMessage(content="test")])
+    runtime = _make_runtime(
+        Context(
+            supervisor_temperature=0.1,
+            supervisor_top_p=0.95,
+            supervisor_max_tokens=512,
+            supervisor_seed=11,
+        )
+    )
+    mock_llm = _make_mock_llm(AIMessage(content="ok"))
+
+    with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm) as mock_loader:
+        await call_model(state, runtime)
+
+    mock_loader.assert_called_once_with(
+        runtime.context.supervisor_model,
+        temperature=0.1,
+        top_p=0.95,
+        max_tokens=512,
+        seed=11,
+        extra_body={"enable_thinking": True},
+    )
+
+
+async def test_call_model_visible_thinking_appends_reasoning_to_content() -> None:
+    state = State(messages=[HumanMessage(content="test")])
+    runtime = _make_runtime(Context(supervisor_thinking_visibility="visible"))
+    model_response = AIMessage(
+        content="最终答案",
+        additional_kwargs={"reasoning_content": "这是思考内容"},
+    )
+    mock_llm = _make_mock_llm(model_response)
+
+    with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm):
+        result = await call_model(state, runtime)
+
+    content = str(result["messages"][0].content)
+    assert "[思考过程]" in content
+    assert "这是思考内容" in content
+    assert "[最终回答]" in content

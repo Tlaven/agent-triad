@@ -27,19 +27,17 @@ def _has_siliconflow() -> bool:
 
 
 @pytest.mark.skipif(not _has_siliconflow(), reason="SILICONFLOW_API_KEY not set (Executor default model)")
-async def test_executor_live_create_hello_txt(tmp_path) -> None:
+async def test_executor_live_create_hello_txt(tmp_path, monkeypatch) -> None:
     """与 V1 scenario B 类似的短任务，只跑 `run_executor`。"""
+    monkeypatch.setenv("AGENT_WORKSPACE_DIR", str(tmp_path))
     plan = {
         "plan_id": "plan_e2e_executor_only",
         "version": 1,
-        "goal": "在指定目录创建 hello.txt",
+        "goal": "在当前工作区创建 hello.txt",
         "steps": [
             {
                 "step_id": 1,
-                "intent": (
-                    f"在目录 {tmp_path} 下创建文件 hello.txt，"
-                    "内容为 Hello, World!（单行文本即可）"
-                ),
+                "intent": "在当前工作区创建文件 hello.txt，内容为 Hello, World!（单行文本即可）",
                 "expected_output": "hello.txt 存在且内容正确",
                 "status": "pending",
                 "result_summary": None,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 DEFAULT_SUPERVISOR_MODEL = "siliconflow:stepfun-ai/Step-3.5-Flash"
 DEFAULT_PLANNER_MODEL = "siliconflow:Pro/zai-org/GLM-5"
@@ -83,10 +83,76 @@ class Context:
         },
     )
     enable_llm_streaming: bool = field(
-        default=True,
+        default=False,
         metadata={
             "description": "Whether to use streaming (astream) for LLM calls and aggregate chunks into a final AIMessage.",
         },
+    )
+    # Global reasoning switch (best-effort): when enabled, pass `enable_thinking`
+    # to provider adapters that support OpenAI-compatible extra_body payloads.
+    enable_implicit_thinking: bool = field(
+        default=True,
+        metadata={
+            "description": "Whether to request implicit thinking/reasoning when provider supports it.",
+        },
+    )
+    supervisor_thinking_visibility: str = field(
+        default="implicit",
+        metadata={
+            "description": "Supervisor only: whether to merge model reasoning into message "
+            "content (visible) or keep it out of content (implicit). Planner/Executor stay implicit.",
+        },
+    )
+
+    # Per-agent LLM sampling configs. Sentinel values mean "use provider/model defaults".
+    # temperature/top_p: < 0 => unset; max_tokens: <= 0 => unset; seed: < 0 => unset
+    supervisor_temperature: float = field(
+        default=-1.0,
+        metadata={"description": "Supervisor LLM temperature. <0 uses model default."},
+    )
+    supervisor_top_p: float = field(
+        default=-1.0,
+        metadata={"description": "Supervisor LLM top_p. <0 uses model default."},
+    )
+    supervisor_max_tokens: int = field(
+        default=0,
+        metadata={"description": "Supervisor LLM max_tokens. <=0 uses model default."},
+    )
+    supervisor_seed: int = field(
+        default=-1,
+        metadata={"description": "Supervisor LLM seed. <0 uses model default."},
+    )
+    planner_temperature: float = field(
+        default=-1.0,
+        metadata={"description": "Planner LLM temperature. <0 uses model default."},
+    )
+    planner_top_p: float = field(
+        default=-1.0,
+        metadata={"description": "Planner LLM top_p. <0 uses model default."},
+    )
+    planner_max_tokens: int = field(
+        default=0,
+        metadata={"description": "Planner LLM max_tokens. <=0 uses model default."},
+    )
+    planner_seed: int = field(
+        default=-1,
+        metadata={"description": "Planner LLM seed. <0 uses model default."},
+    )
+    executor_temperature: float = field(
+        default=-1.0,
+        metadata={"description": "Executor LLM temperature. <0 uses model default."},
+    )
+    executor_top_p: float = field(
+        default=-1.0,
+        metadata={"description": "Executor LLM top_p. <0 uses model default."},
+    )
+    executor_max_tokens: int = field(
+        default=0,
+        metadata={"description": "Executor LLM max_tokens. <=0 uses model default."},
+    )
+    executor_seed: int = field(
+        default=-1,
+        metadata={"description": "Executor LLM seed. <0 uses model default."},
     )
 
     max_search_results: int = field(
@@ -102,6 +168,19 @@ class Context:
         metadata={
             "description": "Whether to enable the DeepWiki MCP tool for accessing open source project documentation.",
             "json_schema_extra": {"langgraph_nodes": ["tools"]},
+        },
+    )
+    enable_filesystem_mcp: bool = field(
+        default=False,
+        metadata={
+            "description": "Whether to enable shared local filesystem tools (read-only) for workspace inspection.",
+            "json_schema_extra": {"langgraph_nodes": ["tools"]},
+        },
+    )
+    filesystem_mcp_root_dir: str = field(
+        default="workspace",
+        metadata={
+            "description": "Relative root directory exposed to shared local filesystem tools.",
         },
     )
     max_replan: int = field(
@@ -128,13 +207,13 @@ class Context:
 
     # V2-a: Observation / tool output governance
     max_observation_chars: int = field(
-        default=50_000,
+        default=6500,
         metadata={
             "description": "Max characters for a single tool observation injected into ReAct history.",
         },
     )
     observation_offload_threshold_chars: int = field(
-        default=50_000,
+        default=28000,
         metadata={
             "description": "When raw tool output exceeds this size, offload to disk (if enabled).",
         },
@@ -180,6 +259,26 @@ class Context:
         },
     )
 
+    # V3 foundation: parallel execution & fan-in controls
+    max_parallel_executors: int = field(
+        default=4,
+        metadata={
+            "description": "Upper bound for concurrent executors in V3 fan-out mode.",
+        },
+    )
+    fanin_summary_max_chars: int = field(
+        default=12_000,
+        metadata={
+            "description": "Max characters for merged fan-in summary returned to supervisor.",
+        },
+    )
+    planner_parallel_replan_mode: str = field(
+        default="single_replanner",
+        metadata={
+            "description": "Planner write strategy in parallel mode: single_replanner or queued_replanner.",
+        },
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os
@@ -222,3 +321,45 @@ class Context:
                         pass
                 else:
                     setattr(self, f.name, env_value)
+
+        # Deprecated: THINKING_VISIBILITY → supervisor_thinking_visibility when
+        # SUPERVISOR_THINKING_VISIBILITY is unset (same semantics as old name).
+        if os.environ.get("SUPERVISOR_THINKING_VISIBILITY") is None:
+            legacy_tv = os.environ.get("THINKING_VISIBILITY")
+            if legacy_tv is not None:
+                for f in fields(self):
+                    if f.name != "supervisor_thinking_visibility":
+                        continue
+                    if getattr(self, f.name) == f.default:
+                        setattr(self, f.name, legacy_tv.strip())
+                    break
+
+    def get_agent_llm_kwargs(self, agent: str) -> dict[str, Any]:
+        """Build per-agent model kwargs from context.
+
+        Args:
+            agent: One of "supervisor" | "planner" | "executor".
+        """
+        prefix = agent.strip().lower()
+        if prefix not in ("supervisor", "planner", "executor"):
+            return {}
+
+        kwargs: dict[str, Any] = {}
+        temperature = getattr(self, f"{prefix}_temperature", -1.0)
+        top_p = getattr(self, f"{prefix}_top_p", -1.0)
+        max_tokens = getattr(self, f"{prefix}_max_tokens", 0)
+        seed = getattr(self, f"{prefix}_seed", -1)
+
+        if isinstance(temperature, (int, float)) and temperature >= 0:
+            kwargs["temperature"] = float(temperature)
+        if isinstance(top_p, (int, float)) and top_p >= 0:
+            kwargs["top_p"] = float(top_p)
+        if isinstance(max_tokens, int) and max_tokens > 0:
+            kwargs["max_tokens"] = max_tokens
+        if isinstance(seed, int) and seed >= 0:
+            kwargs["seed"] = seed
+
+        # Best-effort reasoning toggle for OpenAI-compatible providers.
+        # Unsupported providers should ignore this field.
+        kwargs["extra_body"] = {"enable_thinking": bool(self.enable_implicit_thinking)}
+        return kwargs

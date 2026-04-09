@@ -25,7 +25,7 @@
 - [x] **基础 Executor 工具**：`write_file` + `run_local_command`
 - [x] **基础单元测试**：JSON 提取 / 失败标记 / State 解析
 
-**V1 校对记录（2025-04-02）**：按 [`ROADMAP_AUDIT_RULES.md`](ROADMAP_AUDIT_RULES.md) 核对；**三种模式**与 **SupervisorDecision** 主要由 `graph.py` 中 `_infer_supervisor_decision` 根据 `tool_calls` 推断，并由 `call_model` 内分支（如达最大重规划、Mode2→Mode3 升级）补充，非要求模型单独输出一段 JSON。**ExecutorResult / updated_plan_json** 中 `version` 依赖 Plan JSON 一致携带，Executor 未单独强制校验 `version` 字段必存在。与 `CLAUDE.md` 的细微偏差（如 `step_id` 类型示例、`plan_id` 格式归一化、Planner 失败时会话上下文）见 `ROADMAP_AUDIT_RULES.md` 第六节。
+**V1 校对记录（2025-04-02）**：三种模式与 `SupervisorDecision` 主要由 `graph.py` 中 `_infer_supervisor_decision` 根据 `tool_calls` 推断，并由 `call_model` 内分支（如达最大重规划、Mode2→Mode3 升级）补充，非要求模型单独输出一段 JSON。`ExecutorResult / updated_plan_json` 中 `version` 依赖 Plan JSON 一致携带，Executor 未单独强制校验 `version` 字段必存在。与 `CLAUDE.md` 的细微偏差（如 `step_id` 类型示例、`plan_id` 格式归一化、Planner 失败时会话上下文）已在代码实现中对齐并持续维护。
 
 **验收标准**：  
 给定一个多步骤任务，系统能完成"计划生成 → 工具执行 → 失败时重规划（最多 3 次）→ 最终答案"完整流程，无隐性崩溃，执行状态在 updated_plan_json 中完整可读。

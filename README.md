@@ -58,6 +58,17 @@ make test_unit    # 单元测试
 make test_all     # 全部测试
 ```
 
+### 5. Agent 默认工作区（简版）
+
+- Executor 的 `write_file` / `run_local_command` 默认在 `workspace` 内运行。
+- 首次执行本地命令时，会自动创建 `workspace/.venv` 并注入到命令环境。
+- 可通过环境变量覆盖：
+  - `AGENT_WORKSPACE_DIR`（默认 `workspace`）
+  - `AGENT_VENV_DIRNAME`（默认 `.venv`）
+- 若希望给 Planner / Executor 开启只读文件浏览能力，可启用：
+  - `ENABLE_FILESYSTEM_MCP=true`
+  - `FILESYSTEM_MCP_ROOT_DIR=workspace`
+
 ---
 
 ## 项目结构
@@ -86,8 +97,9 @@ make test_all     # 全部测试
 | Agent 框架 | LangGraph (StateGraph + ReAct) |
 | 语言 | Python 3.11+ |
 | 包管理 | uv |
-| Supervisor 模型 | Qwen (qwen-flash) |
-| Planner / Executor 模型 | DeepSeek-V3.2 (via SiliconFlow) |
+| Supervisor 模型 | Step-3.5-Flash (via SiliconFlow) |
+| Planner 模型 | GLM-5 (via SiliconFlow) |
+| Executor 模型 | Step-3.5-Flash (via SiliconFlow) |
 | 代码质量 | Ruff + MyPy |
 | 测试 | pytest + pytest-asyncio |
 | 可观测性 | LangSmith（可选） |
@@ -98,6 +110,6 @@ make test_all     # 全部测试
 
 | 版本 | 目标 | 状态 |
 |---|---|---|
-| V1 | 单线程闭环 MVP | 开发中 |
-| V2 | Executor Reflection + Snapshot 上报 | 计划中 |
-| V3 | 多 Executor 并行 + Memory 归档 | 计划中 |
+| V1 | 单线程闭环 MVP | 已完成 |
+| V2 | 运行时边界 + Planner 扩展 + Reflection/Snapshot 精简 | 已完成 |
+| V3 | 多 Executor 并行 + fan-in 融合 + 并行治理 | 规划中 |
