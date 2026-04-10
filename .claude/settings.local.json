@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "mcp__plugin_claude-mem_mcp-search__smart_outline",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "WebSearch",
+      "mcp__web-search-prime__web_search_prime",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(env)",
+      "Read(//c/Users/TL/.config/**)",
+      "Read(//c/Users/TL/AppData/Roaming/**)",
+      "Bash(ls:*)"
     ]
   }
 }
