@@ -402,13 +402,169 @@ def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
+# =============================================================================
+# V3+ 异步并发工具（仅在 enable_v3plus_async 启用时注册）
+# =============================================================================
+
+
+@tool
+async def call_executor_async(
+    state: Annotated[State, InjectedState],
+    runtime_context: Annotated[Context, InjectedContext],
+) -> str:
+    """非阻塞启动 Executor 执行（V3+ 异步模式）。
+
+    此工具仅在环境变量 ENABLE_V3PLUS_ASYNC=true 时可用。
+    Executor 在后台异步执行，立即返回 task_id，不阻塞 Supervisor。
+    Supervisor 可以继续处理用户输入，使用 get_executor_status 查询进度。
+
+    使用场景：
+    - 长时间运行的任务（需要数分钟以上）
+    - 需要与用户交互的同时监控执行进度
+    - 并发执行多个独立任务
+
+    Returns:
+        任务启动确认信息，包含 task_id
+    """
+    # 获取 plan_json
+    plan_json = state.get("plan_json")
+    if not plan_json:
+        return "错误：当前没有 plan_json，请先使用 call_planner 生成执行计划。"
+
+    try:
+        # 导入 ExecutorManager
+        from src.common.executor_manager import get_executor_manager
+
+        manager = get_executor_manager()
+
+        # 启动后台任务
+        task_id = await manager.start_executor(plan_json, runtime_context)
+
+        # 解析 plan_id 用于友好输出
+        try:
+            plan_data = json.loads(plan_json)
+            plan_id = plan_data.get("plan_id", "unknown")
+        except json.JSONDecodeError:
+            plan_id = "unknown"
+
+        return f"""✅ Executor 已启动（后台异步执行模式）
+
+**任务 ID**: {task_id}
+**计划 ID**: {plan_id}
+
+**后续操作**：
+- 使用 `get_executor_status` 工具查询执行进度
+- Executor 完成前，你可以继续下达其他指令
+- 完成后可使用 `get_executor_full_output` 查看详细结果
+
+**注意**：此模式下 Executor 在后台运行，不会阻塞 Supervisor。"""
+
+    except Exception as e:
+        logger.exception("Failed to start async executor")
+        return f"❌ 启动 Executor 失败：{type(e).__name__}: {str(e)}"
+
+
+@tool
+def get_executor_status(
+    task_id: str,
+) -> str:
+    """查询 Executor 后台任务的状态和进度。
+
+    此工具仅在环境变量 ENABLE_V3PLUS_ASYNC=true 时可用。
+    用于查询由 call_executor_async 启动的后台任务状态。
+
+    Args:
+        task_id: 后台任务 ID（由 call_executor_async 返回）
+
+    Returns:
+        当前状态、进度、结果（如果已完成）
+    """
+    from src.common.executor_manager import get_executor_manager
+
+    manager = get_executor_manager()
+    status_info = manager.get_task_status(task_id)
+
+    if "error" in status_info and status_info["error"].startswith("Task not found"):
+        return f"❌ {status_info['error']}"
+
+    # 格式化输出
+    status_emoji = {
+        "pending": "⏳",
+        "running": "▶️",
+        "completed": "✅",
+        "failed": "❌",
+        "cancelled": "⏹️",
+    }
+
+    emoji = status_emoji.get(status_info["status"], "❓")
+
+    output = f"""📊 **任务状态报告**
+
+{emoji} **任务 ID**: {status_info['task_id']}
+📋 **计划 ID**: {status_info['plan_id']}
+🔄 **状态**: {status_info['status']}
+✓ **完成**: {'是' if status_info['done'] else '否'}
+🕐 **创建时间**: {status_info['created_at']}
+🕒 **更新时间**: {status_info['updated_at']}"""
+
+    # 添加结果（仅完成时）
+    if status_info['status'] == 'completed' and status_info.get('result'):
+        result = status_info['result']
+        output += f"\n\n**执行结果**：\n{json.dumps(result, ensure_ascii=False, indent=2)}"
+
+    # 添加错误（仅失败时）
+    if status_info.get('error'):
+        output += f"\n\n**错误信息**：\n{status_info['error']}"
+
+    return output
+
+
+@tool
+def cancel_executor(
+    task_id: str,
+) -> str:
+    """取消正在运行的 Executor 后台任务。
+
+    此工具仅在环境变量 ENABLE_V3PLUS_ASYNC=true 时可用。
+    用于取消由 call_executor_async 启动的后台任务。
+
+    Args:
+        task_id: 要取消的任务 ID
+
+    Returns:
+        操作结果
+    """
+    from src.common.executor_manager import get_executor_manager
+
+    manager = get_executor_manager()
+    success = manager.cancel_task(task_id)
+
+    if success:
+        return f"✅ 任务 {task_id} 已取消"
+    else:
+        return f"⚠️ 无法取消任务 {task_id}（可能已完成或不存在）"
+
+
 async def get_tools(runtime_context: Context | None = None) -> List[Callable[..., Any]]:
     """主 ReAct 循环返回的工具集。"""
     if runtime_context is None:
         runtime_context = Context()
-    return [
+
+    # 基础工具集（始终可用）
+    tools = [
         _build_call_planner_tool(runtime_context),
         _build_call_executor_tool(runtime_context),
         _build_get_executor_full_output_tool(),
         web_search_tavily,
     ]
+
+    # V3+ 异步工具（仅在启用时注册）
+    if runtime_context.enable_v3plus_async:
+        tools.extend([
+            call_executor_async,
+            get_executor_status,
+            cancel_executor,
+        ])
+        logger.info("V3+ async tools registered")
+
+    return tools

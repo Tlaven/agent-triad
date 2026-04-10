@@ -159,3 +159,56 @@ def test_get_agent_llm_kwargs_skips_sentinel_defaults() -> None:
     ctx = Context()
     kwargs = ctx.get_agent_llm_kwargs("executor")
     assert kwargs.get("extra_body") == {"enable_thinking": True}
+
+
+# ---------------------------------------------------------------------------
+# V3+ enable_v3plus_async field
+# ---------------------------------------------------------------------------
+
+def test_context_default_enable_v3plus_async_is_false() -> None:
+    """测试 enable_v3plus_async 默认值为 False。"""
+    ctx = Context()
+    assert ctx.enable_v3plus_async is False
+
+
+def test_env_enables_v3plus_async_true(monkeypatch) -> None:
+    """测试环境变量 ENABLE_V3PLUS_ASYNC=true 启用功能。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "true")
+    ctx = Context()
+    assert ctx.enable_v3plus_async is True
+
+
+def test_env_enables_v3plus_async_numeric(monkeypatch) -> None:
+    """测试环境变量 ENABLE_V3PLUS_ASYNC=1 启用功能。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "1")
+    ctx = Context()
+    assert ctx.enable_v3plus_async is True
+
+
+def test_env_false_disables_v3plus_async(monkeypatch) -> None:
+    """测试环境变量 ENABLE_V3PLUS_ASYNC=false 禁用功能。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "false")
+    ctx = Context()
+    assert ctx.enable_v3plus_async is False
+
+
+def test_env_yes_enables_v3plus_async(monkeypatch) -> None:
+    """测试环境变量 ENABLE_V3PLUS_ASYNC=yes 启用功能。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "yes")
+    ctx = Context()
+    assert ctx.enable_v3plus_async is True
+
+
+def test_env_on_enables_v3plus_async(monkeypatch) -> None:
+    """测试环境变量 ENABLE_V3PLUS_ASYNC=on 启用功能。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "on")
+    ctx = Context()
+    assert ctx.enable_v3plus_async is True
+
+
+def test_explicit_non_default_v3plus_async_blocks_env(monkeypatch) -> None:
+    """测试显式设置非默认值会阻止环境变量覆盖。"""
+    monkeypatch.setenv("ENABLE_V3PLUS_ASYNC", "false")
+    ctx = Context(enable_v3plus_async=True)
+    # 显式设置 True != 默认 False，环境变量不应覆盖
+    assert ctx.enable_v3plus_async is True

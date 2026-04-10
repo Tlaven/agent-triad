@@ -279,6 +279,15 @@ class Context:
         },
     )
 
+    # V3+: Async concurrent execution mode (opt-in feature)
+    enable_v3plus_async: bool = field(
+        default=False,
+        metadata={
+            "description": "Enable V3+ async concurrent execution mode. When enabled, Executor runs in background with task management via call_executor_async. When disabled (default), uses synchronous call_executor. Set via environment variable ENABLE_V3PLUS_ASYNC.",
+            "json_schema_extra": {"langgraph_nodes": ["tools"]},
+        },
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os
