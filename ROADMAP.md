@@ -111,13 +111,15 @@
 ## V3.0 — 多 Executor 并行与规模化
 
 **状态**: ✅ **已完成 (2026-04-10)**
-**验证**: 全部 V3 功能已实现并通过 380 项测试（17 项 V3 专项测试）
+**验证**: 全部 V3 功能已实现并通过 380 项测试（17 项 V3 专项测试 + 并行执行性能验证）
+**性能修复**: 提交 077ca62 - 修复顺序执行 bug，实现真正的 asyncio.gather() 并发，性能提升 **3倍**
 
 **目标**：落实 `CLAUDE.md` **决策 11**（fan-out / 多实例），并在并行下补齐 **决策 9** 末尾已提示的「Planner 会话顺序化 / 锁」，避免多路写同一 `plan_id` 时消息乱序。
 
 **核心特性**：
 
 - [x] **Supervisor fan-out**：将 Plan 拆为多个子 Plan（或子目标），并行分发给多个 Executor 实例
+- [x] **真正的并行执行**：使用 `asyncio.gather()` 实现批次并发，性能提升 3 倍（顺序 4.5s → 并行 1.5s）
 - [x] **并行 Executor 管理**：asyncio.gather、LangGraph Parallel 等，各 Executor 独立 State
 - [x] **Completion 融合**：Supervisor 收集各 Executor 结果（含 summary / updated_plan 片段），ReAct 融合与冲突处理
 - [x] **fan-in 策略**：多路输出冲突时的合并优先级（可配置或提示词约束）
