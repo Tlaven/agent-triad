@@ -407,47 +407,47 @@ def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
 # =============================================================================
 
 
-@tool
-async def call_executor_async(
-    state: Annotated[State, InjectedState],
-    runtime_context: Annotated[Context, InjectedContext],
-) -> str:
-    """非阻塞启动 Executor 执行（V3+ 异步模式）。
+def _build_call_executor_async_tool(runtime_context: Context):
+    @tool
+    async def call_executor_async(
+        state: Annotated[State, InjectedState],
+    ) -> str:
+        """非阻塞启动 Executor 执行（V3+ 异步模式）。
 
-    此工具仅在环境变量 ENABLE_V3PLUS_ASYNC=true 时可用。
-    Executor 在后台异步执行，立即返回 task_id，不阻塞 Supervisor。
-    Supervisor 可以继续处理用户输入，使用 get_executor_status 查询进度。
+        此工具仅在环境变量 ENABLE_V3PLUS_ASYNC=true 时可用。
+        Executor 在后台异步执行，立即返回 task_id，不阻塞 Supervisor。
+        Supervisor 可以继续处理用户输入，使用 get_executor_status 查询进度。
 
-    使用场景：
-    - 长时间运行的任务（需要数分钟以上）
-    - 需要与用户交互的同时监控执行进度
-    - 并发执行多个独立任务
+        使用场景：
+        - 长时间运行的任务（需要数分钟以上）
+        - 需要与用户交互的同时监控执行进度
+        - 并发执行多个独立任务
 
-    Returns:
-        任务启动确认信息，包含 task_id
-    """
-    # 获取 plan_json
-    plan_json = state.get("plan_json")
-    if not plan_json:
-        return "错误：当前没有 plan_json，请先使用 call_planner 生成执行计划。"
+        Returns:
+            任务启动确认信息，包含 task_id
+        """
+        # 获取 plan_json
+        plan_json = state.get("plan_json")
+        if not plan_json:
+            return "错误：当前没有 plan_json，请先使用 call_planner 生成执行计划。"
 
-    try:
-        # 导入 ExecutorManager
-        from src.common.executor_manager import get_executor_manager
-
-        manager = get_executor_manager()
-
-        # 启动后台任务
-        task_id = await manager.start_executor(plan_json, runtime_context)
-
-        # 解析 plan_id 用于友好输出
         try:
-            plan_data = json.loads(plan_json)
-            plan_id = plan_data.get("plan_id", "unknown")
-        except json.JSONDecodeError:
-            plan_id = "unknown"
+            # 导入 ExecutorManager
+            from src.common.executor_manager import get_executor_manager
 
-        return f"""✅ Executor 已启动（后台异步执行模式）
+            manager = get_executor_manager()
+
+            # 启动后台任务
+            task_id = await manager.start_executor(plan_json, runtime_context)
+
+            # 解析 plan_id 用于友好输出
+            try:
+                plan_data = json.loads(plan_json)
+                plan_id = plan_data.get("plan_id", "unknown")
+            except json.JSONDecodeError:
+                plan_id = "unknown"
+
+            return f"""✅ Executor 已启动（后台异步执行模式）
 
 **任务 ID**: {task_id}
 **计划 ID**: {plan_id}
@@ -459,9 +459,11 @@ async def call_executor_async(
 
 **注意**：此模式下 Executor 在后台运行，不会阻塞 Supervisor。"""
 
-    except Exception as e:
-        logger.exception("Failed to start async executor")
-        return f"❌ 启动 Executor 失败：{type(e).__name__}: {str(e)}"
+        except Exception as e:
+            logger.exception("Failed to start async executor")
+            return f"❌ 启动 Executor 失败：{type(e).__name__}: {str(e)}"
+
+    return call_executor_async
 
 
 @tool
@@ -561,7 +563,7 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
     # V3+ 异步工具（仅在启用时注册）
     if runtime_context.enable_v3plus_async:
         tools.extend([
-            call_executor_async,
+            _build_call_executor_async_tool(runtime_context),
             get_executor_status,
             cancel_executor,
         ])

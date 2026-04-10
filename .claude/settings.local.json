@@ -10,7 +10,10 @@
       "Bash(env)",
       "Read(//c/Users/TL/.config/**)",
       "Read(//c/Users/TL/AppData/Roaming/**)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(.venv/Scripts/pytest:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(git add:*)"
     ]
   }
 }
