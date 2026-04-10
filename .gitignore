@@ -7,6 +7,7 @@ __pycache__/
 .venv/
 venv/
 ENV/
+workspace/
 
 # 构建与元数据
 *.egg-info/
