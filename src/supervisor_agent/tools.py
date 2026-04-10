@@ -257,8 +257,8 @@ def _build_call_executor_tool(runtime_context: Context):
                     len(batches),
                 )
 
-                # 为每个批次创建子计划并执行
-                batch_results = []
+                # 为每个批次创建子计划
+                batch_tasks = []
                 for batch in batches:
                     # 创建仅包含当前批次步骤的子计划
                     batch_steps = [
@@ -266,12 +266,15 @@ def _build_call_executor_tool(runtime_context: Context):
                     ]
                     batch_plan_json = serialize_plan_with_steps(plan_obj, batch_steps)
 
-                    # 并行执行批次
-                    batch_result = await run_executor(
+                    # 创建并发任务（不等待执行）
+                    task = run_executor(
                         batch_plan_json,
                         context=runtime_context,
                     )
-                    batch_results.append(batch_result)
+                    batch_tasks.append(task)
+
+                # 真正的并行执行：使用 asyncio.gather() 并发运行所有批次
+                batch_results = await asyncio.gather(*batch_tasks)
 
                 # 合并结果
                 all_summaries = [br.summary for br in batch_results]
