@@ -98,7 +98,7 @@ async def call_model(
         runtime.context.supervisor_model,
         **runtime.context.get_agent_llm_kwargs("supervisor"),
     ).bind_tools(available_tools)
-    system_message = get_supervisor_system_prompt()
+    system_message = get_supervisor_system_prompt(runtime.context)
     response = cast(
         AIMessage,
         await invoke_chat_model(

@@ -13,7 +13,18 @@
       "Bash(ls:*)",
       "Bash(.venv/Scripts/pytest:*)",
       "Bash(.venv/Scripts/python:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(make dev:*)",
+      "Bash(tasklist)",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\" /V)",
+      "Bash(taskkill /F /PID 23944)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 14200\" /V)",
+      "Bash(wmic process:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 14200 -Force\")",
+      "Bash(curl -s http://127.0.0.1:2024/docs)",
+      "Bash(curl -s http://127.0.0.1:2024/assistants)"
     ]
   }
 }
