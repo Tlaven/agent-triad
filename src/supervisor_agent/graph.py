@@ -424,21 +424,25 @@ def _build_executor_full_output(
     updated_plan_json: str | None,
     snapshot_json: str | None,
 ) -> str:
-    """构建 Supervisor 可按需查阅的完整执行详情（含步骤级结果）。"""
+    """构建 Supervisor 可按需查阅的完整执行详情（JSON 格式）。"""
     import json as _json
 
-    parts: list[str] = []
-    parts.append(f"## Executor 执行详情\n\n状态：{status or '未知'}")
-    if error_detail:
-        parts.append(f"错误详情：{error_detail}")
-    parts.append(f"\n### 执行摘要\n\n{summary_text}")
+    # 构建结构化的 JSON 对象
+    output_data: dict[str, Any] = {
+        "status": status or "未知",
+        "summary": summary_text,
+    }
 
+    if error_detail:
+        output_data["error_detail"] = error_detail
+
+    # 解析步骤级别的执行结果
     if updated_plan_json:
         try:
             plan = _json.loads(updated_plan_json)
             steps = plan.get("steps", []) if isinstance(plan, dict) else []
             if steps:
-                parts.append("\n### 步骤级执行结果\n")
+                step_results = []
                 for s in steps:
                     if not isinstance(s, dict):
                         continue
@@ -447,19 +451,31 @@ def _build_executor_full_output(
                     st = s.get("status", "unknown")
                     rs = s.get("result_summary") or ""
                     fr = s.get("failure_reason") or ""
-                    line = f"- **{sid}** [{st}] {intent}"
+
+                    step_info: dict[str, Any] = {
+                        "step_id": sid,
+                        "intent": intent,
+                        "status": st,
+                    }
                     if rs:
-                        line += f"\n  结果：{rs}"
+                        step_info["result_summary"] = rs
                     if fr:
-                        line += f"\n  失败原因：{fr}"
-                    parts.append(line)
+                        step_info["failure_reason"] = fr
+
+                    step_results.append(step_info)
+
+                output_data["steps"] = step_results
         except _json.JSONDecodeError:
-            parts.append(f"\n### 原始 updated_plan_json\n\n{updated_plan_json}")
+            output_data["raw_updated_plan"] = updated_plan_json
 
     if snapshot_json:
-        parts.append(f"\n### Checkpoint 快照\n\n{snapshot_json}")
+        try:
+            output_data["snapshot"] = _json.loads(snapshot_json)
+        except _json.JSONDecodeError:
+            output_data["raw_snapshot"] = snapshot_json
 
-    return "\n".join(parts)
+    # 返回 JSON 字符串
+    return _json.dumps(output_data, ensure_ascii=False, indent=2)
 
 
 def _build_executor_feedback_for_llm(
