@@ -19,7 +19,6 @@ from src.supervisor_agent.parallel import (
     serialize_plan_with_steps,
 )
 from src.supervisor_agent.state import PlannerSession, State
-from src.tools.web_search import web_search_tavily
 
 logger = logging.getLogger(__name__)
 
@@ -557,7 +556,6 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
         _build_call_planner_tool(runtime_context),
         _build_call_executor_tool(runtime_context),
         _build_get_executor_full_output_tool(),
-        web_search_tavily,
     ]
 
     # V3+ 异步工具（仅在启用时注册）

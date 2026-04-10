@@ -24,7 +24,10 @@
       "Bash(wmic process:*)",
       "Bash(powershell -Command \"Stop-Process -Id 14200 -Force\")",
       "Bash(curl -s http://127.0.0.1:2024/docs)",
-      "Bash(curl -s http://127.0.0.1:2024/assistants)"
+      "Bash(curl -s http://127.0.0.1:2024/assistants)",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs -I {} python -c \"import os; os.system\\('taskkill /F /PID {}'\\)\")",
+      "Bash(iconv -f GBK -t UTF-8 .env)"
     ]
   }
 }

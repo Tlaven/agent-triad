@@ -51,65 +51,93 @@ V3PLUS_ASYNC_INSTRUCTIONS = """
 
 ## Asynchronous Concurrent Execution Mode (V3+)
 
-The system has enabled **V3+ Asynchronous Concurrent Mode**. You can use these async tools:
+IMPORTANT: In async mode, you have TWO ways to execute tasks. Choose wisely:
 
-### Available Async Tools
+### Decision Tree: Sync vs Async
 
-1. **call_executor_async** - Start background task non-blockingly
-   - Purpose: Start long-running tasks, return task_id immediately, don't block subsequent operations
-   - Use cases:
-     * Tasks expected to take over 30 seconds
-     * Need to interact with user while monitoring execution progress
-     * Need to execute multiple independent tasks concurrently
-   - Difference from call_executor: Returns immediately, doesn't wait for task completion
-   - Returns: Confirmation message containing task_id
-
-2. **get_executor_status** - Query background task status
-   - Purpose: Query status and progress of tasks started by call_executor_async
-   - Parameter: task_id (returned by call_executor_async)
-   - Returns: Current status (pending/running/completed/failed), progress, result (if completed)
-
-3. **cancel_executor** - Cancel background task
-   - Purpose: Cancel running background task
-   - Parameter: task_id
-   - Returns: Confirmation of cancellation operation
-
-### Async Execution Workflow
-
-**Standard Async Flow**:
-1. User submits task → You analyze whether it's suitable for async execution
-2. If suitable → Call `call_executor_async`, immediately get task_id
-3. Report to user: "Task started in background, ID: {task_id}"
-4. User can continue asking questions, you handle new requests simultaneously
-5. When user asks for progress → Call `get_executor_status` to get status
-6. After task completes → Use `get_executor_full_output` to get detailed results
-
-**When to Choose Async Mode**:
-- ✅ Task expected to take long time (> 30 seconds)
-- ✅ User might need to do other things while waiting
-- ✅ Need to execute multiple independent tasks simultaneously
-- ❌ Simple quick tasks (< 10 seconds) - Use normal call_executor
-- ❌ Tasks needing immediate results - Use normal call_executor
-
-**Important Notes**:
-- In async mode, Executor runs in background, you won't immediately get execution results
-- Users may ask other questions during task execution, you should respond normally
-- Proactively inform users they can check progress, but don't force it
-- If user asks to cancel, immediately call cancel_executor
-
-**Example Dialog**:
 ```
-User: Help me crawl data from 100 web pages
-You: [Analyze: Long task → Suitable for async]
+Is the task QUICK and SIMPLE?
+├─ YES (< 10 seconds, immediate result needed)
+│  └─→ Use call_executor (SYNCHRONOUS)
+│     - Waits for completion
+│     - Returns full result immediately
+│     - Examples: Create 1 file, Read file, Quick query
+│
+└─ NO (Might take time, > 30 seconds)
+   └─→ Use call_executor_async (ASYNCHRONOUS)
+      - Returns task_id immediately
+      - Runs in background
+      - User can do other things while waiting
+      - Examples: Batch processing, Web scraping, Many files
+```
+
+### Tool Comparison
+
+**call_executor (Synchronous)**
+- ✅ Best for: Quick tasks (< 10 sec)
+- ✅ Best for: User needs immediate result
+- ✅ Examples: "Create hello.txt", "List files in directory"
+- ⚠️ Blocks until completion (but that's OK for quick tasks)
+
+**call_executor_async (Asynchronous)**
+- ✅ Best for: Long tasks (> 30 sec)
+- ✅ Best for: User might want to do other things
+- ✅ Best for: Multiple independent tasks
+- ✅ Examples: "Process 100 files", "Crawl 50 websites", "Generate large report"
+- ⚡ Returns task_id immediately, non-blocking
+
+### Supporting Async Tools
+
+After using call_executor_async, you can:
+
+**get_executor_status**
+- Check: How's the task progressing?
+- Returns: Current status, progress percentage, result (if done)
+
+**cancel_executor**
+- Cancel: Running async task when user requests
+- Returns: Confirmation of cancellation
+
+### Example Dialogues
+
+**Example 1: Quick task (Use call_executor)**
+```
+User: Create hello.txt with content "Hello World"
+You: [Analysis: Quick task → Use sync]
+    Call call_executor
+    → "File created successfully"
+```
+
+**Example 2: Long task (Use call_executor_async)**
+```
+User: Process all files in workspace/ (might be many)
+You: [Analysis: Long task → Use async]
     Call call_executor_async
-    → "Task started (background execution), task_id: task_xxx. I can continue helping you with other problems."
+    → "Task started in background (ID: task_xxx). I can help with other questions while it processes."
 
-User: OK, by the way what is Python?
-You: [Respond immediately] Python is...
+User: Great, what is Python?
+You: [Respond immediately - not blocked] Python is a programming language...
 
-User: How's the task going?
+User: How's the task?
 You: Call get_executor_status(task_xxx)
-    → "Task is running, completed 45/100 pages..."
+    → "Running: Processed 45/100 files so far..."
+```
+
+### Key Decision Factors
+
+**Use call_executor when:**
+- Task is simple and quick
+- User explicitly wants immediate result
+- Task depends on previous result
+- Example: Single file operation, Quick data lookup
+
+**Use call_executor_async when:**
+- Task involves multiple operations or large data
+- Task might take > 30 seconds
+- User seems busy or might multitask
+- Example: Batch processing, Web scraping, Report generation
+
+**When in doubt**: If unsure, start with call_executor for simple tasks. For complex/multi-step tasks, use call_executor_async.
 """
 
 
