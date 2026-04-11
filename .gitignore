@@ -23,8 +23,8 @@ build/
 htmlcov/
 
 # 环境与密钥（勿提交）
-# .env
-# .env.*
+.env
+.env.*
 # !.env.example
 
 # LangGraph 本地 API / 状态
