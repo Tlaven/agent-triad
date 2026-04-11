@@ -108,15 +108,72 @@
 
 ---
 
-## 里程碑时间线（参考）
+## V3.0 — 进程分离并行执行
+
+**状态**: ✅ **已完成 (2026-04-11)**
+**验证**: 409 项测试全部通过（含 V1/V2 回归 + 78 项 V3 新增）
+**Commit**: `d0c54d2`
+
+### 架构概览
 
 ```
-[V1] 单线程闭环 MVP
-[V2] 运行时边界（V2-a）→ Planner 工具（V2-b）→ Reflection/Snapshot 精简（V2-c）
+Process A (Supervisor+Planner)          Process B (Executor)
+├── Supervisor ReAct Graph              ├── FastAPI Server (port 8100)
+├── Callback Server (port 8101)         │   ├── POST /execute
+├── Mailbox (in-memory)                 │   ├── GET /status/{plan_id}
+└── ProcessManager (spawn/stop B)       │   ├── POST /stop/{plan_id}
+                                        │   └── GET /health
 ```
 
-> 推荐在 V2 内按 **a → b → c** 顺序交付：先可运维、再增强 Planner、最后加执行中检查点。
-> 若资源有限，可**先发布 V2-a 单独小版本**，再合入 b/c。
-> 每个版本发布前须通过对应的验收标准测试。
->
-> 实施备注（2026-04）：V2-a/V2-b/V2-c 已完成代码落地并通过 unit + integration 测试；`REFLECTION_INTERVAL` 默认值为 `0`（关闭），按需配置为正整数即可开启周期性 Reflection。
+### 核心特性
+
+- [x] **进程分离**：Executor 独立子进程（FastAPI），Supervisor 通过 HTTP 通信
+- [x] **异步派发**：`call_executor_async` POST /execute 后立即返回
+- [x] **邮箱快照**：Executor 每 N tool_rounds 上报轻量快照到 Supervisor Mailbox
+- [x] **完成回调**：Executor 完成后 POST /callback/completed（必读）
+- [x] **软中断**：`stop_executor` 设置 asyncio.Event → Executor 优雅退出
+- [x] **V2 向后兼容**：`enable_v3_parallel=False`（默认）时行为完全不变
+- [x] **统一返回格式**：V3 `wait_for_executor` 返回与 V2 `call_executor` 相同的 `[EXECUTOR_RESULT]` 格式
+
+### 新增模块
+
+| 文件 | 职责 |
+|------|------|
+| `src/common/executor_protocol.py` | 跨进程通信数据模型 |
+| `src/common/mailbox.py` | 内存邮箱（asyncio.Lock 线程安全） |
+| `src/common/process_manager.py` | Executor 子进程生命周期管理 |
+| `src/executor_agent/server.py` | Executor FastAPI 服务 |
+| `src/executor_agent/__main__.py` | Executor 进程入口 |
+| `src/supervisor_agent/callback_server.py` | Supervisor 回调接收端 |
+
+### 配置项
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `ENABLE_V3_PARALLEL` | `false` | 启用 V3 进程分离模式 |
+| `EXECUTOR_HOST` | `localhost` | Executor 服务地址 |
+| `EXECUTOR_PORT` | `8100` | Executor 服务端口 |
+| `SUPERVISOR_CALLBACK_PORT` | `8101` | Supervisor 回调端口 |
+| `SNAPSHOT_INTERVAL` | `0` | 快照上报间隔（0=关闭） |
+
+### V3 测试覆盖
+
+| 类别 | 文件 | 测试数 |
+|------|------|--------|
+| 协议序列化 | `test_executor_protocol.py` | 多项 |
+| 邮箱操作 | `test_mailbox.py` | 多项 |
+| 进程管理 | `test_process_manager.py` | 多项 |
+| 回调服务 | `test_callback_server.py` | 多项 |
+| Executor 服务 | `test_executor_server.py` | 多项 |
+| V3 生命周期 | `test_v3_lifecycle.py` | 多项 |
+
+---
+
+## 里程碑时间线
+
+```
+[V1] 单线程闭环 MVP                    ✅ 完成
+[V2] V2-a → V2-b → V2-c              ✅ 完成 (331 tests)
+[V3] 进程分离并行执行                  ✅ 完成 (409 tests)
+[V4] 待定义
+```
