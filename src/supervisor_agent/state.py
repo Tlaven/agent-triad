@@ -46,16 +46,6 @@ class SupervisorDecision:
     confidence: float
 
 
-@dataclass
-class ExecutorRef:
-    """一条 Executor 的引用"""
-    executor_session_id: str
-    planner_session_id: str              # 这个 Executor 使用的 Planner 会话
-    plan_json: str                       # 启动时拿到的计划
-    status: str = "running"              # running / paused / completed / failed
-    experiment_name: str = ""            # 可选：人类可读的名字，如 "resnet50_bs32"
-    started_at: str = ""                 # ISO 时间
-    # 后续可加 metrics_summary, checkpoint_path 等
 
 @dataclass
 class State(InputState):
@@ -67,7 +57,6 @@ class State(InputState):
     planner_session: PlannerSession | None = None
     supervisor_decision: SupervisorDecision | None = None
     replan_count: int = 0
-    executors: dict[str, ExecutorRef] = field(default_factory=dict)
     is_last_step: IsLastStep = field(default=False)
 
     # Additional attributes can be added here as needed.

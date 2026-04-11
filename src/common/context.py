@@ -259,26 +259,6 @@ class Context:
         },
     )
 
-    # V3 foundation: parallel execution & fan-in controls
-    max_parallel_executors: int = field(
-        default=4,
-        metadata={
-            "description": "Upper bound for concurrent executors in V3 fan-out mode.",
-        },
-    )
-    fanin_summary_max_chars: int = field(
-        default=12_000,
-        metadata={
-            "description": "Max characters for merged fan-in summary returned to supervisor.",
-        },
-    )
-    planner_parallel_replan_mode: str = field(
-        default="single_replanner",
-        metadata={
-            "description": "Planner write strategy in parallel mode: single_replanner or queued_replanner.",
-        },
-    )
-
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os

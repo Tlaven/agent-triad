@@ -18,7 +18,6 @@ _PLANNER_SYSTEM_PROMPT_TEMPLATE = """你是 Planner Agent，只负责"规划"，
 - 每一步只描述意图（做什么）和验收结果（如何判定完成）。
 - 优先最小步骤集：覆盖目标即可，避免过度拆分。
 - `plan_id` 与 `version` 是系统托管字段：你不负责制订，若输出中出现它们也会被系统覆盖。
-- 可选并行字段仅用于表达依赖，不是执行指令：`depends_on`（依赖 step_id 列表）、`parallel_group`（并行分组标签）。
 
 ## Executor 能力边界（仅供你估算可执行性）
 
@@ -44,8 +43,6 @@ _PLANNER_SYSTEM_PROMPT_TEMPLATE = """你是 Planner Agent，只负责"规划"，
       "step_id": "step_1",
       "intent": "该步骤要达成的目标（不含工具名）",
       "expected_output": "可验证的完成标准",
-      "depends_on": [],
-      "parallel_group": "group_1",
       "status": "pending",
       "result_summary": null,
       "failure_reason": null

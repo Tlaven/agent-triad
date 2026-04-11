@@ -94,7 +94,7 @@ class TestV2MCPWithReflection:
     def test_planner_readonly_tools_with_reflection_context(self):
         """Test that Planner readonly tools work alongside reflection configuration."""
         ctx = Context(
-            observation_workspace_dir="test_workspace",
+            observation_workspace_dir="workspace",
             reflection_interval=3,
             confidence_threshold=0.6,
         )
@@ -297,7 +297,7 @@ class TestV2FullIntegrationScenarios:
         """Test that V2 features don't interfere with each other."""
         # Enable all V2 features
         ctx = Context(
-            observation_workspace_dir="test_workspace",
+            observation_workspace_dir="workspace",
             reflection_interval=2,
             confidence_threshold=0.6,
             max_observation_chars=6500,
