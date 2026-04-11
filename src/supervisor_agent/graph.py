@@ -3,6 +3,7 @@
 Works with a chat model with tool calling support.
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -233,7 +234,7 @@ async def dynamic_tools_node(
             )
             logger.info("PlannerSession 已更新（call_planner），session_id=%s", session_id)
 
-        elif tool_name == "call_executor":
+        elif tool_name in ("call_executor", "wait_for_executor"):
             updated_plan = _extract_updated_plan_from_executor(content)
             exec_status, exec_error = _extract_executor_status(content)
             exec_summary = _extract_executor_summary(content)
@@ -488,7 +489,7 @@ def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
         return SupervisorDecision(mode=1, reason="无需工具即可回答", confidence=0.85)
     if "call_planner" in tool_names:
         return SupervisorDecision(mode=3, reason="检测到多步规划需求，先规划后执行", confidence=0.8)
-    if "call_executor" in tool_names:
+    if "call_executor" in tool_names or "call_executor_async" in tool_names:
         return SupervisorDecision(mode=2, reason="目标明确，直接工具执行", confidence=0.75)
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
 
@@ -533,3 +534,58 @@ builder.add_conditional_edges("call_model", route_model_output)
 builder.add_edge("tools", "call_model")
 
 graph = builder.compile(name="ReAct Agent")
+
+
+# ==================== V3 Lifecycle Helpers ====================
+
+async def _start_v3_infrastructure(ctx: Context) -> tuple | None:
+    """Start Executor process and callback server for V3 mode.
+
+    Returns (process_manager, callback_server_task) or None if V3 disabled.
+    """
+    if not ctx.enable_v3_parallel:
+        return None
+
+    import uvicorn
+    from src.common.mailbox import Mailbox
+    from src.common.process_manager import ExecutorProcessManager
+    from src.supervisor_agent.callback_server import callback_app, set_mailbox
+
+    # Initialize shared mailbox
+    mailbox = Mailbox()
+    set_mailbox(mailbox)
+
+    # Start callback server in background
+    config = uvicorn.Config(
+        callback_app,
+        host="0.0.0.0",
+        port=ctx.supervisor_callback_port,
+        log_level="warning",
+    )
+    callback_server = uvicorn.Server(config)
+    callback_task = asyncio.create_task(callback_server.serve(), name="callback_server")
+
+    # Start Executor process
+    pm = ExecutorProcessManager(ctx)
+    await pm.start()
+
+    logger.info("V3 infrastructure started: Executor PID on port %d, callback on port %d",
+                ctx.executor_port, ctx.supervisor_callback_port)
+
+    return (pm, callback_task, callback_server)
+
+
+async def _stop_v3_infrastructure(infra: tuple | None) -> None:
+    """Stop V3 infrastructure gracefully."""
+    if infra is None:
+        return
+
+    pm, callback_task, callback_server = infra
+    await pm.stop()
+    callback_server.should_exit = True
+    try:
+        await asyncio.wait_for(callback_task, timeout=5.0)
+    except asyncio.TimeoutError:
+        callback_task.cancel()
+
+    logger.info("V3 infrastructure stopped")

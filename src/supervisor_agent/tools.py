@@ -285,6 +285,179 @@ def _build_call_executor_tool(runtime_context: Context):
     return call_executor
 
 
+# ==================== V3: Async Executor Tools ====================
+
+
+def _build_call_executor_async_tool(runtime_context: Context):
+    @tool
+    async def call_executor_async(
+        state: Annotated[State, InjectedState],
+        task_description: str = "",
+        plan_id: str | None = None,
+    ) -> str:
+        """异步派发 Executor 执行任务。立即返回，不阻塞。
+
+        参数约定与 call_executor 相同：
+        - 仅传 ``task_description``（Mode 2）
+        - 仅传 ``plan_id``（Mode 3）
+        """
+        td = (task_description or "").strip()
+        pid = _normalize_plan_id_arg(plan_id)
+
+        if td and pid:
+            return "错误：call_executor_async 不能同时传 task_description 和 plan_id。"
+
+        if pid is not None:
+            if state.planner_session is None or not (state.planner_session.plan_json or "").strip():
+                return "错误：已指定 plan_id，但当前没有可执行的计划。请先调用 call_planner。"
+            try:
+                plan_obj = json.loads(state.planner_session.plan_json or "")
+            except json.JSONDecodeError:
+                return "错误：当前 session 中的 plan_json 无法解析为 JSON。"
+            current_id = plan_obj.get("plan_id")
+            if current_id != pid:
+                return f"错误：plan_id 不匹配。当前计划中的 plan_id 为 {current_id!r}，收到 {pid!r}。"
+            plan_json = state.planner_session.plan_json or ""
+        else:
+            if not td:
+                return "错误：Mode2 需提供非空 task_description；Mode3 需提供 plan_id。"
+            mode2_plan = {
+                "plan_id": f"plan_{uuid.uuid4().hex[:8]}",
+                "version": 1,
+                "goal": td,
+                "steps": [
+                    {
+                        "step_id": "step_1",
+                        "intent": td,
+                        "expected_output": "完成任务并给出结果",
+                        "status": "pending",
+                        "result_summary": None,
+                        "failure_reason": None,
+                    }
+                ],
+            }
+            plan_json = json.dumps(mode2_plan, ensure_ascii=False, indent=2)
+            pid = mode2_plan["plan_id"]
+
+        executor_session_id = f"exec_{uuid.uuid4().hex[:8]}"
+        callback_url = f"http://localhost:{runtime_context.supervisor_callback_port}"
+
+        # POST to Executor server
+        import httpx
+
+        base_url = f"http://{runtime_context.executor_host}:{runtime_context.executor_port}"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{base_url}/execute",
+                    json={
+                        "plan_json": plan_json,
+                        "plan_id": pid or executor_session_id,
+                        "executor_session_id": executor_session_id,
+                        "callback_url": callback_url,
+                        "config": {
+                            "snapshot_interval": runtime_context.snapshot_interval,
+                        },
+                    },
+                )
+                if resp.status_code == 409:
+                    return f"错误：Executor 已在执行 plan_id={pid}。请先等待完成或停止。"
+                if resp.status_code != 200:
+                    return f"错误：Executor 服务返回 {resp.status_code}：{resp.text}"
+                data = resp.json()
+        except httpx.ConnectError:
+            return "错误：无法连接到 Executor 服务。请确认 Executor 进程已启动。"
+
+        actual_plan_id = pid or data.get("plan_id", "")
+        logger.info(
+            "Executor 异步派发成功，plan_id=%s，executor_session_id=%s",
+            actual_plan_id,
+            executor_session_id,
+        )
+
+        return json.dumps({
+            "dispatched": True,
+            "plan_id": actual_plan_id,
+            "executor_session_id": executor_session_id,
+            "message": "Executor 已派发。请使用 wait_for_executor 等待结果，或使用 get_executor_status 查看进度。",
+        }, ensure_ascii=False)
+
+    return call_executor_async
+
+
+def _build_wait_for_executor_tool(runtime_context: Context):
+    @tool
+    async def wait_for_executor(
+        state: Annotated[State, InjectedState],
+        plan_id: str,
+    ) -> str:
+        """等待异步 Executor 完成，返回执行结果。
+
+        会阻塞直到 Executor 完成或超时。返回格式与 call_executor 一致。
+        """
+        from src.supervisor_agent.callback_server import get_mailbox
+
+        try:
+            mb = get_mailbox()
+        except RuntimeError:
+            return "错误：回调邮箱未初始化。请确认 V3 模式已启用。"
+
+        # Wait for completion (default 5 minutes)
+        result_item = await mb.wait_for_completion(plan_id, timeout=300.0, poll_interval=1.0)
+        if result_item is None:
+            return f"[EXECUTOR_RESULT] {json.dumps({'status': 'failed', 'error_detail': '等待超时', 'updated_plan_json': '', 'snapshot_json': ''}, ensure_ascii=False)}"
+
+        payload = result_item.payload
+        status = payload.get("status", "failed")
+        summary = payload.get("summary", "")
+        updated_plan_json = payload.get("updated_plan_json", "")
+        snapshot_json = payload.get("snapshot_json", "")
+
+        # Same format as call_executor for dynamic_tools_node parsing
+        meta = {
+            "status": status,
+            "error_detail": None,
+            "updated_plan_json": updated_plan_json,
+            "snapshot_json": snapshot_json,
+        }
+        meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+
+        return f"{summary}\n\n{meta_line}"
+
+    return wait_for_executor
+
+
+def _build_stop_executor_tool(runtime_context: Context):
+    @tool
+    async def stop_executor(
+        state: Annotated[State, InjectedState],
+        plan_id: str,
+        reason: str = "",
+    ) -> str:
+        """请求 Executor 优雅停止执行指定计划。
+
+        发送软中断信号，Executor 会在下一次 LLM 调用前检查并退出。
+        """
+        import httpx
+
+        base_url = f"http://{runtime_context.executor_host}:{runtime_context.executor_port}"
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    f"{base_url}/stop/{plan_id}",
+                    json={"reason": reason},
+                )
+                if resp.status_code == 404:
+                    return f"plan_id={plan_id} 未找到（可能已完成或不存在）。"
+                if resp.status_code != 200:
+                    return f"停止请求失败：{resp.status_code} {resp.text}"
+                return f"已发送停止信号给 plan_id={plan_id}。Executor 将在下次循环中优雅退出。"
+        except httpx.ConnectError:
+            return "错误：无法连接到 Executor 服务。"
+
+    return stop_executor
+
+
 def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
     """将 plan_json 中 pending/running 步骤标记为 failed，并写入 failure_reason。"""
     if not plan_json or not plan_json.strip():
@@ -307,8 +480,19 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
     """主 ReAct 循环返回的工具集。"""
     if runtime_context is None:
         runtime_context = Context()
-    return [
+
+    tools = [
         _build_call_planner_tool(runtime_context),
-        _build_call_executor_tool(runtime_context),
         _build_get_executor_full_output_tool(),
     ]
+
+    if runtime_context.enable_v3_parallel:
+        tools.extend([
+            _build_call_executor_async_tool(runtime_context),
+            _build_wait_for_executor_tool(runtime_context),
+            _build_stop_executor_tool(runtime_context),
+        ])
+    else:
+        tools.append(_build_call_executor_tool(runtime_context))
+
+    return tools

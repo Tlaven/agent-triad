@@ -68,7 +68,33 @@ async def _load_executor_tools(ctx: Context) -> list[object]:
 # ==================== 节点 ====================
 
 async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
-    """Executor 核心节点：ReAct 循环的 LLM 调用"""
+    """Executor 核心节点：ReAct 循环的 LLM 调用。
+
+    V3: Checks stop flag before each LLM call. If set, returns
+    a no-tool_calls AIMessage to route to __end__ gracefully.
+    """
+    # V3: Stop flag check
+    plan_id = _extract_plan_id_from_messages(state.messages)
+    if plan_id:
+        try:
+            from src.executor_agent.server import _stop_events
+            stop_event = _stop_events.get(plan_id)
+            if stop_event and stop_event.is_set():
+                logger.info("Stop flag detected for plan_id=%s, exiting gracefully", plan_id)
+                return {
+                    "messages": [
+                        AIMessage(
+                            content=json.dumps({
+                                "status": "failed",
+                                "summary": "Executor stopped by Supervisor",
+                                "updated_plan": {},
+                            })
+                        )
+                    ]
+                }
+        except ImportError:
+            pass  # Not running in server mode (V2 path)
+
     available_tools = await _load_executor_tools(runtime.context)
     capabilities = get_executor_capabilities_docs()
     executor_system_prompt = get_executor_system_prompt(capabilities)
@@ -102,7 +128,10 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
 
 
 async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
-    """执行工具调用，并对 Observation 做 V2-a 规范化。"""
+    """执行工具调用，并对 Observation 做 V2-a 规范化。
+
+    V3: After tool execution, emit lightweight snapshot if interval is hit.
+    """
     ctx = runtime.context
     available_tools = await _load_executor_tools(ctx)
     tool_node = ToolNode(available_tools)
@@ -116,6 +145,24 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
             out.append(m.model_copy(update={"content": text}))
         else:
             out.append(m)
+
+    # V3: Snapshot emission (fire-and-forget)
+    new_rounds = state.tool_rounds + 1
+    snapshot_callback = getattr(ctx, "_snapshot_callback", None)
+    snapshot_interval = getattr(ctx, "snapshot_interval", 0)
+    if (
+        snapshot_callback is not None
+        and snapshot_interval > 0
+        and new_rounds > 0
+        and new_rounds % snapshot_interval == 0
+    ):
+        try:
+            from src.executor_agent.server import _extract_lightweight_snapshot
+            payload = await _extract_lightweight_snapshot(state, new_rounds)
+            asyncio.create_task(snapshot_callback(payload))
+        except Exception:
+            logger.debug("Snapshot emission failed (non-critical)", exc_info=True)
+
     return {"messages": out, "tool_rounds": 1}
 
 
@@ -181,6 +228,20 @@ executor_graph = builder.compile(name="Executor Agent")
 
 
 # ==================== 辅助函数：解析最终输出 ====================
+
+def _extract_plan_id_from_messages(messages: list[BaseMessage]) -> str:
+    """Extract plan_id from the first HumanMessage containing plan JSON."""
+    for msg in messages:
+        if not isinstance(msg, HumanMessage):
+            continue
+        content = msg.content if isinstance(msg.content, str) else ""
+        try:
+            data = json.loads(content)
+            if isinstance(data, dict) and "plan_id" in data:
+                return str(data["plan_id"])
+        except (json.JSONDecodeError, AttributeError):
+            continue
+    return ""
 
 def _normalize_executor_status_token(s: str) -> Literal["completed", "failed", "paused"] | None:
     """Map a single status token (no composite placeholders)."""

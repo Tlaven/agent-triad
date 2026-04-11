@@ -259,6 +259,45 @@ class Context:
         },
     )
 
+    # V3: Process-separated parallel execution (all gated by enable_v3_parallel)
+    enable_v3_parallel: bool = field(
+        default=False,
+        metadata={
+            "description": "Enable V3 process-separated parallel execution. "
+            "When True, Executor runs in a separate process with HTTP communication.",
+        },
+    )
+    executor_host: str = field(
+        default="localhost",
+        metadata={
+            "description": "Hostname for the Executor server (Process B).",
+        },
+    )
+    executor_port: int = field(
+        default=8100,
+        metadata={
+            "description": "Port for the Executor server (Process B).",
+        },
+    )
+    supervisor_callback_port: int = field(
+        default=8101,
+        metadata={
+            "description": "Port for the Supervisor callback server (Process A).",
+        },
+    )
+    snapshot_interval: int = field(
+        default=0,
+        metadata={
+            "description": "Emit lightweight snapshot every N tool rounds in Executor (0 disables).",
+        },
+    )
+    executor_startup_timeout: float = field(
+        default=30.0,
+        metadata={
+            "description": "Seconds to wait for Executor process /health to respond.",
+        },
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os

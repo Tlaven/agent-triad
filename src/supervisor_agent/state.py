@@ -48,6 +48,14 @@ class SupervisorDecision:
 
 
 @dataclass
+class ActiveExecutorTask:
+    """Tracks a dispatched V3 async executor task."""
+    plan_id: str
+    plan_json: str
+    status: str = "dispatched"  # dispatched / running / completed / failed / stopped
+
+
+@dataclass
 class State(InputState):
     """表示智能体的完整状态，在InputState的基础上扩展了其他属性。
 
@@ -58,9 +66,5 @@ class State(InputState):
     supervisor_decision: SupervisorDecision | None = None
     replan_count: int = 0
     is_last_step: IsLastStep = field(default=False)
-
-    # Additional attributes can be added here as needed.
-    # Common examples include:
-    # retrieved_documents: List[Document] = field(default_factory=list)
-    # extracted_entities: Dict[str, Any] = field(default_factory=dict)
-    # api_connections: Dict[str, Any] = field(default_factory=dict)
+    # V3: active async executor tasks keyed by plan_id
+    active_executor_tasks: dict[str, ActiveExecutorTask] = field(default_factory=dict)
