@@ -426,9 +426,10 @@ def _build_call_executor_async_tool(runtime_context: Context):
             任务启动确认信息，包含 task_id
         """
         # 获取 plan_json
-        plan_json = state.plan_json
-        if not plan_json:
+        if state.planner_session is None or not state.planner_session.plan_json:
             return "错误：当前没有 plan_json，请先使用 call_planner 生成执行计划。"
+
+        plan_json = state.planner_session.plan_json
 
         try:
             # 导入 ExecutorManager
