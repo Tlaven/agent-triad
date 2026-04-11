@@ -80,7 +80,6 @@ filterwarnings = [
 [dependency-groups]
 dev = [
     "langgraph-cli[inmem]>=0.1.71",
-    # 与 langgraph-cli[inmem] 配套；0.5.x 已 EOL，锁定 0.7 以消除 dev 服务器版本告警
     "langgraph-api>=0.7.0,<0.8.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=0.23.0",
