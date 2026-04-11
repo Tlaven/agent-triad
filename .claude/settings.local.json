@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_claude-mem_mcp-search__smart_outline",
+      "Bash(rm -f src/supervisor_agent/parallel.py)",
+      "Bash(rm -f tests/unit_tests/supervisor_agent/test_parallel_foundation.py)",
+      "Bash(rm -f docs/v3-architecture-exploration.md)",
+      "Bash(rm -f tests/unit_tests/__pycache__/test_v3_true_parallel.cpython-311-pytest-9.0.2.pyc tests/unit_tests/__pycache__/test_v3_parallel_fix.cpython-311-pytest-9.0.2.pyc)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/unit_tests/ tests/integration/ --tb=short -q)",
+      "Bash(pip show:*)",
+      "Bash(pip list:*)",
+      "Bash(uv run:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

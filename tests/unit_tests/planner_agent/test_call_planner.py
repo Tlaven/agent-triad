@@ -4,7 +4,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from src.common.context import Context
 from src.planner_agent.graph import call_planner
@@ -40,7 +40,6 @@ def _make_plan_content(goal: str = "train a model") -> str:
 
 async def test_call_planner_returns_ai_message_with_plan() -> None:
     state = PlannerState(messages=[
-        SystemMessage(content="you are planner"),
         HumanMessage(content="train a classifier"),
     ])
     runtime = _make_runtime()
@@ -66,7 +65,6 @@ async def test_call_planner_returns_ai_message_with_plan() -> None:
 
 async def test_call_planner_empty_content_raises_runtime_error() -> None:
     state = PlannerState(messages=[
-        SystemMessage(content="system"),
         HumanMessage(content="task"),
     ])
     runtime = _make_runtime()
@@ -87,7 +85,6 @@ async def test_call_planner_empty_content_raises_runtime_error() -> None:
 async def test_call_planner_passes_full_history_including_tool_calls() -> None:
     """V2-b：Planner ReAct 需要保留 tool_calls 轮次，供下一轮模型理解 Observation。"""
     state = PlannerState(messages=[
-        SystemMessage(content="system"),
         HumanMessage(content="human task"),
         AIMessage(content="assistant text"),
         AIMessage(
@@ -117,7 +114,6 @@ async def test_call_planner_passes_full_history_including_tool_calls() -> None:
 
 async def test_call_planner_passes_planner_llm_kwargs() -> None:
     state = PlannerState(messages=[
-        SystemMessage(content="system"),
         HumanMessage(content="task"),
     ])
     runtime = _make_runtime(

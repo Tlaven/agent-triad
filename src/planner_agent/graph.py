@@ -19,7 +19,6 @@ from langchain_core.messages import (
     AIMessage,
     BaseMessage,
     HumanMessage,
-    SystemMessage,
     ToolMessage,
 )
 from langgraph.graph import END, START, StateGraph
@@ -44,10 +43,11 @@ def build_planner_messages(
     replan_plan_json: str | None,
     planner_history_messages: list[dict[str, str]] | None = None,
 ) -> list[BaseMessage]:
-    """组装 Planner LLM 输入：首条为完整系统提示词，第二条为 task_core，重规划时第三条为 plan JSON。"""
-    capabilities = get_executor_capabilities_docs()
-    system_text = get_planner_system_prompt(capabilities)
-    messages: list[BaseMessage] = [SystemMessage(content=system_text)]
+    """组装 Planner LLM 输入：历史对话 + task_core + 重规划 plan JSON。
+
+    系统提示词由 call_planner 节点动态注入，不在此处拼接。
+    """
+    messages: list[BaseMessage] = []
     for msg in planner_history_messages or []:
         role = (msg.get("role") or "").strip().lower()
         content = (msg.get("content") or "").strip()
@@ -98,6 +98,8 @@ async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[s
     """Planner 核心节点：ReAct 循环；最终应产出无 tool_calls 的 Plan JSON 文本。"""
     ctx = replace(runtime.context, readonly_tools_only=True)
     tools = await _load_planner_tools(ctx)
+    capabilities = get_executor_capabilities_docs()
+    system_text = get_planner_system_prompt(capabilities)
     model = load_chat_model(
         ctx.planner_model,
         **ctx.get_agent_llm_kwargs("planner"),
@@ -105,7 +107,7 @@ async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[s
 
     response = await invoke_chat_model(
         model,
-        state.messages,
+        [{"role": "system", "content": system_text}, *state.messages],
         enable_streaming=ctx.enable_llm_streaming,
     )
     if not isinstance(response, AIMessage):
