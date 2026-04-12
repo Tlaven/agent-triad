@@ -1,6 +1,6 @@
 # V3 Architecture — Mermaid Flowcharts
 
-> 用 Mermaid 可视化 V3 进程分离并行架构。与 `lucky-brewing-clover.md` 方案对齐。
+> 用 Mermaid 可视化 V3 进程分离并行架构。工具名以实际代码为准。
 
 ---
 
@@ -70,8 +70,8 @@ sequenceDiagram
     PL-->>DT: plan JSON
     DT-->>SM: plan ready
 
-    SM->>SM: LLM 决定调用 call_executor_async
-    SM->>DT: tool_call: call_executor_async(plan_id)
+    SM->>SM: LLM 决定调用 call_executor
+    SM->>DT: tool_call: call_executor(plan_id)
     DT->>ES: POST /execute {plan_json, plan_id, callback_url}
 
     Note over ES: 创建 asyncio.Task
@@ -86,8 +86,8 @@ sequenceDiagram
         Note over MB: 快照进入邮箱<br/>Supervisor 按需查看
     end
 
-    SM->>SM: LLM 决定 wait_for_executor
-    SM->>DT: tool_call: wait_for_executor(plan_id)
+    SM->>SM: LLM 决定 get_executor_result
+    SM->>DT: tool_call: get_executor_result(plan_id)
 
     loop 轮询邮箱
         DT->>MB: 检查 completion
@@ -157,7 +157,7 @@ sequenceDiagram
     EG->>ES: run_executor 返回 ExecutorResult
     ES->>SM: POST /callback/completed {status: failed, summary, ...}
 
-    Note over SM: Supervisor 在 wait_for_executor 中收到结果
+    Note over SM: Supervisor 在 get_executor_result 中收到结果
 ```
 
 ---
@@ -178,7 +178,7 @@ flowchart LR
     end
 
     subgraph Supervisor Process
-        WFE[wait_for_executor<br/>polls has_completion]
+        WFE[get_executor_result<br/>polls has_completion]
         GES["GET /status/{plan_id}<br/>quick overview"]
         GMS["GET /mailbox/{plan_id}<br/>full snapshots"]
     end
@@ -202,7 +202,7 @@ flowchart LR
 
 **关键区分**：
 - **蓝色** (snapshot) = 邮箱信息，Supervisor 按需查看
-- **红色** (completion) = 必读，`wait_for_executor` 阻塞直到收到
+- **红色** (completion) = 必读，`get_executor_result` 阻塞直到收到
 
 ---
 
@@ -210,8 +210,8 @@ flowchart LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Spawning: Supervisor Graph 初始化<br/>(enable_v3_parallel=true)
-    Spawning --> Starting: subprocess.Popen<br/>python -m src.executor_agent.server
+    [*] --> Spawning: call_model 首次调用<br/>且 enable_v3_parallel=true<br/>(lazy singleton)
+    Spawning --> Starting: subprocess.Popen<br/>python -m src.executor_agent
     Starting --> Ready: GET /health → 200<br/>(轮询直到成功或超时)
     Starting --> Failed: 超时<br/>executor_startup_timeout
     Failed --> Spawning: 重试（可选）
@@ -251,7 +251,7 @@ flowchart LR
         V3_ES -->|asyncio.Task| V3_EG[Executor Graph]
         V3_EG -->|"callback/snapshot"| V3_MB[Mailbox]
         V3_EG -->|"callback/completed"| V3_MB
-        V3_SM -->|"wait_for_executor<br/>poll mailbox"| V3_MB
+        V3_SM -->|"get_executor_result<br/>poll mailbox"| V3_MB
     end
 
     style V2 fill:#f0f0f0,stroke:#666
@@ -260,7 +260,8 @@ flowchart LR
 
 **核心区别**：
 - V2: `call_executor` **阻塞**等 Executor 完成
-- V3: `call_executor_async` **立即返回**，`wait_for_executor` **按需**等待
+- V3: `call_executor` **立即返回**，`get_executor_result` **按需**等待
+- V3 可用 `check_executor_progress` 查看实时快照进度
 - V3 快照在 ReAct 循环中 **异步上报**，不中断执行
 - V3 软中断通过 **asyncio.Event** 实现，Executor **优雅退出**
 
@@ -272,19 +273,19 @@ flowchart LR
 flowchart TD
     A[Supervisor call_model] --> B{LLM 分析任务}
     B -->|Mode 1| C[Direct Response]
-    B -->|Mode 2| D[call_executor_async<br/>task_description]
-    B -->|Mode 3| E[call_planner → call_executor_async<br/>plan_id]
+    B -->|Mode 2| D[call_executor<br/>task_description]
+    B -->|Mode 3| E[call_planner → call_executor<br/>plan_id]
 
-    D --> F[wait_for_executor<br/>poll until done]
+    D --> F[get_executor_result<br/>poll until done]
     E --> F
 
     F --> G{结果?}
     G -->|completed| H[合成最终答案]
-    G -->|failed + 可重规划| I[call_planner → call_executor_async]
+    G -->|failed + 可重规划| I[call_planner → call_executor]
     G -->|failed + 超过 MAX_REPLAN| J[返回失败分析]
 
     subgraph Optional["可选：并行监控"]
-        K[GET /status<br/>查看进度]
+        K[check_executor_progress<br/>查看实时快照]
         L[stop_executor<br/>软中断]
     end
 
@@ -319,7 +320,7 @@ flowchart TD
         H --> I[Mailbox]
         I --> J{item type}
         J -->|snapshot| K["邮箱 (read=false)<br/>Supervisor 按需查看"]
-        J -->|completion| L["必读 (flag)<br/>wait_for_executor 阻塞等待"]
+        J -->|completion| L["必读 (flag)<br/>get_executor_result 阻塞等待"]
         K --> M["GET /mailbox/{plan_id}<br/>快速查看最新快照"]
         L --> N["[EXECUTOR_RESULT]<br/>dynamic_tools_node 解析"]
         N --> O[更新 PlannerSession<br/>replan_count 等状态]

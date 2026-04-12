@@ -6,6 +6,7 @@ Works with a chat model with tool calling support.
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import Dict, List, Literal, cast
 
@@ -18,6 +19,7 @@ from src.common.context import Context
 from src.common.utils import extract_reasoning_text, invoke_chat_model, load_chat_model
 from src.supervisor_agent.prompts import get_supervisor_system_prompt
 from src.supervisor_agent.state import (
+    ActiveExecutorTask,
     InputState,
     PlannerSession,
     State,
@@ -34,6 +36,15 @@ async def call_model(
     """调用 LLM 支持 Agent。
     负责准备提示、初始化模型并处理响应。
     """
+    # V3: Lazy-start Executor subprocess + callback server on first invocation
+    if runtime.context.enable_v3_parallel:
+        from src.supervisor_agent.v3_lifecycle import v3_manager
+
+        try:
+            await v3_manager.ensure_started(runtime.context)
+        except Exception as e:
+            logger.error("Failed to start V3 infrastructure: %s", e)
+
     # 达到最大重规划次数后，停止工具循环，直接给出失败说明。
     if (
         state.planner_session is not None
@@ -99,7 +110,7 @@ async def call_model(
         runtime.context.supervisor_model,
         **runtime.context.get_agent_llm_kwargs("supervisor"),
     ).bind_tools(available_tools)
-    system_message = get_supervisor_system_prompt()
+    system_message = get_supervisor_system_prompt(runtime.context)
     response = cast(
         AIMessage,
         await invoke_chat_model(
@@ -234,69 +245,65 @@ async def dynamic_tools_node(
             )
             logger.info("PlannerSession 已更新（call_planner），session_id=%s", session_id)
 
-        elif tool_name in ("call_executor", "wait_for_executor"):
-            updated_plan = _extract_updated_plan_from_executor(content)
-            exec_status, exec_error = _extract_executor_status(content)
-            exec_summary = _extract_executor_summary(content)
-            snapshot_json = _extract_snapshot_json(content)
-            full_output = _build_executor_full_output(
-                exec_summary, exec_status, exec_error, updated_plan, snapshot_json
-            )
-            public_feedback = _build_executor_feedback_for_llm(content, exec_status, exec_error)
-            sanitized_tool_messages.append(tm.model_copy(update={"content": public_feedback}))
-            next_replan_count = state.replan_count
-            if exec_status == "failed":
-                next_replan_count = state.replan_count + 1
-            elif exec_status == "completed":
-                next_replan_count = 0
-            elif exec_status == "paused":
-                next_replan_count = state.replan_count
-            if state.planner_session is not None:
-                session_id = state.planner_session.session_id
-                next_plan_json = updated_plan if updated_plan else state.planner_session.plan_json
+        elif tool_name == "call_executor":
+            if "[EXECUTOR_RESULT]" in content:
+                # V2 完成 或 V3 派发失败 → 完整状态更新
+                updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+            elif "[EXECUTOR_DISPATCH]" in content:
+                # V3 派发成功 → 存储 ActiveExecutorTask，透传消息
+                sanitized_tool_messages.append(tm)
+                dispatched_pid = _extract_dispatched_plan_id(content)
+                if dispatched_pid:
+                    plan_json_for_task = ""
+                    if state.planner_session and state.planner_session.plan_json:
+                        try:
+                            plan_obj = json.loads(state.planner_session.plan_json)
+                            if plan_obj.get("plan_id") == dispatched_pid:
+                                plan_json_for_task = state.planner_session.plan_json
+                        except json.JSONDecodeError:
+                            pass
+                    new_tasks = dict(state.active_executor_tasks)
+                    new_tasks[dispatched_pid] = ActiveExecutorTask(
+                        plan_id=dispatched_pid,
+                        plan_json=plan_json_for_task,
+                        status="dispatched",
+                    )
+                    updates["active_executor_tasks"] = new_tasks
+                    logger.info("V3 dispatch recorded, plan_id=%s", dispatched_pid)
             else:
-                session_id = f"plan_{uuid.uuid4().hex[:8]}"
-                next_plan_json = updated_plan
-
-            existing_history = (
-                dict(state.planner_session.planner_history_by_plan_id)
-                if state.planner_session is not None
-                else {}
-            )
-            existing_last_version = (
-                dict(state.planner_session.planner_last_version_by_plan_id)
-                if state.planner_session is not None
-                else {}
-            )
-            existing_last_output = (
-                dict(state.planner_session.planner_last_output_by_plan_id)
-                if state.planner_session is not None
-                else {}
-            )
-            existing_archive = (
-                dict(state.planner_session.plan_archive_by_plan_id)
-                if state.planner_session is not None
-                else {}
-            )
-            updates["planner_session"] = PlannerSession(
-                session_id=session_id,
-                plan_json=next_plan_json,
-                last_executor_status=exec_status,
-                last_executor_error=exec_error,
-                last_executor_summary=exec_summary,
-                last_executor_full_output=full_output,
-                planner_history_by_plan_id=existing_history,
-                planner_last_version_by_plan_id=existing_last_version,
-                planner_last_output_by_plan_id=existing_last_output,
-                plan_archive_by_plan_id=existing_archive,
-            )
-            logger.info(
-                "PlannerSession 已更新（call_executor 回填），session_id=%s，status=%s，replan_count=%s",
-                session_id,
-                exec_status,
-                next_replan_count,
-            )
-            updates["replan_count"] = next_replan_count
+                sanitized_tool_messages.append(tm)
+        elif tool_name == "get_executor_result":
+            # V3 结果获取 → 与 V2 call_executor 完成处理一致
+            updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+            # 更新 ActiveExecutorTask 状态，并清理已终态的任务
+            meta_plan_id = _extract_plan_id_from_meta(content)
+            if meta_plan_id and meta_plan_id in state.active_executor_tasks:
+                exec_status, _ = _extract_executor_status(content)
+                new_tasks = dict(state.active_executor_tasks)
+                if exec_status in ("completed", "failed", "stopped"):
+                    # G6: 已终态 → 从追踪字典中移除
+                    del new_tasks[meta_plan_id]
+                else:
+                    new_tasks[meta_plan_id] = ActiveExecutorTask(
+                        plan_id=meta_plan_id,
+                        plan_json=new_tasks[meta_plan_id].plan_json,
+                        status=exec_status or "unknown",
+                    )
+                updates["active_executor_tasks"] = new_tasks
+        elif tool_name == "check_executor_progress":
+            # V3 进度查看 → 如果发现任务在运行，升级 dispatched → running
+            sanitized_tool_messages.append(tm)
+            if "任务运行中" in content:
+                for pid, task in state.active_executor_tasks.items():
+                    if task.status == "dispatched":
+                        if "active_executor_tasks" not in updates:
+                            updates["active_executor_tasks"] = dict(state.active_executor_tasks)
+                        updates["active_executor_tasks"][pid] = ActiveExecutorTask(
+                            plan_id=pid,
+                            plan_json=task.plan_json,
+                            status="running",
+                        )
+                        break
         else:
             sanitized_tool_messages.append(tm)
 
@@ -400,6 +407,113 @@ def _extract_executor_summary(content: str) -> str:
     return content.split(marker, 1)[0].strip() if marker in content else content.strip()
 
 
+def _extract_dispatched_plan_id(content: str) -> str | None:
+    """从 [EXECUTOR_DISPATCH] 标记中提取 plan_id。"""
+    match = re.search(r'\[EXECUTOR_DISPATCH\]\s*(\{.*?\})', content, re.DOTALL)
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(1))
+        return data.get("plan_id")
+    except json.JSONDecodeError:
+        return None
+
+
+def _extract_plan_id_from_meta(content: str) -> str | None:
+    """从 [EXECUTOR_RESULT] meta JSON 中提取 plan_id（V3 get_executor_result 返回）。"""
+    match = re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, re.DOTALL)
+    if not match:
+        return None
+    try:
+        meta = json.loads(match.group(1))
+        return meta.get("plan_id")
+    except json.JSONDecodeError:
+        return None
+
+
+def _process_executor_completion(
+    state: State,
+    content: str,
+    tm: ToolMessage,
+    sanitized_tool_messages: List[ToolMessage],
+) -> Dict:
+    """处理 Executor 完成结果（V2 call_executor 完成 / V3 get_executor_result）。
+
+    返回 updates dict 供 dynamic_tools_node 合并。
+    """
+    updated_plan = _extract_updated_plan_from_executor(content)
+    exec_status, exec_error = _extract_executor_status(content)
+    exec_summary = _extract_executor_summary(content)
+    snapshot_json = _extract_snapshot_json(content)
+    full_output = _build_executor_full_output(
+        exec_summary, exec_status, exec_error, updated_plan, snapshot_json
+    )
+    public_feedback = _build_executor_feedback_for_llm(content, exec_status, exec_error)
+    sanitized_tool_messages.append(tm.model_copy(update={"content": public_feedback}))
+    return _build_executor_updates(state, updated_plan, exec_status, exec_error, exec_summary, full_output)
+
+
+def _build_executor_updates(
+    state: State,
+    updated_plan: str | None,
+    exec_status: str | None,
+    exec_error: str | None,
+    exec_summary: str,
+    full_output: str,
+) -> Dict:
+    """从 Executor 完成结果构建 state updates dict。"""
+    next_replan_count = state.replan_count
+    if exec_status == "failed":
+        next_replan_count = state.replan_count + 1
+    elif exec_status == "completed":
+        next_replan_count = 0
+    elif exec_status == "paused":
+        next_replan_count = state.replan_count
+
+    if state.planner_session is not None:
+        session_id = state.planner_session.session_id
+        next_plan_json = updated_plan if updated_plan else state.planner_session.plan_json
+    else:
+        session_id = f"plan_{uuid.uuid4().hex[:8]}"
+        next_plan_json = updated_plan
+
+    existing_history = (
+        dict(state.planner_session.planner_history_by_plan_id)
+        if state.planner_session is not None
+        else {}
+    )
+    existing_last_version = (
+        dict(state.planner_session.planner_last_version_by_plan_id)
+        if state.planner_session is not None
+        else {}
+    )
+    existing_last_output = (
+        dict(state.planner_session.planner_last_output_by_plan_id)
+        if state.planner_session is not None
+        else {}
+    )
+    existing_archive = (
+        dict(state.planner_session.plan_archive_by_plan_id)
+        if state.planner_session is not None
+        else {}
+    )
+    return {
+        "planner_session": PlannerSession(
+            session_id=session_id,
+            plan_json=next_plan_json,
+            last_executor_status=exec_status,
+            last_executor_error=exec_error,
+            last_executor_summary=exec_summary,
+            last_executor_full_output=full_output,
+            planner_history_by_plan_id=existing_history,
+            planner_last_version_by_plan_id=existing_last_version,
+            planner_last_output_by_plan_id=existing_last_output,
+            plan_archive_by_plan_id=existing_archive,
+        ),
+        "replan_count": next_replan_count,
+    }
+
+
 def _needs_mode3_upgrade(summary: str | None, error_detail: str | None) -> bool:
     """基于失败语义信号判断是否应从 Mode2 升级到 Mode3。"""
     text = f"{summary or ''}\n{error_detail or ''}".lower()
@@ -489,7 +603,7 @@ def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
         return SupervisorDecision(mode=1, reason="无需工具即可回答", confidence=0.85)
     if "call_planner" in tool_names:
         return SupervisorDecision(mode=3, reason="检测到多步规划需求，先规划后执行", confidence=0.8)
-    if "call_executor" in tool_names or "call_executor_async" in tool_names:
+    if "call_executor" in tool_names or "get_executor_result" in tool_names:
         return SupervisorDecision(mode=2, reason="目标明确，直接工具执行", confidence=0.75)
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
 
@@ -534,58 +648,3 @@ builder.add_conditional_edges("call_model", route_model_output)
 builder.add_edge("tools", "call_model")
 
 graph = builder.compile(name="ReAct Agent")
-
-
-# ==================== V3 Lifecycle Helpers ====================
-
-async def _start_v3_infrastructure(ctx: Context) -> tuple | None:
-    """Start Executor process and callback server for V3 mode.
-
-    Returns (process_manager, callback_server_task) or None if V3 disabled.
-    """
-    if not ctx.enable_v3_parallel:
-        return None
-
-    import uvicorn
-    from src.common.mailbox import Mailbox
-    from src.common.process_manager import ExecutorProcessManager
-    from src.supervisor_agent.callback_server import callback_app, set_mailbox
-
-    # Initialize shared mailbox
-    mailbox = Mailbox()
-    set_mailbox(mailbox)
-
-    # Start callback server in background
-    config = uvicorn.Config(
-        callback_app,
-        host="0.0.0.0",
-        port=ctx.supervisor_callback_port,
-        log_level="warning",
-    )
-    callback_server = uvicorn.Server(config)
-    callback_task = asyncio.create_task(callback_server.serve(), name="callback_server")
-
-    # Start Executor process
-    pm = ExecutorProcessManager(ctx)
-    await pm.start()
-
-    logger.info("V3 infrastructure started: Executor PID on port %d, callback on port %d",
-                ctx.executor_port, ctx.supervisor_callback_port)
-
-    return (pm, callback_task, callback_server)
-
-
-async def _stop_v3_infrastructure(infra: tuple | None) -> None:
-    """Stop V3 infrastructure gracefully."""
-    if infra is None:
-        return
-
-    pm, callback_task, callback_server = infra
-    await pm.stop()
-    callback_server.should_exit = True
-    try:
-        await asyncio.wait_for(callback_task, timeout=5.0)
-    except asyncio.TimeoutError:
-        callback_task.cancel()
-
-    logger.info("V3 infrastructure stopped")

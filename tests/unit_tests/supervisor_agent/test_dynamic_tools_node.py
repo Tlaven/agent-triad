@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.common.context import Context
 from src.supervisor_agent.graph import dynamic_tools_node
-from src.supervisor_agent.state import PlannerSession, State
+from src.supervisor_agent.state import ActiveExecutorTask, PlannerSession, State
 
 
 def _make_runtime(context: Context | None = None) -> MagicMock:
@@ -216,3 +216,81 @@ async def test_unknown_tool_passthrough() -> None:
 
     assert result["messages"][0].content == "raw result from other tool"
     assert "planner_session" not in result
+
+
+# ---------------------------------------------------------------------------
+# V3 fire-and-forget: call_executor dispatch detection
+# ---------------------------------------------------------------------------
+
+async def test_call_executor_v3_dispatch_stores_active_task() -> None:
+    """V3 dispatch (no [EXECUTOR_RESULT]) stores ActiveExecutorTask."""
+    dispatch_content = (
+        'Executor 已异步派发，plan_id=plan_dispatch_001，状态：accepted。\n'
+        '使用 get_executor_result(plan_id="plan_dispatch_001") 查询执行结果。\n\n'
+        '[EXECUTOR_DISPATCH] {"plan_id": "plan_dispatch_001", "status": "accepted"}'
+    )
+    plan_json = json.dumps({
+        "plan_id": "plan_dispatch_001", "version": 1, "goal": "g", "steps": [],
+    })
+    state = _make_state_with_tool_call(
+        "call_executor", {"plan_id": "plan_dispatch_001"},
+        call_id="call_dispatch1",
+        planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
+    )
+    tm = ToolMessage(content=dispatch_content, tool_call_id="call_dispatch1")
+
+    with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
+        result = await dynamic_tools_node(state, _make_runtime())
+
+    # ActiveExecutorTask stored
+    assert "active_executor_tasks" in result
+    assert "plan_dispatch_001" in result["active_executor_tasks"]
+    assert result["active_executor_tasks"]["plan_dispatch_001"].status == "dispatched"
+    # Message passed through (not sanitized)
+    assert "[EXECUTOR_DISPATCH]" in result["messages"][0].content
+    # planner_session NOT updated (no completion)
+    assert "planner_session" not in result
+
+
+async def test_get_executor_result_completed_updates_session(
+    sample_executor_result_completed,
+) -> None:
+    """get_executor_result processes completion same as V2 call_executor."""
+    plan_json = json.dumps({
+        "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
+    })
+    state = _make_state_with_tool_call(
+        "get_executor_result", {"plan_id": "plan_test0001"},
+        call_id="call_result1",
+        planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
+        replan_count=2,
+    )
+    tm = ToolMessage(content=sample_executor_result_completed, tool_call_id="call_result1")
+
+    with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
+        result = await dynamic_tools_node(state, _make_runtime())
+
+    assert result["planner_session"].last_executor_status == "completed"
+    assert result["replan_count"] == 0
+
+
+async def test_get_executor_result_failed_increments_replan_count(
+    sample_executor_result_failed,
+) -> None:
+    """get_executor_result with failed result increments replan_count."""
+    plan_json = json.dumps({
+        "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
+    })
+    state = _make_state_with_tool_call(
+        "get_executor_result", {"plan_id": "plan_test0001"},
+        call_id="call_result2",
+        planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
+        replan_count=0,
+    )
+    tm = ToolMessage(content=sample_executor_result_failed, tool_call_id="call_result2")
+
+    with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
+        result = await dynamic_tools_node(state, _make_runtime())
+
+    assert result["planner_session"].last_executor_status == "failed"
+    assert result["replan_count"] == 1

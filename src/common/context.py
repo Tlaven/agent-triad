@@ -261,7 +261,7 @@ class Context:
 
     # V3: Process-separated parallel execution (all gated by enable_v3_parallel)
     enable_v3_parallel: bool = field(
-        default=False,
+        default=True,
         metadata={
             "description": "Enable V3 process-separated parallel execution. "
             "When True, Executor runs in a separate process with HTTP communication.",
@@ -289,6 +289,13 @@ class Context:
         default=0,
         metadata={
             "description": "Emit lightweight snapshot every N tool rounds in Executor (0 disables).",
+        },
+    )
+    _snapshot_callback: Any = field(
+        default=None,
+        repr=False,
+        metadata={
+            "description": "Internal: snapshot callback wired by Executor server. Not user-configurable.",
         },
     )
     executor_startup_timeout: float = field(

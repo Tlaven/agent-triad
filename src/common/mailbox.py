@@ -1,7 +1,7 @@
 """V3: In-memory mailbox for async cross-process communication.
 
 Executor posts snapshots (fire-and-forget) and completion (must-read).
-Supervisor reads via tools: wait_for_executor polls completion, get_executor_status reads latest snapshot.
+Supervisor reads via the unified call_executor tool, which internally calls wait_for_completion.
 
 Thread-safe via asyncio.Lock. One mailbox instance per Supervisor process, keyed by plan_id.
 """

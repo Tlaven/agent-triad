@@ -109,13 +109,18 @@ async def _run_executor_task(
     _callback_base_url_local = callback_url
 
     async def snapshot_callback(payload: SnapshotPayload) -> None:
-        """Fire-and-forget snapshot POST."""
+        """Fire-and-forget snapshot POST + update live status."""
         data = asdict(payload)
+        # Update live status fields
+        status = _statuses.get(plan_id)
+        if status is not None:
+            status.tool_rounds = payload.tool_rounds
+            status.current_step = payload.current_step
         await _send_callback("/callback/snapshot", data)
 
     # Wire snapshot callback into context
     ctx_v3 = ctx
-    ctx_v3._snapshot_callback = snapshot_callback  # type: ignore[attr-defined]
+    ctx_v3._snapshot_callback = snapshot_callback
     ctx_v3.snapshot_interval = snapshot_interval
 
     stop_event = _stop_events.get(plan_id)
