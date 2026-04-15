@@ -22,6 +22,11 @@ from src.common.utils import invoke_chat_model, load_chat_model
 
 from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
 from src.executor_agent.tools import get_executor_capabilities_docs, get_executor_tools
+from src.executor_agent.interrupt import (
+    set_current_plan_id,
+    clear_current_plan_id,
+    INTERRUPT_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,38 +135,42 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
 async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
     """执行工具调用，并对 Observation 做 V2-a 规范化。
 
-    V3: After tool execution, emit lightweight snapshot if interval is hit.
+    Sets plan_id context so tools can check for interrupt signals.
+    If any tool returns an interrupt marker, injects a stop prompt.
     """
     ctx = runtime.context
-    available_tools = await _load_executor_tools(ctx)
-    tool_node = ToolNode(available_tools)
-    result = await tool_node.ainvoke(state)
-    messages = result.get("messages", [])
+
+    # Set plan_id context for interrupt checks during tool execution
+    plan_id = _extract_plan_id_from_messages(state.messages)
+    if plan_id:
+        set_current_plan_id(plan_id)
+
+    try:
+        available_tools = await _load_executor_tools(ctx)
+        tool_node = ToolNode(available_tools)
+        result = await tool_node.ainvoke(state)
+        messages = result.get("messages", [])
+    finally:
+        clear_current_plan_id()
+
     cwd = await asyncio.to_thread(os.getcwd)
     out: list[BaseMessage] = []
+    has_interrupt = False
     for m in messages:
         if isinstance(m, ToolMessage):
             text = normalize_tool_message_content(m.content, context=ctx, cwd=cwd)
+            if INTERRUPT_PROMPT in text:
+                has_interrupt = True
             out.append(m.model_copy(update={"content": text}))
         else:
             out.append(m)
 
-    # V3: Snapshot emission (fire-and-forget)
-    new_rounds = state.tool_rounds + 1
-    snapshot_callback = getattr(ctx, "_snapshot_callback", None)
-    snapshot_interval = getattr(ctx, "snapshot_interval", 0)
-    if (
-        snapshot_callback is not None
-        and snapshot_interval > 0
-        and new_rounds > 0
-        and new_rounds % snapshot_interval == 0
-    ):
-        try:
-            from src.executor_agent.server import _extract_lightweight_snapshot
-            payload = await _extract_lightweight_snapshot(state, new_rounds)
-            asyncio.create_task(snapshot_callback(payload))
-        except Exception:
-            logger.debug("Snapshot emission failed (non-critical)", exc_info=True)
+    # If a tool was interrupted, inject stop prompt so LLM terminates naturally
+    if has_interrupt:
+        out.append(HumanMessage(
+            content="[系统中断] Supervisor 已发出停止指令。请立即停止调用任何工具，"
+                    "根据已有信息输出执行摘要，包含 status 字段为 stopped。"
+        ))
 
     return {"messages": out, "tool_rounds": 1}
 

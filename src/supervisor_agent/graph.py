@@ -8,6 +8,7 @@ import json
 import logging
 import re
 import uuid
+from datetime import datetime
 from typing import Dict, List, Literal, cast
 
 from langchain_core.messages import AIMessage, ToolMessage
@@ -20,6 +21,7 @@ from src.common.utils import extract_reasoning_text, invoke_chat_model, load_cha
 from src.supervisor_agent.prompts import get_supervisor_system_prompt
 from src.supervisor_agent.state import (
     ActiveExecutorTask,
+    ExecutorTaskRecord,
     InputState,
     PlannerSession,
     State,
@@ -30,20 +32,124 @@ from src.supervisor_agent.tools import get_tools
 logger = logging.getLogger(__name__)
 
 
+async def _build_executor_status_brief(state: State, ctx: Context) -> str:
+    """Build concise executor task summary for Supervisor context injection.
+
+    Queries the Executor server's /tasks endpoint (single HTTP call).
+    Also reads Mailbox for completed-but-not-yet-consumed results.
+    Returns empty string if nothing to report (zero token overhead).
+    """
+    import httpx
+
+    from src.supervisor_agent.v3_lifecycle import v3_manager
+
+    try:
+        infra = await v3_manager.ensure_started(ctx)
+        pm = infra.process_manager
+        base_urls = pm.iter_active_base_urls()
+    except Exception:
+        if state.active_executor_tasks:
+            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
+        return ""
+
+    server_tasks: dict = {}
+    any_tasks_response = False
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            for base_url in base_urls:
+                try:
+                    r = await client.get(f"{base_url}/tasks")
+                    if r.status_code != 200:
+                        continue
+                    any_tasks_response = True
+                    chunk = r.json().get("tasks", {})
+                    for k, v in chunk.items():
+                        if k not in server_tasks:
+                            server_tasks[k] = v
+                except (httpx.ConnectError, httpx.TimeoutException):
+                    continue
+    except Exception:
+        if state.active_executor_tasks:
+            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
+        return ""
+
+    if not server_tasks and not any_tasks_response and base_urls:
+        if state.active_executor_tasks:
+            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
+        return ""
+
+    # Also check Mailbox for completed results not yet consumed
+    from src.common.mailbox import get_mailbox
+    mailbox_lines: list[str] = []
+    try:
+        mb = get_mailbox()
+        for pid in list(state.active_executor_tasks.keys()):
+            comp = await mb.get_completion(pid)
+            if comp is not None:
+                status = comp.payload.get("status", "completed")
+                summary_preview = (comp.payload.get("summary", "") or "")[:100]
+                suffix = f"：{summary_preview}..." if summary_preview else ""
+                mailbox_lines.append(f"- {pid}: {status}（结果已就绪{suffix}）")
+    except RuntimeError:
+        pass
+
+    if not server_tasks and not mailbox_lines:
+        return ""
+
+    lines: list[str] = []
+    for pid, info in server_tasks.items():
+        status = info.get("status", "?")
+        step = info.get("current_step") or ""
+        rounds = info.get("tool_rounds", 0)
+        line = f"- {pid}: {status}"
+        if step:
+            line += f"，步骤={step}"
+        if rounds:
+            line += f"，轮次={rounds}"
+        lines.append(line)
+
+    all_lines = lines + mailbox_lines
+    return f"当前 Executor 任务（{len(all_lines)}）：\n" + "\n".join(all_lines)
+
+
+async def _force_poll_active_tasks(ctx: Context) -> None:
+    """Trigger an immediate sweep of all active plan IDs via the unified poller.
+
+    Replaces the old per-call _poll_executor_results scattered HTTP requests.
+    """
+    from src.supervisor_agent.v3_lifecycle import v3_manager
+
+    try:
+        infra = await v3_manager.ensure_started(ctx)
+        if infra.poller:
+            await infra.poller.force_poll_once()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        pass
+
+
 async def call_model(
     state: State, runtime: Runtime[Context]
 ) -> Dict[str, List[AIMessage]]:
     """调用 LLM 支持 Agent。
     负责准备提示、初始化模型并处理响应。
     """
-    # V3: Lazy-start Executor subprocess + callback server on first invocation
-    if runtime.context.enable_v3_parallel:
-        from src.supervisor_agent.v3_lifecycle import v3_manager
+    # Lazy-start Executor subprocess on first invocation
+    from src.supervisor_agent.v3_lifecycle import v3_manager
 
-        try:
-            await v3_manager.ensure_started(runtime.context)
-        except Exception as e:
-            logger.error("Failed to start V3 infrastructure: %s", e)
+    try:
+        await v3_manager.ensure_started(runtime.context)
+    except asyncio.CancelledError:
+        raise  # 让取消信号正常传播，不做任何额外处理
+    except Exception as e:
+        logger.error("Failed to start V3 infrastructure: %s", e)
+
+    # Flush unified poller before LLM call so Mailbox is up-to-date
+    await _force_poll_active_tasks(runtime.context)
 
     # 达到最大重规划次数后，停止工具循环，直接给出失败说明。
     if (
@@ -111,6 +217,12 @@ async def call_model(
         **runtime.context.get_agent_llm_kwargs("supervisor"),
     ).bind_tools(available_tools)
     system_message = get_supervisor_system_prompt(runtime.context)
+
+    # 注入 Executor 实时任务状态（V3 模式，0-3 行，~50 tokens）
+    executor_brief = await _build_executor_status_brief(state, runtime.context)
+    if executor_brief:
+        system_message = system_message + "\n\n" + executor_brief
+
     response = cast(
         AIMessage,
         await invoke_chat_model(
@@ -155,7 +267,15 @@ async def dynamic_tools_node(
     """
     available_tools = await get_tools(runtime.context)
     tool_node = ToolNode(available_tools)
-    result = await tool_node.ainvoke(state)
+
+    try:
+        result = await tool_node.ainvoke(state)
+    except asyncio.CancelledError:
+        logger.info("dynamic_tools_node 被取消，工具执行中断")
+        raise  # CancelledError 必须传播，不做吞没
+
+    # Flush unified poller after tool execution -> write completions to Mailbox
+    await _force_poll_active_tasks(runtime.context)
 
     tool_messages: List[ToolMessage] = result.get("messages", [])
     id_to_name = _build_id_to_name(state)
@@ -249,27 +369,41 @@ async def dynamic_tools_node(
             if "[EXECUTOR_RESULT]" in content:
                 # V2 完成 或 V3 派发失败 → 完整状态更新
                 updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+                # Record in executor_task_history
+                meta_plan_id = _extract_plan_id_from_meta(content)
+                if meta_plan_id:
+                    exec_status, _ = _extract_executor_status(content)
+                    history = dict(state.executor_task_history)
+                    history[meta_plan_id] = ExecutorTaskRecord(
+                        plan_id=meta_plan_id,
+                        status=exec_status or "unknown",
+                        queryable=True,
+                        last_updated=datetime.now().isoformat(timespec="seconds"),
+                    )
+                    updates["executor_task_history"] = _trim_task_history(history)
             elif "[EXECUTOR_DISPATCH]" in content:
-                # V3 派发成功 → 存储 ActiveExecutorTask，透传消息
-                sanitized_tool_messages.append(tm)
+                # V3 派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
+                clean_content = re.sub(r'\n?\[EXECUTOR_DISPATCH\]\s*\{.*?\}', '', content, flags=re.DOTALL).strip()
+                sanitized_tool_messages.append(tm.model_copy(update={"content": clean_content or "Executor 已异步派发。"}))
                 dispatched_pid = _extract_dispatched_plan_id(content)
                 if dispatched_pid:
-                    plan_json_for_task = ""
-                    if state.planner_session and state.planner_session.plan_json:
-                        try:
-                            plan_obj = json.loads(state.planner_session.plan_json)
-                            if plan_obj.get("plan_id") == dispatched_pid:
-                                plan_json_for_task = state.planner_session.plan_json
-                        except json.JSONDecodeError:
-                            pass
-                    new_tasks = dict(state.active_executor_tasks)
+                    new_tasks = dict(updates.get("active_executor_tasks", state.active_executor_tasks))
                     new_tasks[dispatched_pid] = ActiveExecutorTask(
                         plan_id=dispatched_pid,
-                        plan_json=plan_json_for_task,
                         status="dispatched",
                     )
                     updates["active_executor_tasks"] = new_tasks
                     logger.info("V3 dispatch recorded, plan_id=%s", dispatched_pid)
+                # Record in executor_task_history
+                if dispatched_pid:
+                    history = dict(state.executor_task_history)
+                    history[dispatched_pid] = ExecutorTaskRecord(
+                        plan_id=dispatched_pid,
+                        status="dispatched",
+                        queryable=False,
+                        last_updated=datetime.now().isoformat(timespec="seconds"),
+                    )
+                    updates["executor_task_history"] = _trim_task_history(history)
             else:
                 sanitized_tool_messages.append(tm)
         elif tool_name == "get_executor_result":
@@ -283,10 +417,18 @@ async def dynamic_tools_node(
                 if exec_status in ("completed", "failed", "stopped"):
                     # G6: 已终态 → 从追踪字典中移除
                     del new_tasks[meta_plan_id]
+                    # Update executor_task_history (persists after removal)
+                    history = dict(state.executor_task_history)
+                    history[meta_plan_id] = ExecutorTaskRecord(
+                        plan_id=meta_plan_id,
+                        status=exec_status,
+                        queryable=True,
+                        last_updated=datetime.now().isoformat(timespec="seconds"),
+                    )
+                    updates["executor_task_history"] = _trim_task_history(history)
                 else:
                     new_tasks[meta_plan_id] = ActiveExecutorTask(
                         plan_id=meta_plan_id,
-                        plan_json=new_tasks[meta_plan_id].plan_json,
                         status=exec_status or "unknown",
                     )
                 updates["active_executor_tasks"] = new_tasks
@@ -294,20 +436,44 @@ async def dynamic_tools_node(
             # V3 进度查看 → 如果发现任务在运行，升级 dispatched → running
             sanitized_tool_messages.append(tm)
             if "任务运行中" in content:
-                for pid, task in state.active_executor_tasks.items():
-                    if task.status == "dispatched":
-                        if "active_executor_tasks" not in updates:
-                            updates["active_executor_tasks"] = dict(state.active_executor_tasks)
-                        updates["active_executor_tasks"][pid] = ActiveExecutorTask(
-                            plan_id=pid,
-                            plan_json=task.plan_json,
+                tool_call = id_to_call.get(tm.tool_call_id, {})
+                args = tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
+                target_pid = str(args.get("plan_id", "")).strip()
+                if target_pid:
+                    base_tasks = updates.get("active_executor_tasks", state.active_executor_tasks)
+                    task = base_tasks.get(target_pid)
+                    if task and task.status == "dispatched":
+                        new_tasks = dict(base_tasks)
+                        new_tasks[target_pid] = ActiveExecutorTask(
+                            plan_id=target_pid,
                             status="running",
                         )
-                        break
+                        updates["active_executor_tasks"] = new_tasks
+        elif tool_name == "list_executor_tasks":
+            # V3 任务注册表 → 更新 executor_task_history
+            sanitized_tool_messages.append(tm)
+            registry_updates = _extract_registry_updates(content)
+            if registry_updates:
+                history = dict(state.executor_task_history)
+                history.update(registry_updates)
+                updates["executor_task_history"] = _trim_task_history(history)
         else:
             sanitized_tool_messages.append(tm)
 
     return updates
+
+
+_MAX_TASK_HISTORY = 50
+
+
+def _trim_task_history(history: dict) -> dict:
+    """Keep at most _MAX_TASK_HISTORY entries, dropping the oldest by insertion order."""
+    if len(history) <= _MAX_TASK_HISTORY:
+        return history
+    keys = list(history.keys())
+    for k in keys[: len(keys) - _MAX_TASK_HISTORY]:
+        del history[k]
+    return history
 
 
 def _build_id_to_name(state: State) -> Dict[str, str]:
@@ -429,6 +595,28 @@ def _extract_plan_id_from_meta(content: str) -> str | None:
         return meta.get("plan_id")
     except json.JSONDecodeError:
         return None
+
+
+def _extract_registry_updates(content: str) -> dict[str, ExecutorTaskRecord]:
+    """从 [EXECUTOR_REGISTRY_UPDATE] 标记中提取任务记录更新。"""
+    match = re.search(r'\[EXECUTOR_REGISTRY_UPDATE\]\s*(\[.*\])', content, re.DOTALL)
+    if not match:
+        return {}
+    try:
+        items = json.loads(match.group(1))
+        result: dict[str, ExecutorTaskRecord] = {}
+        for item in items:
+            pid = item.get("plan_id")
+            if pid:
+                result[pid] = ExecutorTaskRecord(
+                    plan_id=pid,
+                    status=item.get("status", "unknown"),
+                    queryable=item.get("queryable", False),
+                    last_updated=item.get("last_updated", ""),
+                )
+        return result
+    except json.JSONDecodeError:
+        return {}
 
 
 def _process_executor_completion(

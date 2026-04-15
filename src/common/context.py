@@ -259,14 +259,7 @@ class Context:
         },
     )
 
-    # V3: Process-separated parallel execution (all gated by enable_v3_parallel)
-    enable_v3_parallel: bool = field(
-        default=True,
-        metadata={
-            "description": "Enable V3 process-separated parallel execution. "
-            "When True, Executor runs in a separate process with HTTP communication.",
-        },
-    )
+    # Process-separated execution (Executor runs as subprocess with HTTP communication)
     executor_host: str = field(
         default="localhost",
         metadata={
@@ -274,15 +267,9 @@ class Context:
         },
     )
     executor_port: int = field(
-        default=8100,
+        default=0,
         metadata={
-            "description": "Port for the Executor server (Process B).",
-        },
-    )
-    supervisor_callback_port: int = field(
-        default=8101,
-        metadata={
-            "description": "Port for the Supervisor callback server (Process A).",
+            "description": "Port for the Executor server (Process B). 0 = dynamic allocation.",
         },
     )
     snapshot_interval: int = field(
@@ -291,17 +278,18 @@ class Context:
             "description": "Emit lightweight snapshot every N tool rounds in Executor (0 disables).",
         },
     )
-    _snapshot_callback: Any = field(
-        default=None,
-        repr=False,
-        metadata={
-            "description": "Internal: snapshot callback wired by Executor server. Not user-configurable.",
-        },
-    )
     executor_startup_timeout: float = field(
         default=30.0,
         metadata={
             "description": "Seconds to wait for Executor process /health to respond.",
+        },
+    )
+
+    mailbox_port: int = field(
+        default=0,
+        metadata={
+            "description": "Port for the Mailbox HTTP server thread (0 = dynamic).",
+            "env_var": "MAILBOX_PORT",
         },
     )
 

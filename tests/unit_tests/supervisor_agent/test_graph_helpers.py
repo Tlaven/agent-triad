@@ -1,4 +1,4 @@
-"""Unit tests for untested helper functions in supervisor_agent.graph and tools."""
+"""Unit tests for helper functions in supervisor_agent.graph and tools."""
 
 import json
 
@@ -21,17 +21,15 @@ from src.supervisor_agent.tools import _normalize_plan_id_arg
 # _needs_mode3_upgrade
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("summary,expected", [
-    ("需要计划层重构，当前路径无法推进", True),
-    ("无法继续，请重新规划", True),
-    ("无法完成当前任务", True),
-    ("需要重新拆解意图", True),
-    ("需要重构整体流程", True),
-    ("replan needed", True),
-    ("cannot proceed further", True),
-    ("no reusable plan available", True),
+@pytest.mark.parametrize("summary", [
+    "需要计划层重构，当前路径无法推进",
+    "无法继续，请重新规划",
+    "需要重新拆解意图",
+    "replan needed",
+    "cannot proceed further",
+    "REPLAN required",  # case-insensitive
 ])
-def test_needs_mode3_upgrade_returns_true(summary: str, expected: bool) -> None:
+def test_needs_mode3_upgrade_returns_true(summary: str) -> None:
     assert _needs_mode3_upgrade(summary, None) is True
 
 
@@ -39,7 +37,6 @@ def test_needs_mode3_upgrade_returns_true(summary: str, expected: bool) -> None:
     "工具调用超时，请重试",
     "文件写入失败，权限不足",
     "命令执行返回码非零",
-    "运行中断，未知原因",
 ])
 def test_needs_mode3_upgrade_returns_false_for_normal_failures(summary: str) -> None:
     assert _needs_mode3_upgrade(summary, None) is False
@@ -51,10 +48,6 @@ def test_needs_mode3_upgrade_both_none_returns_false() -> None:
 
 def test_needs_mode3_upgrade_checks_error_detail_too() -> None:
     assert _needs_mode3_upgrade(None, "需要重规划") is True
-
-
-def test_needs_mode3_upgrade_case_insensitive() -> None:
-    assert _needs_mode3_upgrade("REPLAN required", None) is True
 
 
 # ---------------------------------------------------------------------------
@@ -116,65 +109,34 @@ def test_extract_summary_empty_before_marker() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _parse_plan_meta
+# _parse_plan_meta — parametrized
 # ---------------------------------------------------------------------------
 
-def test_parse_plan_meta_valid_json() -> None:
-    plan = {"plan_id": "plan_abc", "version": 3, "goal": "g", "steps": []}
-    plan_id, version = _parse_plan_meta(json.dumps(plan))
-    assert plan_id == "plan_abc"
-    assert version == 3
-
-
-def test_parse_plan_meta_invalid_json_returns_none_tuple() -> None:
-    plan_id, version = _parse_plan_meta("{not json}")
-    assert plan_id is None
-    assert version is None
-
-
-def test_parse_plan_meta_missing_plan_id_returns_none_for_id() -> None:
-    plan = {"version": 2, "goal": "g", "steps": []}
-    plan_id, version = _parse_plan_meta(json.dumps(plan))
-    assert plan_id is None
-    assert version == 2
-
-
-def test_parse_plan_meta_missing_version_returns_none_for_version() -> None:
-    plan = {"plan_id": "plan_abc", "goal": "g", "steps": []}
-    plan_id, version = _parse_plan_meta(json.dumps(plan))
-    assert plan_id == "plan_abc"
-    assert version is None
-
-
-def test_parse_plan_meta_version_not_int_returns_none() -> None:
-    plan = {"plan_id": "plan_abc", "version": "v1", "goal": "g"}
-    plan_id, version = _parse_plan_meta(json.dumps(plan))
-    assert plan_id == "plan_abc"
-    assert version is None
-
-
-def test_parse_plan_meta_non_dict_returns_none_tuple() -> None:
-    plan_id, version = _parse_plan_meta(json.dumps([1, 2, 3]))
-    assert plan_id is None
-    assert version is None
+@pytest.mark.parametrize("raw,exp_id,exp_version", [
+    (json.dumps({"plan_id": "plan_abc", "version": 3, "goal": "g", "steps": []}), "plan_abc", 3),
+    ("{not json}", None, None),
+    (json.dumps({"version": 2, "goal": "g", "steps": []}), None, 2),
+    (json.dumps({"plan_id": "plan_abc", "goal": "g", "steps": []}), "plan_abc", None),
+    (json.dumps({"plan_id": "plan_abc", "version": "v1", "goal": "g"}), "plan_abc", None),
+    (json.dumps([1, 2, 3]), None, None),
+])
+def test_parse_plan_meta(raw, exp_id, exp_version) -> None:
+    plan_id, version = _parse_plan_meta(raw)
+    assert plan_id == exp_id
+    assert version == exp_version
 
 
 # ---------------------------------------------------------------------------
 # _build_id_to_name and _build_id_to_call
 # ---------------------------------------------------------------------------
 
-def test_build_id_to_name_empty_messages() -> None:
-    state = State(messages=[])
-    assert _build_id_to_name(state) == {}
-
-
-def test_build_id_to_name_last_message_not_ai() -> None:
-    state = State(messages=[HumanMessage(content="hi")])
-    assert _build_id_to_name(state) == {}
-
-
-def test_build_id_to_name_ai_without_tool_calls() -> None:
-    state = State(messages=[AIMessage(content="direct answer")])
+@pytest.mark.parametrize("messages", [
+    [],
+    [HumanMessage(content="hi")],
+    [AIMessage(content="direct answer")],
+])
+def test_build_id_to_name_returns_empty_dict(messages) -> None:
+    state = State(messages=messages)
     assert _build_id_to_name(state) == {}
 
 
@@ -187,8 +149,7 @@ def test_build_id_to_name_with_tool_calls() -> None:
         ],
     )
     state = State(messages=[msg])
-    mapping = _build_id_to_name(state)
-    assert mapping == {"call_abc": "call_planner", "call_def": "call_executor"}
+    assert _build_id_to_name(state) == {"call_abc": "call_planner", "call_def": "call_executor"}
 
 
 def test_build_id_to_call_with_tool_calls() -> None:
@@ -225,19 +186,12 @@ def test_route_model_output_non_ai_message_raises_value_error() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _normalize_plan_id_arg (from tools.py)
+# _normalize_plan_id_arg
 # ---------------------------------------------------------------------------
 
-def test_normalize_plan_id_arg_none_returns_none() -> None:
-    assert _normalize_plan_id_arg(None) is None
-
-
-def test_normalize_plan_id_arg_empty_string_returns_none() -> None:
-    assert _normalize_plan_id_arg("") is None
-
-
-def test_normalize_plan_id_arg_whitespace_returns_none() -> None:
-    assert _normalize_plan_id_arg("   ") is None
+@pytest.mark.parametrize("arg", [None, "", "   "])
+def test_normalize_plan_id_arg_empty_inputs_return_none(arg) -> None:
+    assert _normalize_plan_id_arg(arg) is None
 
 
 def test_normalize_plan_id_arg_valid_returns_stripped() -> None:

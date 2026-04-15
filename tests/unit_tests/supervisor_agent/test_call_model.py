@@ -10,13 +10,6 @@ from src.supervisor_agent.graph import call_model
 from src.supervisor_agent.state import PlannerSession, State
 
 
-def _make_runtime(context: Context | None = None) -> MagicMock:
-    """Build a mock Runtime with a real Context attached."""
-    mock_runtime = MagicMock()
-    mock_runtime.context = context or Context(max_replan=2, max_executor_iterations=5)
-    return mock_runtime
-
-
 def _make_mock_llm(response: AIMessage) -> MagicMock:
     """Build a mock LLM that returns a single preset response."""
     mock = MagicMock()
@@ -29,7 +22,7 @@ def _make_mock_llm(response: AIMessage) -> MagicMock:
 # Max-replan hit → forced mode-1 termination (no LLM call needed)
 # ---------------------------------------------------------------------------
 
-async def test_call_model_max_replan_reached_returns_mode1() -> None:
+async def test_call_model_max_replan_reached_returns_mode1(make_runtime) -> None:
     state = State(
         messages=[HumanMessage(content="do something complex")],
         planner_session=PlannerSession(
@@ -38,7 +31,7 @@ async def test_call_model_max_replan_reached_returns_mode1() -> None:
         ),
         replan_count=2,
     )
-    runtime = _make_runtime(Context(max_replan=2))
+    runtime = make_runtime(Context(max_replan=2))
 
     result = await call_model(state, runtime)
 
@@ -47,7 +40,7 @@ async def test_call_model_max_replan_reached_returns_mode1() -> None:
     assert isinstance(result["messages"][0], AIMessage)
 
 
-async def test_call_model_below_max_replan_does_not_force_terminate() -> None:
+async def test_call_model_below_max_replan_does_not_force_terminate(make_runtime) -> None:
     """When replan_count < max_replan, it should NOT short-circuit to mode-1."""
     state = State(
         messages=[HumanMessage(content="do something")],
@@ -58,13 +51,12 @@ async def test_call_model_below_max_replan_does_not_force_terminate() -> None:
         ),
         replan_count=1,
     )
-    runtime = _make_runtime(Context(max_replan=3))
+    runtime = make_runtime(Context(max_replan=3))
     mock_llm = _make_mock_llm(AIMessage(content="Trying again"))
 
     with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm):
         result = await call_model(state, runtime)
 
-    # LLM was called (mode-1 forced exit was NOT triggered)
     mock_llm.ainvoke.assert_called_once()
     assert result["messages"][0].content == "Trying again"
 
@@ -73,7 +65,7 @@ async def test_call_model_below_max_replan_does_not_force_terminate() -> None:
 # Mode 2 → Mode 3 automatic upgrade (no LLM call)
 # ---------------------------------------------------------------------------
 
-async def test_call_model_mode2_to_mode3_upgrade_triggered() -> None:
+async def test_call_model_mode2_to_mode3_upgrade_triggered(make_runtime) -> None:
     """When Mode2 executor fails with an upgrade-signal summary and plan_json is empty,
     call_model should auto-generate a call_planner tool_call without consulting the LLM."""
     state = State(
@@ -86,7 +78,7 @@ async def test_call_model_mode2_to_mode3_upgrade_triggered() -> None:
         ),
         replan_count=0,
     )
-    runtime = _make_runtime(Context(max_replan=3))
+    runtime = make_runtime(Context(max_replan=3))
 
     result = await call_model(state, runtime)
 
@@ -95,7 +87,7 @@ async def test_call_model_mode2_to_mode3_upgrade_triggered() -> None:
     assert any(tc.get("name") == "call_planner" for tc in tool_calls)
 
 
-async def test_call_model_mode2_to_mode3_not_triggered_if_plan_json_present() -> None:
+async def test_call_model_mode2_to_mode3_not_triggered_if_plan_json_present(make_runtime) -> None:
     """If plan_json is non-empty, Mode2→3 upgrade is suppressed; LLM decides."""
     state = State(
         messages=[HumanMessage(content="task")],
@@ -107,13 +99,12 @@ async def test_call_model_mode2_to_mode3_not_triggered_if_plan_json_present() ->
         ),
         replan_count=0,
     )
-    runtime = _make_runtime(Context(max_replan=3))
+    runtime = make_runtime(Context(max_replan=3))
     mock_llm = _make_mock_llm(AIMessage(content="I'll try again"))
 
     with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm):
         await call_model(state, runtime)
 
-    # LLM should have been consulted (no forced upgrade happened)
     mock_llm.ainvoke.assert_called_once()
 
 
@@ -121,13 +112,12 @@ async def test_call_model_mode2_to_mode3_not_triggered_if_plan_json_present() ->
 # is_last_step forces termination
 # ---------------------------------------------------------------------------
 
-async def test_call_model_is_last_step_with_tool_calls_forces_end() -> None:
+async def test_call_model_is_last_step_with_tool_calls_forces_end(make_runtime) -> None:
     state = State(
         messages=[HumanMessage(content="task")],
         is_last_step=True,
     )
-    runtime = _make_runtime()
-    # LLM wants to call a tool, but is_last_step prevents it
+    runtime = make_runtime()
     tool_response = AIMessage(
         content="",
         tool_calls=[{"name": "call_executor", "args": {}, "id": "c1", "type": "tool_call"}],
@@ -145,9 +135,9 @@ async def test_call_model_is_last_step_with_tool_calls_forces_end() -> None:
 # Normal direct response (mode 1)
 # ---------------------------------------------------------------------------
 
-async def test_call_model_direct_response_sets_mode1() -> None:
+async def test_call_model_direct_response_sets_mode1(make_runtime) -> None:
     state = State(messages=[HumanMessage(content="什么是 Python？")])
-    runtime = _make_runtime()
+    runtime = make_runtime()
     mock_llm = _make_mock_llm(AIMessage(content="Python 是一种编程语言。"))
 
     with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm):
@@ -157,9 +147,9 @@ async def test_call_model_direct_response_sets_mode1() -> None:
     assert result["messages"][0].content == "Python 是一种编程语言。"
 
 
-async def test_call_model_passes_supervisor_llm_kwargs() -> None:
+async def test_call_model_passes_supervisor_llm_kwargs(make_runtime) -> None:
     state = State(messages=[HumanMessage(content="test")])
-    runtime = _make_runtime(
+    runtime = make_runtime(
         Context(
             supervisor_temperature=0.1,
             supervisor_top_p=0.95,
@@ -182,9 +172,9 @@ async def test_call_model_passes_supervisor_llm_kwargs() -> None:
     )
 
 
-async def test_call_model_visible_thinking_appends_reasoning_to_content() -> None:
+async def test_call_model_visible_thinking_appends_reasoning_to_content(make_runtime) -> None:
     state = State(messages=[HumanMessage(content="test")])
-    runtime = _make_runtime(Context(supervisor_thinking_visibility="visible"))
+    runtime = make_runtime(Context(supervisor_thinking_visibility="visible"))
     model_response = AIMessage(
         content="最终答案",
         additional_kwargs={"reasoning_content": "这是思考内容"},

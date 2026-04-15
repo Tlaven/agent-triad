@@ -146,3 +146,26 @@ def make_mock_llm(responses: list[AIMessage]) -> MagicMock:
 def make_mock_llm_fixture():
     """Fixture version of make_mock_llm factory."""
     return make_mock_llm
+
+
+# ---------------------------------------------------------------------------
+# Runtime mock factory
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def make_runtime():
+    """Factory fixture: build a mock Runtime with a real Context attached.
+
+    Usage::
+
+        def test_something(make_runtime):
+            runtime = make_runtime()            # default Context
+            runtime = make_runtime(Context(max_replan=5))  # custom Context
+    """
+    def _factory(context=None):
+        from unittest.mock import MagicMock
+        from src.common.context import Context
+        mock = MagicMock()
+        mock.context = context if context is not None else Context(max_replan=2, max_executor_iterations=5)
+        return mock
+    return _factory

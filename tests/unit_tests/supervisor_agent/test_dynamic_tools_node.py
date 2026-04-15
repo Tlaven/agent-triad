@@ -5,15 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.common.context import Context
 from src.supervisor_agent.graph import dynamic_tools_node
-from src.supervisor_agent.state import ActiveExecutorTask, PlannerSession, State
-
-
-def _make_runtime(context: Context | None = None) -> MagicMock:
-    mock_runtime = MagicMock()
-    mock_runtime.context = context or Context(max_replan=2)
-    return mock_runtime
+from src.supervisor_agent.state import PlannerSession, State
 
 
 def _make_state_with_tool_call(
@@ -48,10 +41,10 @@ def _make_tool_node_mock(tool_message: ToolMessage) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# call_planner → PlannerSession updated
+# call_planner ? PlannerSession updated
 # ---------------------------------------------------------------------------
 
-async def test_call_planner_creates_planner_session() -> None:
+async def test_call_planner_creates_planner_session(make_runtime) -> None:
     plan_json = json.dumps({
         "plan_id": "plan_newplan",
         "version": 1,
@@ -64,7 +57,7 @@ async def test_call_planner_creates_planner_session() -> None:
     tm = ToolMessage(content=plan_json, tool_call_id="call_gen1")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert "planner_session" in result
     session: PlannerSession = result["planner_session"]
@@ -72,7 +65,7 @@ async def test_call_planner_creates_planner_session() -> None:
     assert "plan_newplan" in session.planner_history_by_plan_id
 
 
-async def test_call_planner_stores_task_core_in_history() -> None:
+async def test_call_planner_stores_task_core_in_history(make_runtime) -> None:
     plan_json = json.dumps({"plan_id": "plan_abc", "version": 1, "goal": "g", "steps": []})
     state = _make_state_with_tool_call(
         "call_planner", {"task_core": "my important task"}, call_id="call_gen2"
@@ -80,21 +73,18 @@ async def test_call_planner_stores_task_core_in_history() -> None:
     tm = ToolMessage(content=plan_json, tool_call_id="call_gen2")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     history = result["planner_session"].planner_history_by_plan_id.get("plan_abc", [])
     assert any("my important task" in msg.get("content", "") for msg in history)
 
 
-async def test_call_planner_archives_old_version() -> None:
+async def test_call_planner_archives_old_version(make_runtime) -> None:
     """When call_planner produces a newer version, the old plan must be archived."""
     old_plan = json.dumps({"plan_id": "plan_same", "version": 1, "goal": "g", "steps": []})
     new_plan = json.dumps({"plan_id": "plan_same", "version": 2, "goal": "g", "steps": []})
 
-    existing_session = PlannerSession(
-        session_id="sess1",
-        plan_json=old_plan,
-    )
+    existing_session = PlannerSession(session_id="sess1", plan_json=old_plan)
     state = _make_state_with_tool_call(
         "call_planner", {"task_core": "update", "plan_id": "plan_same"},
         call_id="call_gen3",
@@ -103,17 +93,18 @@ async def test_call_planner_archives_old_version() -> None:
     tm = ToolMessage(content=new_plan, tool_call_id="call_gen3")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     archive = result["planner_session"].plan_archive_by_plan_id.get("plan_same", [])
     assert old_plan in archive
 
 
 # ---------------------------------------------------------------------------
-# call_executor → replan_count updated, planner_session synced
+# call_executor ? replan_count updated, planner_session synced
 # ---------------------------------------------------------------------------
 
 async def test_call_executor_completed_resets_replan_count(
+    make_runtime,
     sample_executor_result_completed,
 ) -> None:
     state = _make_state_with_tool_call(
@@ -128,13 +119,14 @@ async def test_call_executor_completed_resets_replan_count(
     tm = ToolMessage(content=sample_executor_result_completed, tool_call_id="call_exec1")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert result["replan_count"] == 0
     assert result["planner_session"].last_executor_status == "completed"
 
 
 async def test_call_executor_failed_increments_replan_count(
+    make_runtime,
     sample_executor_result_failed,
 ) -> None:
     state = _make_state_with_tool_call(
@@ -149,13 +141,14 @@ async def test_call_executor_failed_increments_replan_count(
     tm = ToolMessage(content=sample_executor_result_failed, tool_call_id="call_exec2")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert result["replan_count"] == 1
     assert result["planner_session"].last_executor_status == "failed"
 
 
 async def test_call_executor_failed_writes_updated_plan_to_session(
+    make_runtime,
     sample_executor_result_failed,
     sample_failed_plan_json,
 ) -> None:
@@ -170,13 +163,13 @@ async def test_call_executor_failed_writes_updated_plan_to_session(
     tm = ToolMessage(content=sample_executor_result_failed, tool_call_id="call_exec3")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
-    # The planner_session.plan_json should be the failed plan (non-empty)
     assert (result["planner_session"].plan_json or "").strip()
 
 
 async def test_call_executor_llm_receives_sanitized_feedback(
+    make_runtime,
     sample_executor_result_completed,
 ) -> None:
     """The ToolMessage visible to the LLM must NOT contain updated_plan_json."""
@@ -191,9 +184,8 @@ async def test_call_executor_llm_receives_sanitized_feedback(
     tm = ToolMessage(content=sample_executor_result_completed, tool_call_id="call_exec4")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
-    # The message returned in 'messages' should be the sanitized (public) feedback
     sanitized_msgs = result["messages"]
     assert len(sanitized_msgs) == 1
     content = sanitized_msgs[0].content
@@ -205,14 +197,12 @@ async def test_call_executor_llm_receives_sanitized_feedback(
 # Non call_planner / call_executor tools pass through unchanged
 # ---------------------------------------------------------------------------
 
-async def test_unknown_tool_passthrough() -> None:
-    state = _make_state_with_tool_call(
-        "some_other_tool", {"x": 1}, call_id="call_other1"
-    )
+async def test_unknown_tool_passthrough(make_runtime) -> None:
+    state = _make_state_with_tool_call("some_other_tool", {"x": 1}, call_id="call_other1")
     tm = ToolMessage(content="raw result from other tool", tool_call_id="call_other1")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert result["messages"][0].content == "raw result from other tool"
     assert "planner_session" not in result
@@ -222,12 +212,11 @@ async def test_unknown_tool_passthrough() -> None:
 # V3 fire-and-forget: call_executor dispatch detection
 # ---------------------------------------------------------------------------
 
-async def test_call_executor_v3_dispatch_stores_active_task() -> None:
+async def test_call_executor_v3_dispatch_stores_active_task(make_runtime) -> None:
     """V3 dispatch (no [EXECUTOR_RESULT]) stores ActiveExecutorTask."""
     dispatch_content = (
-        'Executor 已异步派发，plan_id=plan_dispatch_001，状态：accepted。\n'
-        '使用 get_executor_result(plan_id="plan_dispatch_001") 查询执行结果。\n\n'
-        '[EXECUTOR_DISPATCH] {"plan_id": "plan_dispatch_001", "status": "accepted"}'
+        "Executor dispatched, plan_id=plan_dispatch_001, status=accepted."
+        '\n[EXECUTOR_DISPATCH] {"plan_id": "plan_dispatch_001", "status": "accepted"}'
     )
     plan_json = json.dumps({
         "plan_id": "plan_dispatch_001", "version": 1, "goal": "g", "steps": [],
@@ -240,19 +229,18 @@ async def test_call_executor_v3_dispatch_stores_active_task() -> None:
     tm = ToolMessage(content=dispatch_content, tool_call_id="call_dispatch1")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
-    # ActiveExecutorTask stored
     assert "active_executor_tasks" in result
     assert "plan_dispatch_001" in result["active_executor_tasks"]
     assert result["active_executor_tasks"]["plan_dispatch_001"].status == "dispatched"
-    # Message passed through (not sanitized)
-    assert "[EXECUTOR_DISPATCH]" in result["messages"][0].content
-    # planner_session NOT updated (no completion)
+    assert "[EXECUTOR_DISPATCH]" not in result["messages"][0].content
+    assert "plan_dispatch_001" in result["messages"][0].content
     assert "planner_session" not in result
 
 
 async def test_get_executor_result_completed_updates_session(
+    make_runtime,
     sample_executor_result_completed,
 ) -> None:
     """get_executor_result processes completion same as V2 call_executor."""
@@ -268,13 +256,14 @@ async def test_get_executor_result_completed_updates_session(
     tm = ToolMessage(content=sample_executor_result_completed, tool_call_id="call_result1")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert result["planner_session"].last_executor_status == "completed"
     assert result["replan_count"] == 0
 
 
 async def test_get_executor_result_failed_increments_replan_count(
+    make_runtime,
     sample_executor_result_failed,
 ) -> None:
     """get_executor_result with failed result increments replan_count."""
@@ -290,7 +279,7 @@ async def test_get_executor_result_failed_increments_replan_count(
     tm = ToolMessage(content=sample_executor_result_failed, tool_call_id="call_result2")
 
     with patch("src.supervisor_agent.graph.ToolNode", return_value=_make_tool_node_mock(tm)):
-        result = await dynamic_tools_node(state, _make_runtime())
+        result = await dynamic_tools_node(state, make_runtime())
 
     assert result["planner_session"].last_executor_status == "failed"
     assert result["replan_count"] == 1

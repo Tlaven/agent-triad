@@ -9,12 +9,6 @@ from src.common.context import Context
 from src.executor_agent.graph import ExecutorState, call_executor
 
 
-def _make_runtime(context: Context | None = None) -> MagicMock:
-    mock_runtime = MagicMock()
-    mock_runtime.context = context or Context(max_replan=2, max_executor_iterations=5)
-    return mock_runtime
-
-
 def _make_mock_llm(response: AIMessage) -> MagicMock:
     mock = MagicMock()
     mock.bind_tools = MagicMock(return_value=mock)
@@ -50,11 +44,11 @@ def _make_completed_content() -> str:
 # Normal response: LLM returns final JSON output
 # ---------------------------------------------------------------------------
 
-async def test_call_executor_normal_response_is_stored() -> None:
+async def test_call_executor_normal_response_is_stored(make_runtime) -> None:
     state = ExecutorState(
         messages=[HumanMessage(content="請按照以下計劃執行：\n\n{plan}")]
     )
-    runtime = _make_runtime()
+    runtime = make_runtime()
     mock_llm = _make_mock_llm(AIMessage(content=_make_completed_content()))
 
     with patch("src.executor_agent.graph.load_chat_model", return_value=mock_llm):
@@ -70,13 +64,12 @@ async def test_call_executor_normal_response_is_stored() -> None:
 # is_last_step=True with tool_calls forces termination
 # ---------------------------------------------------------------------------
 
-async def test_call_executor_last_step_with_tool_calls_forces_end() -> None:
+async def test_call_executor_last_step_with_tool_calls_forces_end(make_runtime) -> None:
     state = ExecutorState(
         messages=[HumanMessage(content="plan")],
         is_last_step=True,
     )
-    runtime = _make_runtime()
-    # LLM wants to call a tool but is_last_step prevents it
+    runtime = make_runtime()
     tool_response = AIMessage(
         content="",
         tool_calls=[{"name": "write_file", "args": {}, "id": "c1", "type": "tool_call"}],
@@ -95,12 +88,12 @@ async def test_call_executor_last_step_with_tool_calls_forces_end() -> None:
 # LLM response is passed through without modification when no tool_calls
 # ---------------------------------------------------------------------------
 
-async def test_call_executor_not_last_step_preserves_tool_calls() -> None:
+async def test_call_executor_not_last_step_preserves_tool_calls(make_runtime) -> None:
     state = ExecutorState(
         messages=[HumanMessage(content="plan")],
         is_last_step=False,
     )
-    runtime = _make_runtime()
+    runtime = make_runtime()
     tool_response = AIMessage(
         content="",
         tool_calls=[{"name": "write_file", "args": {"path": "x.txt", "content": "hi"}, "id": "c2", "type": "tool_call"}],
@@ -110,13 +103,12 @@ async def test_call_executor_not_last_step_preserves_tool_calls() -> None:
     with patch("src.executor_agent.graph.load_chat_model", return_value=mock_llm):
         result = await call_executor(state, runtime)
 
-    # Tool calls should be preserved
     assert result["messages"][0].tool_calls
 
 
-async def test_call_executor_passes_executor_llm_kwargs() -> None:
+async def test_call_executor_passes_executor_llm_kwargs(make_runtime) -> None:
     state = ExecutorState(messages=[HumanMessage(content="plan")])
-    runtime = _make_runtime(
+    runtime = make_runtime(
         Context(
             executor_temperature=0.0,
             executor_top_p=1.0,

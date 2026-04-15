@@ -183,3 +183,52 @@ uv sync --dev
 - **异步测试**：函数名以 `async def test_` 开头，pytest-anyio 自动识别。
 - **真实 LLM 测试**：加 `@pytest.mark.live_llm` 并在开头 `skipif` 检查 API key，
   保证没有 key 时优雅跳过而不是报错。
+
+---
+
+## 测试准入规则
+
+> 以下规则旨在防止测试套件再次膨胀，新增或修改测试前必须对照检查。
+
+### 硬约束
+
+- **文件比例**：Unit : Integration : E2E ≈ 60:30:10（按测试文件数量）
+- **文件行数**：单个测试文件不超过 **250 行**；超过须按主题拆分或删除冗余
+- **新增条件**：每条新测试必须至少满足下列之一：
+  - 覆盖已知真实 bug 的回归
+  - 验证状态机关键分支（如 `failed → replan → completed` 链路）
+  - 验证跨模块契约（如 Executor → Supervisor 的结果传递格式）
+- **禁止事项**：
+  - 纯结构存在性断言：`hasattr` / `isinstance` / `len > 0` 作为唯一断言
+  - 精确文案/字符串匹配：改用状态码、枚举值、关键字段
+  - 同一行为在 unit + integration 全量重复：选主层全测，另一层只留冒烟（1 条）
+  - 恒真断言：`assert x in valid_list` 其中 `valid_list` 由测试代码自己构造
+
+### 分层职责
+
+| 层级 | 职责 | 典型用例 |
+|------|------|---------|
+| **Unit** | 纯函数、解析逻辑、路由决策、状态机转换（主力层） | `_parse_executor_output`、`route_after_tools`、`_normalize_plan_id_arg` |
+| **Integration** | 图级流转、跨模块状态传播、Mock LLM 下的端到端路径（冒烟层） | `dynamic_tools_node` + `call_model` 联动、V3 dispatch + get_result 链路 |
+| **E2E** | 真实 LLM 健康检查、关键业务场景验收（最小集） | `test_llm_health.py`、`test_v3_subprocess_checkpoint.py` |
+
+### 参数化优先
+
+同一行为的多种输入变体（如多种错误状态、多种 context 配置）应使用
+`@pytest.mark.parametrize` 合并为单条测试，而不是复制多个函数。
+
+```python
+# 推荐
+@pytest.mark.parametrize("status", ["completed | failed", "completed / failed"])
+def test_placeholder_status_resolves(status): ...
+
+# 禁止
+def test_placeholder_pipe(): ...
+def test_placeholder_slash(): ...
+```
+
+### 共享 Fixture 优先
+
+如需创建 Mock Runtime、plan_json 工厂、httpx 客户端等，优先使用
+`tests/conftest.py` 中已有的 fixture（`make_runtime`、`make_mock_llm`、
+`sample_plan_json` 等），不要在各文件中重复定义 `_make_runtime` 类函数。

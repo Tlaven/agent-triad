@@ -12,7 +12,12 @@
       "Bash(uv run:*)",
       "Bash(git status:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(.venv/Scripts/python.exe -m pytest --co -q)",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/unit_tests/supervisor_agent/ tests/integration/test_supervisor_graph.py -v --timeout=30)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ]
   }
 }

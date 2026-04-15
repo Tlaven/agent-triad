@@ -1,8 +1,7 @@
 """V3: Cross-process protocol data structures for Executor ↔ Supervisor communication.
 
 All dataclasses are HTTP-serializable (JSON-safe). Used by:
-- Executor Server: receives ExecuteRequest, sends SnapshotPayload / ExecutorResultResponse
-- Supervisor Callback Server: receives callbacks, stores in Mailbox
+- Executor Server: receives ExecuteRequest, exposes ExecuteStatus / ExecutorResultResponse
 - Process Manager: uses these for HTTP body serialization
 """
 
@@ -20,7 +19,6 @@ class ExecuteRequest:
     plan_json: str
     plan_id: str
     executor_session_id: str = ""
-    callback_url: str = ""
     config: dict[str, Any] = field(default_factory=dict)
 
 
@@ -43,19 +41,6 @@ class ExecutorResultResponse:
     updated_plan_json: str = ""
     summary: str = ""
     snapshot_json: str = ""
-
-
-@dataclass
-class SnapshotPayload:
-    """Lightweight progress snapshot emitted by Executor every N tool rounds."""
-
-    plan_id: str
-    tool_rounds: int = 0
-    current_step: str = ""
-    completed_steps: int = 0
-    total_steps: int = 0
-    progress_summary: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass

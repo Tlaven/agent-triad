@@ -9,6 +9,12 @@ from typing import TypedDict
 from langchain_core.tools import tool
 
 from src.common.tools import list_workspace_entries, read_workspace_text_file
+from src.executor_agent.interrupt import (
+    ToolInterrupted,
+    check_interrupt,
+    run_with_interrupt_check,
+    INTERRUPT_PROMPT,
+)
 
 
 class WriteFileResult(TypedDict):
@@ -228,7 +234,7 @@ def _validate_run_local_command_input(command: str, timeout: int, cwd: str | Non
 
 @tool
 def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) -> LocalCommandResult:
-    """在本地执行命令并返回执行结果。"""
+    """在本地执行命令并返回执行结果。执行期间可被 Supervisor 软中断。"""
     normalized_command = command.strip()
     workspace_root = _agent_workspace_root()
 
@@ -254,28 +260,21 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) 
     try:
         venv_dir = _ensure_agent_venv()
         run_env = _build_subprocess_env_with_venv(venv_dir)
-        run_kwargs: dict[str, object] = {
-            "cwd": exec_cwd,
-            "capture_output": True,
-            "env": run_env,
-            "text": True,
-            "encoding": "utf-8",
-            "errors": "replace",
-            "timeout": timeout,
-            "check": False,
-        }
+
         if os.name == "nt":
-            completed = subprocess.run(
-                ["powershell", "-NoProfile", "-Command", normalized_command],
-                shell=False,
-                **run_kwargs,
-            )
+            cmd_args = ["powershell", "-NoProfile", "-Command", normalized_command]
+            shell = False
         else:
-            completed = subprocess.run(
-                normalized_command,
-                shell=True,
-                **run_kwargs,
-            )
+            cmd_args = normalized_command
+            shell = True
+
+        completed = run_with_interrupt_check(
+            cmd_args,
+            shell=shell,
+            cwd=exec_cwd,
+            env=run_env,
+            timeout=timeout,
+        )
         return {
             "ok": completed.returncode == 0,
             "command": normalized_command,
@@ -286,6 +285,17 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) 
             "stderr": completed.stderr,
             "error": None,
         }
+    except ToolInterrupted:
+        return {
+            "ok": False,
+            "command": normalized_command,
+            "cwd": exec_cwd,
+            "returncode": None,
+            "timed_out": False,
+            "stdout": "",
+            "stderr": "",
+            "error": INTERRUPT_PROMPT,
+        }
     except subprocess.TimeoutExpired as e:
         return {
             "ok": False,
@@ -293,7 +303,7 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) 
             "cwd": exec_cwd,
             "returncode": None,
             "timed_out": True,
-            "stdout": e.stdout if isinstance(e.stdout, str) else "",
+            "stdout": e.stdout if isinstance(e.stdout, str) else (e.output or ""),
             "stderr": e.stderr if isinstance(e.stderr, str) else "",
             "error": f"命令执行超时（>{timeout}s）",
         }

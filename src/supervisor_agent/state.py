@@ -49,10 +49,23 @@ class SupervisorDecision:
 
 @dataclass
 class ActiveExecutorTask:
-    """Tracks a dispatched V3 async executor task."""
+    """Tracks a dispatched V3 async executor task.
+
+    plan_json is intentionally NOT stored here to keep Graph State lightweight.
+    The original plan_json is cached in ExecutorPoller (src/common/polling.py)
+    and retrieved via poller.get_plan_json(plan_id) when needed.
+    """
     plan_id: str
-    plan_json: str
     status: str = "dispatched"  # dispatched / running / completed / failed / stopped
+
+
+@dataclass
+class ExecutorTaskRecord:
+    """持久化的 Executor 任务记录（完成后不删除）。"""
+    plan_id: str
+    status: str = "dispatched"       # dispatched / running / completed / failed / stopped / lost
+    queryable: bool = False          # Executor 服务器是否能回答 /result/{plan_id}
+    last_updated: str = ""           # ISO 格式时间戳，如 2026-04-12T13:06:00
 
 
 @dataclass
@@ -68,3 +81,5 @@ class State(InputState):
     is_last_step: IsLastStep = field(default=False)
     # V3: active async executor tasks keyed by plan_id
     active_executor_tasks: dict[str, ActiveExecutorTask] = field(default_factory=dict)
+    # V3: persistent executor task history (survives completion)
+    executor_task_history: dict[str, ExecutorTaskRecord] = field(default_factory=dict)

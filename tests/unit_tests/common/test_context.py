@@ -1,52 +1,35 @@
 """Unit tests for common.context.Context env-var override logic."""
 
+import pytest
 
 from src.common.context import Context
 
+
 # ---------------------------------------------------------------------------
-# Default values
+# Default values — parametrized for simple int/bool fields
 # ---------------------------------------------------------------------------
 
-def test_context_default_max_replan() -> None:
+@pytest.mark.parametrize("field,expected", [
+    ("max_replan", 3),
+    ("max_executor_iterations", 20),
+    ("enable_deepwiki", False),
+    ("enable_implicit_thinking", True),
+    ("supervisor_thinking_visibility", "implicit"),
+])
+def test_context_defaults(field, expected) -> None:
     ctx = Context()
-    assert ctx.max_replan == 3
+    assert getattr(ctx, field) == expected
 
 
-def test_context_default_max_executor_iterations() -> None:
-    ctx = Context()
-    assert ctx.max_executor_iterations == 20
-
-
-def test_context_default_enable_deepwiki_is_false() -> None:
-    ctx = Context()
-    assert ctx.enable_deepwiki is False
-
-
-def test_context_default_enable_implicit_thinking_is_true() -> None:
-    ctx = Context()
-    assert ctx.enable_implicit_thinking is True
-
-
-def test_context_default_supervisor_thinking_visibility_is_implicit() -> None:
-    ctx = Context()
-    assert ctx.supervisor_thinking_visibility == "implicit"
-
-
-def test_context_default_supervisor_model() -> None:
+def test_context_default_supervisor_model_is_set() -> None:
     ctx = Context()
     assert "Step-3.5-Flash" in ctx.supervisor_model or "siliconflow" in ctx.supervisor_model
 
 
-def test_context_default_planner_model_is_not_empty() -> None:
+def test_context_default_planner_and_executor_model_are_non_empty() -> None:
     ctx = Context()
-    assert isinstance(ctx.planner_model, str)
-    assert ctx.planner_model
-
-
-def test_context_default_executor_model_is_not_empty() -> None:
-    ctx = Context()
-    assert isinstance(ctx.executor_model, str)
-    assert ctx.executor_model
+    assert isinstance(ctx.planner_model, str) and ctx.planner_model
+    assert isinstance(ctx.executor_model, str) and ctx.executor_model
 
 
 # ---------------------------------------------------------------------------
@@ -55,88 +38,53 @@ def test_context_default_executor_model_is_not_empty() -> None:
 
 def test_env_overrides_max_replan(monkeypatch) -> None:
     monkeypatch.setenv("MAX_REPLAN", "7")
-    ctx = Context()
-    assert ctx.max_replan == 7
+    assert Context().max_replan == 7
 
 
 def test_env_overrides_max_executor_iterations(monkeypatch) -> None:
     monkeypatch.setenv("MAX_EXECUTOR_ITERATIONS", "30")
-    ctx = Context()
-    assert ctx.max_executor_iterations == 30
+    assert Context().max_executor_iterations == 30
 
 
-def test_env_overrides_bool_field_true(monkeypatch) -> None:
-    monkeypatch.setenv("ENABLE_DEEPWIKI", "true")
-    ctx = Context()
-    assert ctx.enable_deepwiki is True
-
-
-def test_env_overrides_bool_field_numeric(monkeypatch) -> None:
-    monkeypatch.setenv("ENABLE_DEEPWIKI", "1")
-    ctx = Context()
-    assert ctx.enable_deepwiki is True
-
-
-def test_env_false_does_not_enable_bool(monkeypatch) -> None:
-    monkeypatch.setenv("ENABLE_DEEPWIKI", "false")
-    ctx = Context()
-    assert ctx.enable_deepwiki is False
+@pytest.mark.parametrize("value,expected", [("true", True), ("1", True), ("false", False)])
+def test_env_overrides_bool_field(monkeypatch, value, expected) -> None:
+    monkeypatch.setenv("ENABLE_DEEPWIKI", value)
+    assert Context().enable_deepwiki is expected
 
 
 def test_env_overrides_enable_implicit_thinking_false(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_IMPLICIT_THINKING", "false")
-    ctx = Context()
-    assert ctx.enable_implicit_thinking is False
+    assert Context().enable_implicit_thinking is False
 
 
 def test_env_overrides_supervisor_thinking_visibility(monkeypatch) -> None:
     monkeypatch.setenv("SUPERVISOR_THINKING_VISIBILITY", "visible")
-    ctx = Context()
-    assert ctx.supervisor_thinking_visibility == "visible"
+    assert Context().supervisor_thinking_visibility == "visible"
 
 
 def test_deprecated_thinking_visibility_env_applies_when_supervisor_env_unset(monkeypatch) -> None:
     monkeypatch.delenv("SUPERVISOR_THINKING_VISIBILITY", raising=False)
     monkeypatch.setenv("THINKING_VISIBILITY", "visible")
-    ctx = Context()
-    assert ctx.supervisor_thinking_visibility == "visible"
+    assert Context().supervisor_thinking_visibility == "visible"
 
 
 # ---------------------------------------------------------------------------
-# Explicit constructor arg overrides env var
+# Explicit constructor arg vs env var precedence
 # ---------------------------------------------------------------------------
 
-def test_explicit_arg_overrides_env_max_replan(monkeypatch) -> None:
+def test_explicit_non_default_arg_blocks_env(monkeypatch) -> None:
     monkeypatch.setenv("MAX_REPLAN", "5")
-    ctx = Context(max_replan=10)
-    # Explicit value (10) != default (3), so env var should NOT override
-    assert ctx.max_replan == 10
+    assert Context(max_replan=99).max_replan == 99
 
-
-def test_explicit_arg_overrides_env_for_bool(monkeypatch) -> None:
-    monkeypatch.setenv("ENABLE_DEEPWIKI", "true")
-    ctx = Context(enable_deepwiki=False)
-    # Explicit False == default (False), so env var WILL override → True
-    # This is the designed behaviour: only non-default explicit values block env override
-    # (False == default False → env applies)
-    assert ctx.enable_deepwiki is True
-
-
-def test_explicit_non_default_max_replan_blocks_env(monkeypatch) -> None:
-    monkeypatch.setenv("MAX_REPLAN", "5")
-    ctx = Context(max_replan=99)
-    assert ctx.max_replan == 99
-
-
-# ---------------------------------------------------------------------------
-# Invalid env var values fall back to default
-# ---------------------------------------------------------------------------
 
 def test_invalid_int_env_var_keeps_default(monkeypatch) -> None:
     monkeypatch.setenv("MAX_REPLAN", "not_a_number")
-    ctx = Context()
-    assert ctx.max_replan == 3
+    assert Context().max_replan == 3
 
+
+# ---------------------------------------------------------------------------
+# get_agent_llm_kwargs
+# ---------------------------------------------------------------------------
 
 def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
     ctx = Context(
@@ -145,8 +93,7 @@ def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
         supervisor_max_tokens=1024,
         supervisor_seed=7,
     )
-    kwargs = ctx.get_agent_llm_kwargs("supervisor")
-    assert kwargs == {
+    assert ctx.get_agent_llm_kwargs("supervisor") == {
         "temperature": 0.2,
         "top_p": 0.9,
         "max_tokens": 1024,
@@ -157,5 +104,4 @@ def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
 
 def test_get_agent_llm_kwargs_skips_sentinel_defaults() -> None:
     ctx = Context()
-    kwargs = ctx.get_agent_llm_kwargs("executor")
-    assert kwargs.get("extra_body") == {"enable_thinking": True}
+    assert ctx.get_agent_llm_kwargs("executor").get("extra_body") == {"enable_thinking": True}

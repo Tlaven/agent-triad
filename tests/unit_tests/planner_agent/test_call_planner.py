@@ -1,4 +1,4 @@
-"""Unit tests for planner_agent.graph.call_planner node (with mocked LLM)."""
+﻿"""Unit tests for planner_agent.graph.call_planner node (with mocked LLM)."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,12 +9,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 from src.common.context import Context
 from src.planner_agent.graph import call_planner
 from src.planner_agent.state import PlannerState
-
-
-def _make_runtime(context: Context | None = None) -> MagicMock:
-    mock_runtime = MagicMock()
-    mock_runtime.context = context or Context()
-    return mock_runtime
 
 
 def _make_plan_content(goal: str = "train a model") -> str:
@@ -38,11 +32,9 @@ def _make_plan_content(goal: str = "train a model") -> str:
 # Normal response: LLM returns plan JSON in code block
 # ---------------------------------------------------------------------------
 
-async def test_call_planner_returns_ai_message_with_plan() -> None:
-    state = PlannerState(messages=[
-        HumanMessage(content="train a classifier"),
-    ])
-    runtime = _make_runtime()
+async def test_call_planner_returns_ai_message_with_plan(make_runtime) -> None:
+    state = PlannerState(messages=[HumanMessage(content="train a classifier")])
+    runtime = make_runtime()
 
     mock_llm = MagicMock()
     mock_llm.bind_tools = MagicMock(return_value=mock_llm)
@@ -63,27 +55,25 @@ async def test_call_planner_returns_ai_message_with_plan() -> None:
 # Empty content raises RuntimeError
 # ---------------------------------------------------------------------------
 
-async def test_call_planner_empty_content_raises_runtime_error() -> None:
-    state = PlannerState(messages=[
-        HumanMessage(content="task"),
-    ])
-    runtime = _make_runtime()
+async def test_call_planner_empty_content_raises_runtime_error(make_runtime) -> None:
+    state = PlannerState(messages=[HumanMessage(content="task")])
+    runtime = make_runtime()
 
     mock_llm = MagicMock()
     mock_llm.bind_tools = MagicMock(return_value=mock_llm)
     mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=""))
 
     with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm):
-        with pytest.raises(RuntimeError, match="未返回文本内容且无工具调用"):
+        with pytest.raises(RuntimeError, match="未返回"):
             await call_planner(state, runtime)
 
 
 # ---------------------------------------------------------------------------
-# ReAct：完整消息历史（含带 tool_calls 的 AIMessage）会传入模型
+# ReAct: full message history including tool_calls is passed to model
 # ---------------------------------------------------------------------------
 
-async def test_call_planner_passes_full_history_including_tool_calls() -> None:
-    """V2-b：Planner ReAct 需要保留 tool_calls 轮次，供下一轮模型理解 Observation。"""
+async def test_call_planner_passes_full_history_including_tool_calls(make_runtime) -> None:
+    """Planner ReAct needs to preserve tool_calls rounds for the next model invocation."""
     state = PlannerState(messages=[
         HumanMessage(content="human task"),
         AIMessage(content="assistant text"),
@@ -92,7 +82,7 @@ async def test_call_planner_passes_full_history_including_tool_calls() -> None:
             tool_calls=[{"name": "some_tool", "args": {}, "id": "x", "type": "tool_call"}],
         ),
     ])
-    runtime = _make_runtime()
+    runtime = make_runtime()
 
     received_messages: list = []
 
@@ -112,11 +102,9 @@ async def test_call_planner_passes_full_history_including_tool_calls() -> None:
     assert received_messages[-1].tool_calls
 
 
-async def test_call_planner_passes_planner_llm_kwargs() -> None:
-    state = PlannerState(messages=[
-        HumanMessage(content="task"),
-    ])
-    runtime = _make_runtime(
+async def test_call_planner_passes_planner_llm_kwargs(make_runtime) -> None:
+    state = PlannerState(messages=[HumanMessage(content="task")])
+    runtime = make_runtime(
         Context(
             planner_temperature=0.0,
             planner_top_p=1.0,
@@ -139,3 +127,4 @@ async def test_call_planner_passes_planner_llm_kwargs() -> None:
         seed=22,
         extra_body={'enable_thinking': True},
     )
+

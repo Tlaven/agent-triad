@@ -46,11 +46,11 @@ def _build_common_prompt_body(tools_section: str) -> str:
 - 可验证：涉及数据或事实时，附上关键依据。"""
 
 
-def _build_v2_tools_section() -> str:
-    """V2 模式下的工具使用说明（同步执行）。"""
+def _build_tools_section() -> str:
+    """工具使用说明（进程分离执行，默认同步等待）。"""
     return """- **模式 B：Tool-use ReAct**
   - 条件：需要外部执行，但目标明确、只需调用 1 次 Executor 即可完成，无前后依赖。
-  - 行为：调用 `call_executor(task_description)` 直接执行并获取结果。
+  - 行为：调用 `call_executor(task_description)` 执行任务并获取结果。
 
 - **模式 C：Plan -> Execute -> Summarize**
   - 条件：任务复杂、需要调用 2 次及以上工具、或存在明显的前后依赖关系。
@@ -59,49 +59,21 @@ def _build_v2_tools_section() -> str:
     2. 调用 `call_executor(plan_id)` 执行计划并等待结果。
     3. 汇总所有执行结果，向用户输出最终答复。
 
-## 可用工具
-
-- `call_planner`：调用 Planner Agent 生成或修订意图层执行计划（Plan JSON）。
-- `call_executor`：调用 Executor Agent 执行任务。传入 `task_description`（模式 B）或 `plan_id`（模式 C）。阻塞返回执行结果。
-- `get_executor_full_output`：查看最近一次 Executor 执行的完整步骤级详情（含每个步骤的 result_summary / failure_reason）。"""
-
-
-def _build_v3_tools_section() -> str:
-    """V3 模式下的工具使用说明（进程分离异步执行，fire-and-forget 模式）。"""
-    return """- **模式 B：Tool-use ReAct**
-  - 条件：需要外部执行，但目标明确、只需调用 1 次 Executor 即可完成，无前后依赖。
+- **并行执行（高级）**
+  - 条件：多个子任务之间无依赖关系，可以同时执行以节省总耗时。
   - 行为：
-    1. 调用 `call_executor(task_description)` 派发任务（立即返回，不阻塞）。
-    2. 调用 `get_executor_result(plan_id)` 获取执行结果。
-
-- **模式 C：Plan -> Execute -> Summarize**
-  - 条件：任务复杂、需要调用 2 次及以上工具、或存在明显的前后依赖关系。
-  - 行为：
-    1. 调用 `call_planner` 获取执行计划。
-    2. 调用 `call_executor(plan_id)` 派发执行任务（立即返回，不阻塞）。
-    3. 在适当时机调用 `get_executor_result(plan_id)` 等待并获取执行结果。
-    4. 汇总所有执行结果，向用户输出最终答复。
-
-## 可用工具
-
-- `call_planner`：调用 Planner Agent 生成或修订意图层执行计划（Plan JSON）。
-- `call_executor`：向 Executor 异步派发任务（立即返回）。传入 `task_description`（模式 B）或 `plan_id`（模式 C）。返回派发确认和 plan_id。
-- `get_executor_result(plan_id)`：阻塞等待并获取已派发 Executor 任务的执行结果。返回执行摘要和状态。
-- `check_executor_progress(plan_id)`：查看 Executor 任务的实时执行进度（已完成步骤、当前步骤、工具调用轮数）。非阻塞，可随时调用。
-- `stop_executor(plan_id)`：请求正在执行的 Executor 优雅停止（仅在需要中断时使用）。
-- `get_executor_full_output`：查看最近一次 Executor 执行的完整步骤级详情（含每个步骤的 result_summary / failure_reason）。"""
+    1. 连续调用 `call_executor(..., wait_for_result=false)` 派发多个任务（每次立即返回）。
+    2. 用 `get_executor_result(plan_id)` 逐个获取结果。
+  - 注意：只在确认多个任务确实可以并行时才使用此模式，绝大多数场景下应使用默认的同步等待。"""
 
 
 def get_supervisor_system_prompt(ctx: Context | None = None) -> str:
-    """返回 Supervisor 完整系统提示词，根据运行模式动态生成。"""
+    """返回 Supervisor 完整系统提示词。"""
     from src.common.context import Context
 
     if ctx is None:
         ctx = Context()
 
-    if ctx.enable_v3_parallel:
-        tools_section = _build_v3_tools_section()
-    else:
-        tools_section = _build_v2_tools_section()
+    tools_section = _build_tools_section()
 
     return _build_common_prompt_body(tools_section)

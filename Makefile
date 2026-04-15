@@ -2,14 +2,16 @@
 
 all: help
 
+DEV_PORT ?= 2024
+
 setup:
 	uv sync --dev
 
 dev:
-	uv run langgraph dev --config langgraph.json --no-browser
+	uv run langgraph dev --config langgraph.json --port $(DEV_PORT) --no-browser
 
 dev_ui:
-	uv run langgraph dev --config langgraph.json
+	uv run langgraph dev --config langgraph.json --port $(DEV_PORT)
 
 lint:
 	uv run ruff check src tests
@@ -56,8 +58,9 @@ test_v1_acceptance: test_v1_auto
 help:
 	@echo "Development:"
 	@echo "  make setup              安装依赖（uv sync --dev）"
-	@echo "  make dev                启动 langgraph dev（无 UI）"
-	@echo "  make dev_ui             启动 langgraph dev（Studio UI）"
+	@echo "  make dev                启动 langgraph dev（无 UI，默认端口 2024）"
+	@echo "  make dev_ui             启动 langgraph dev（Studio UI，默认端口 2024）"
+	@echo "                          可覆盖端口：make dev DEV_PORT=2025"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make lint               运行 ruff + mypy"

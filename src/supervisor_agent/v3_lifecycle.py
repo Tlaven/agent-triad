@@ -1,8 +1,9 @@
-"""V3 infrastructure lifecycle manager.
+"""V4 infrastructure lifecycle manager.
 
-Lazy singleton: Executor subprocess + callback server are started once,
-on the first call_model invocation where enable_v3_parallel=True.
-They persist across multiple graph.ainvoke() calls within the same process.
+Lazy singleton: starts the Mailbox HTTP server thread on first call.
+Per-task Executor processes are created on-demand by call_executor.
+
+No callback server — Executor pushes results to Mailbox HTTP thread (Push mode).
 
 Cleanup happens via atexit or explicit stop().
 """
@@ -22,49 +23,36 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class V3Infrastructure:
-    """Holds references to all V3 async resources."""
+    """Holds references to all V3/V4 async resources."""
 
     process_manager: Any  # ExecutorProcessManager
-    callback_server: Any  # uvicorn.Server
-    callback_task: asyncio.Task | None = None
     mailbox: Any = None  # Mailbox
+    mailbox_server: Any = None  # MailboxHTTPServer thread
+    poller: Any = None  # ExecutorPoller
     started: bool = False
 
 
 class V3LifecycleManager:
-    """Async-safe lazy singleton for V3 infrastructure."""
+    """Async-safe lazy singleton for V3/V4 infrastructure."""
 
     def __init__(self) -> None:
         self._infra: V3Infrastructure | None = None
         self._lock = asyncio.Lock()
         self._shutting_down = False
+        self._atexit_registered = False
 
     async def ensure_started(self, ctx: Context) -> V3Infrastructure:
-        """Start V3 infrastructure if not already running. Idempotent.
+        """Start V4 infrastructure (Mailbox thread + ProcessManager).
 
-        Safe to call from any asyncio task on the same event loop.
+        Does NOT pre-start any Executor subprocess — those are created
+        per-task by call_executor.
         """
         if self._shutting_down:
             raise RuntimeError("V3 lifecycle manager is shutting down")
 
-        # Fast path: already started and Executor is still alive
-        if self._infra is not None and self._infra.started:
-            if self._infra.process_manager.is_running:
-                return self._infra
-            # Executor process died — restart
-            logger.warning("Executor process died, restarting...")
-            async with self._lock:
-                # Double-check after acquiring lock
-                if self._infra is not None and self._infra.started:
-                    await self._stop_internal()
-                # Fall through to start below
-
         async with self._lock:
-            # Double-check after acquiring lock
             if self._infra is not None and self._infra.started:
-                if self._infra.process_manager.is_running:
-                    return self._infra
-                await self._stop_internal()
+                return self._infra
 
             infra = await self._start(ctx)
             self._infra = infra
@@ -72,42 +60,41 @@ class V3LifecycleManager:
 
     async def _start(self, ctx: Context) -> V3Infrastructure:
         """Internal start. Caller must hold self._lock."""
-        import uvicorn
-
-        from src.common.mailbox import Mailbox
+        from src.common.mailbox import Mailbox, set_mailbox
+        from src.common.mailbox_server import MailboxHTTPServer
+        from src.common.polling import ExecutorPoller
         from src.common.process_manager import ExecutorProcessManager
-        from src.supervisor_agent.callback_server import callback_app, set_mailbox
 
         mailbox = Mailbox()
         set_mailbox(mailbox)
 
-        config = uvicorn.Config(
-            callback_app,
-            host="0.0.0.0",
-            port=ctx.supervisor_callback_port,
-            log_level="warning",
-        )
-        server = uvicorn.Server(config)
-        callback_task = asyncio.create_task(server.serve(), name="callback_server")
-
-        pm = ExecutorProcessManager(ctx)
-        await pm.start()
+        # Start Mailbox HTTP server thread
+        mailbox_server = MailboxHTTPServer(mailbox, port=ctx.mailbox_port)
+        mailbox_server.start()
 
         logger.info(
-            "V3 infrastructure started: Executor on port %d, callback on port %d",
-            ctx.executor_port,
-            ctx.supervisor_callback_port,
+            "V4 infrastructure started: Mailbox server on port %d",
+            mailbox_server.port,
         )
+
+        pm = ExecutorProcessManager(ctx)
+
+        # Start unified background poller (base_url set later when first Executor starts)
+        poller = ExecutorPoller(mailbox)
+        poller.start()
 
         infra = V3Infrastructure(
             process_manager=pm,
-            callback_server=server,
-            callback_task=callback_task,
             mailbox=mailbox,
+            mailbox_server=mailbox_server,
+            poller=poller,
             started=True,
         )
 
-        atexit.register(self._sync_cleanup)
+        if not self._atexit_registered:
+            atexit.register(self._sync_cleanup)
+            self._atexit_registered = True
+
         return infra
 
     async def _stop_internal(self) -> None:
@@ -118,25 +105,31 @@ class V3LifecycleManager:
         infra = self._infra
         self._infra = None
 
+        # Stop unified background poller
+        if infra.poller:
+            try:
+                await infra.poller.stop()
+            except Exception:
+                logger.exception("Error stopping ExecutorPoller")
+
+        # Stop all Executor processes
         try:
             await infra.process_manager.stop()
         except Exception:
-            logger.exception("Error stopping Executor process")
+            logger.exception("Error stopping Executor processes")
 
-        infra.callback_server.should_exit = True
-        if infra.callback_task is not None:
+        # Stop Mailbox HTTP server thread
+        if infra.mailbox_server:
             try:
-                await asyncio.wait_for(infra.callback_task, timeout=5.0)
-            except asyncio.TimeoutError:
-                infra.callback_task.cancel()
+                infra.mailbox_server.stop()
             except Exception:
-                logger.exception("Error stopping callback server")
+                logger.exception("Error stopping Mailbox server")
 
         infra.started = False
-        logger.info("V3 infrastructure stopped")
+        logger.info("V4 infrastructure stopped")
 
     async def stop(self) -> None:
-        """Public stop. Acquires lock."""
+        """Public stop. Acquires lock. Marks as shutting down."""
         async with self._lock:
             await self._stop_internal()
             self._shutting_down = True
@@ -146,15 +139,10 @@ class V3LifecycleManager:
         if self._infra is None:
             return
         infra = self._infra
-        if infra.process_manager and infra.process_manager.is_running:
-            try:
-                infra.process_manager._process.terminate()
-                infra.process_manager._process.wait(timeout=3)
-            except Exception:
-                try:
-                    infra.process_manager._process.kill()
-                except Exception:
-                    pass
+        if infra.process_manager:
+            infra.process_manager.sync_terminate()
+        if infra.mailbox_server:
+            infra.mailbox_server.stop()
 
 
 # Module-level singleton — one per process

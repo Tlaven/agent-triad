@@ -1,6 +1,20 @@
-# V3 Architecture — Mermaid Flowcharts
+# Architecture — Mermaid Flowcharts
 
-> 用 Mermaid 可视化 V3 进程分离并行架构。工具名以实际代码为准。
+> 用 Mermaid 可视化 进程分离 Push 架构。工具名以实际代码为准。
+>
+> **核心变化**：
+> - **Push 模式**：Executor 主动 POST 结果到 Supervisor 内的 MailboxHTTPServer 线程，不再依赖 Supervisor 主动拉取
+> - **统一后台轮询**：`ExecutorPoller`（单一 `asyncio.Task`）替代分散的 `_poll_executor_results`，每 1.5s 用 `asyncio.gather` + `Semaphore(5)` 并发扫描所有活跃任务，共享一个 `httpx.AsyncClient` 连接池
+> - **Per-task 进程**：每次 `call_executor` 创建独立 Executor 子进程，完成后自动退出
+> - **软中断装饰器**：工具执行期间检查 `stop_event`，可中断长时间运行的命令
+> - **Mailbox 内存管理**：写入时自动驱逐已完成的旧 box（上限 80，保留 50）
+>
+> **设计原则**：
+> - Executor 完成后通过 `POST /inbox` 主动推送结果到 MailboxHTTPServer（Push 优先）
+> - `ExecutorPoller` 作为兜底：每 1.5s 对 `/result/{pid}` 发起一次拉取，填补 Push 失败的场景
+> - `get_executor_result` 工具不再自行轮询 HTTP，只等待 Mailbox（poller 负责写入）
+> - `ActiveExecutorTask` 不存 `plan_json`（移至 poller 缓存），Graph State 保持轻量
+> - `executor_task_history` 上限 50 条，防止长期运行内存膨胀
 
 ---
 
@@ -8,63 +22,87 @@
 
 ```mermaid
 graph TB
-    subgraph ProcessA["Process A — Supervisor+Planner (port 8101)"]
+    subgraph ProcessA["Process A — Supervisor+Planner (LangGraph ASGI 内)"]
         SG[Supervisor ReAct Graph]
         PG[Planner Graph]
-        MB[Mailbox<br/>in-memory]
-        CB[Callback Server<br/>FastAPI :8101]
-        PM[ProcessManager<br/>spawn/monitor]
+        MB["Mailbox<br/>in-memory<br/>(上限80条，自动驱逐)"]
+        MBS["MailboxHTTPServer<br/>独立线程 :动态端口"]
+        EP["ExecutorPoller<br/>asyncio.Task<br/>1.5s 间隔 + Semaphore(5)"]
+        PM[ProcessManager<br/>asyncio.create_subprocess_exec]
+        PP["logs/executor_{plan_id}.port<br/>端口文件持久化"]
 
         SG -->|call_planner| PG
         PG -->|plan JSON| SG
-        CB -->|write| MB
-        SG -->|read| MB
+        MBS -->|"_post_sync<br/>(Push写入)"| MB
+        EP -->|"终态写入<br/>(Pull兜底)"| MB
+        SG -->|"force_poll_once()<br/>刷新后注入"| EP
+        SG -->|读取注入| MB
+        PM -->|端口写入| PP
+        PP -->|热重载恢复| PM
+        EP -->|"GET /result/{pid}"| PM
     end
 
-    subgraph ProcessB["Process B — Executor (port 8100)"]
-        ES[Executor Server<br/>FastAPI :8100]
+    subgraph ProcessB["Process B — Executor (动态端口, per-task)"]
+        ES[Executor Server<br/>FastAPI :动态端口]
         EG[Executor Graph<br/>ReAct Loop]
+        RS["_results dict<br/>(最多50条, FIFO淘汰)"]
         SF[Stop Events<br/>asyncio.Event dict]
-        SS[Snapshot Buffer]
 
         ES -->|ainvoke| EG
         ES -->|set flag| SF
         EG -->|check| SF
-        EG -->|emit| SS
+        EG -->|完成写入| RS
+        ES -->|派发时预填| RS
     end
 
-    PM -->|subprocess.Popen| ProcessB
+    PM -->|"asyncio.create_subprocess_exec<br/>MAILBOX_URL 注入环境变量"| ProcessB
 
     SG -->|"POST /execute"| ES
     SG -->|"POST /stop/{plan_id}"| ES
     SG -->|"GET /status/{plan_id}"| ES
+    SG -->|"GET /tasks"| ES
 
-    EG -->|"POST /callback/snapshot"| CB
-    EG -->|"POST /callback/completed"| CB
+    ES -->|"POST /inbox<br/>(Push 结果)"| MBS
+    EP -->|"GET /result/{pid}<br/>(Pull 兜底)"| ES
 
     style ProcessA fill:#e8f4e8,stroke:#2d7d2d
     style ProcessB fill:#e8e8f4,stroke:#2d2d7d
     style MB fill:#fff3cd,stroke:#856404
-    style SF fill:#f8d7da,stroke:#842029
+    style MBS fill:#ffeeba,stroke:#856404
+    style EP fill:#d4edda,stroke:#155724
+    style RS fill:#fff3cd,stroke:#856404
+    style PP fill:#d1ecf1,stroke:#0c5460
 ```
+
+**与旧架构的关键区别**：
+- ❌ 无 Callback Server（不再嵌套 ASGI）
+- ❌ 无固定端口（动态分配，避免冲突）
+- ❌ 无 `subprocess.Popen`（换 `asyncio.create_subprocess_exec`）
+- ❌ 无分散的 `_poll_executor_results`（统一为 `ExecutorPoller` 后台任务）
+- ✅ Executor Push 结果到 MailboxHTTPServer，Push 失败时 Poller 兜底拉取
+- ✅ `ActiveExecutorTask` 不存 `plan_json`，Graph State 轻量
+- ✅ Mailbox 自动驱逐已完成条目，防内存泄漏
+- ✅ LangSmith `parent_run_id` 跨进程传递，trace 链路可见
 
 ---
 
-## 2. 完整执行流程（Mode 3 — V3 并行模式）
+## 2. 完整执行流程（并行模式）
 
 ```mermaid
 sequenceDiagram
     participant User as 用户
     participant SM as Supervisor call_model
     participant DT as dynamic_tools_node
+    participant EP as ExecutorPoller<br/>(后台 asyncio.Task)
     participant PM as ProcessManager
     participant ES as Executor Server
     participant EG as Executor Graph
-    participant MB as Mailbox
+    participant MBS as MailboxHTTPServer<br/>(独立线程)
+    participant MB as Mailbox<br/>(in-memory)
     participant PL as Planner
 
     User->>SM: 用户任务
-    SM->>SM: LLM 决定 Mode 3
+    SM->>SM: LLM 决定 复杂规划模式
     SM->>DT: tool_call: call_planner(task_core)
     DT->>PL: run_planner()
     PL-->>DT: plan JSON
@@ -72,33 +110,36 @@ sequenceDiagram
 
     SM->>SM: LLM 决定调用 call_executor
     SM->>DT: tool_call: call_executor(plan_id)
-    DT->>ES: POST /execute {plan_json, plan_id, callback_url}
-
+    DT->>PM: start_for_task(plan_id)
+    PM-->>DT: Executor 进程就绪 base_url
+    DT->>ES: POST /execute {plan_json, plan_id, config:{parent_run_id}}
     Note over ES: 创建 asyncio.Task
     ES-->>DT: {plan_id, status: "accepted"}
-    DT-->>SM: Executor 已派发
+    DT->>EP: poller.register(plan_id, plan_json)
+    DT->>EP: poller.set_base_url(base_url)
+    DT-->>SM: Executor 已派发 [EXECUTOR_DISPATCH]
 
-    Note over SM: Supervisor 不阻塞，<br/>可以继续其他工作
+    Note over SM: Supervisor 不阻塞，继续其他工作
+    Note over EP: 后台每 1.5s 轮询活跃任务
 
-    loop 每 N 次工具调用
-        EG->>EG: tools_node 执行工具
-        EG->>MB: POST /callback/snapshot<br/>{tool_rounds, step_progress}
-        Note over MB: 快照进入邮箱<br/>Supervisor 按需查看
-    end
+    SM->>EP: force_poll_once() (call_model 前刷新)
+    EP->>ES: GET /result/{plan_id}
+    ES-->>EP: status: running
 
     SM->>SM: LLM 决定 get_executor_result
     SM->>DT: tool_call: get_executor_result(plan_id)
+    Note over DT: 查 Mailbox → 无结果<br/>probe → 任务运行中<br/>等待 Mailbox (poller 写入)
 
-    loop 轮询邮箱
-        DT->>MB: 检查 completion
-        MB-->>DT: 尚未完成
-    end
+    Note over EG: 执行完成
+    EG->>ES: 结果写入 _results dict
+    ES->>MBS: POST /inbox {plan_id, payload}
+    MBS->>MB: _post_sync() 写入 completion
 
-    EG->>EG: 执行完成
-    EG->>MB: POST /callback/completed<br/>{status, summary, updated_plan_json}
+    Note over EP: 后台轮询也同步写入<br/>(Push 已完成则跳过)
+    EP->>MB: has_completion? → 已存在，unregister
 
-    DT->>MB: 检查 completion
-    MB-->>DT: has_completion = true
+    DT->>MB: get_completion(plan_id) → 命中
+    DT->>EP: poller.unregister(plan_id)
     DT-->>SM: [EXECUTOR_RESULT] {status, summary, plan}
 
     SM->>SM: LLM 合成最终答案
@@ -107,26 +148,55 @@ sequenceDiagram
 
 ---
 
-## 3. 快照上报流程（轻量级，不阻塞 ReAct）
+## 3. 结果写入 Mailbox 的两条路径
 
 ```mermaid
 flowchart TD
-    A[tools_node 执行完毕] --> B{snapshot_interval > 0?}
-    B -->|No| C[正常返回<br/>继续 ReAct]
-    B -->|Yes| D{tool_rounds % interval == 0?}
-    D -->|No| C
-    D -->|Yes| E[_extract_lightweight_snapshot]
-    E --> F[从 plan JSON 提取:<br/>已完成步骤数<br/>当前步骤<br/>tool_rounds]
-    F --> G["asyncio.create_task(<br/>callback(snapshot_payload))<br/>fire-and-forget"]
-    G --> C
+    subgraph Push["路径 1：Push（Executor 主动推送）"]
+        P1[Executor 执行完成] --> P2["_push_result_to_mailbox()"]
+        P2 --> P3["POST /inbox<br/>MAILBOX_URL 环境变量"]
+        P3 --> P4["MailboxHTTPServer 线程<br/>_InboxHandler.do_POST()"]
+        P4 --> P5["Mailbox._post_sync()<br/>+ _maybe_evict()"]
+    end
 
-    G -.->|HTTP POST| H[Supervisor Callback Server]
-    H --> I[写入 Mailbox]
-    I --> J["邮箱累积<br/>(Supervisor 稍后按需查看)"]
+    subgraph Pull["路径 2：Pull（ExecutorPoller 后台兜底）"]
+        Q1["ExecutorPoller._poll_loop()<br/>每 1.5s 醒来"] --> Q2["asyncio.gather<br/>Semaphore(5) 控并发"]
+        Q2 --> Q3["GET /result/{pid}<br/>单个 httpx.AsyncClient 复用"]
+        Q3 --> Q4{终态?}
+        Q4 -->|Yes| Q5["Mailbox.post() + unregister()"]
+        Q4 -->|No| Q6["等下次循环"]
+    end
 
-    style G fill:#fff3cd,stroke:#856404
-    style I fill:#e8f4e8,stroke:#2d7d2d
+    subgraph Consume["消费点"]
+        R1["get_executor_result<br/>等待 Mailbox（无 HTTP）"]
+        R2["_build_executor_status_brief<br/>注入 system prompt（含 summary 前100字）"]
+        R3["dynamic_tools_node<br/>解析 [EXECUTOR_RESULT]"]
+    end
+
+    P5 --> R1
+    P5 --> R2
+    Q5 --> R1
+    Q5 --> R2
+    R1 --> R3
+
+    subgraph ForceFlush["强制刷新（同步点）"]
+        F1["call_model 开始前<br/>force_poll_once()"]
+        F2["dynamic_tools_node 完成后<br/>force_poll_once()"]
+    end
+
+    F1 --> Q2
+    F2 --> Q2
+
+    style P5 fill:#fff3cd,stroke:#856404
+    style Q5 fill:#fff3cd,stroke:#856404
+    style R2 fill:#e8f4e8,stroke:#2d7d2d
 ```
+
+**关键原则**：
+- Push 是主路径，延迟最低（Executor 完成即通知）
+- Pull 是兜底，确保 Push 丢失时（网络异常等）结果也能到达
+- `get_executor_result` 纯等待 Mailbox，不自行发 HTTP 请求
+- `force_poll_once()` 在 LLM 决策前强制刷新一次，消除信息滞后
 
 ---
 
@@ -152,12 +222,12 @@ sequenceDiagram
 
     EG->>SF: stop_events[plan_id].is_set()?
     SF-->>EG: True
-    EG->>EG: 生成部分完成的结果:<br/>status=failed<br/>summary="Stopped by Supervisor"
+    EG->>EG: 生成部分完成的结果:<br/>status=stopped<br/>summary="Stopped by Supervisor"
     Note over EG: AIMessage 无 tool_calls<br/>→ route → __end__
-    EG->>ES: run_executor 返回 ExecutorResult
-    ES->>SM: POST /callback/completed {status: failed, summary, ...}
+    EG->>ES: 结果写入 _results dict
+    ES->>ES: _push_result_to_mailbox()
 
-    Note over SM: Supervisor 在 get_executor_result 中收到结果
+    Note over SM: Push 到 MailboxHTTPServer<br/>或 Poller 下次轮询时写入
 ```
 
 ---
@@ -166,43 +236,40 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph Executor Process
-        EG[Executor Graph]
+    subgraph ExecProc["Executor Process"]
+        EG[Executor Graph] -->|完成写入| RS["_results dict<br/>plan_id → ExecutorResult<br/>(最多50条)"]
+        EG -->|"POST /inbox"| MBS_ext["MailboxHTTPServer<br/>(Supervisor 进程内线程)"]
     end
 
-    subgraph Mailbox["Mailbox (in-memory, per plan_id)"]
-        S1[snapshot #1<br/>tool_rounds=3]
-        S2[snapshot #2<br/>tool_rounds=6]
-        S3[snapshot #3<br/>tool_rounds=9]
-        C["completion<br/>status=completed<br/>summary=...<br/>updated_plan_json=..."]
+    subgraph MailboxStore["Mailbox<br/>(in-memory, per plan_id, 上限80)"]
+        C["completion<br/>status / summary / updated_plan_json<br/>has_completion=True"]
     end
 
-    subgraph Supervisor Process
-        WFE[get_executor_result<br/>polls has_completion]
-        GES["GET /status/{plan_id}<br/>quick overview"]
-        GMS["GET /mailbox/{plan_id}<br/>full snapshots"]
+    subgraph SupervisorProc["Supervisor Process"]
+        EP_box["ExecutorPoller<br/>(后台 asyncio.Task)<br/>GET /result/{pid} 兜底"]
+        GER["get_executor_result<br/>等待 Mailbox (无 HTTP)"]
+        BES["_build_executor_status_brief<br/>注入 system prompt<br/>+ summary 前100字预览"]
+        MBS_box["MailboxHTTPServer<br/>独立线程 :port"]
     end
 
-    EG -->|"POST /callback/snapshot"| S1
-    EG -->|"POST /callback/snapshot"| S2
-    EG -->|"POST /callback/snapshot"| S3
-    EG -->|"POST /callback/completed<br/>(must-read)"| C
-
-    WFE -->|polls| C
-    GES -->|read latest| S3
-    GMS -->|read all| S1
-    GMS -->|read all| S2
-    GMS -->|read all| S3
+    MBS_ext --> MBS_box
+    MBS_box -->|"_post_sync() Push写入"| C
+    RS -->|"GET /result/{pid}<br/>Pull兜底"| EP_box
+    EP_box -->|终态写入| C
+    GER -->|等待 Mailbox| C
+    BES -->|读 Mailbox| C
 
     style C fill:#f8d7da,stroke:#842029
-    style S1 fill:#e8e8f4,stroke:#2d2d7d
-    style S2 fill:#e8e8f4,stroke:#2d2d7d
-    style S3 fill:#e8e8f4,stroke:#2d2d7d
+    style RS fill:#e8e8f4,stroke:#2d2d7d
+    style EP_box fill:#d4edda,stroke:#155724
+    style MBS_box fill:#ffeeba,stroke:#856404
 ```
 
 **关键区分**：
-- **蓝色** (snapshot) = 邮箱信息，Supervisor 按需查看
-- **红色** (completion) = 必读，`get_executor_result` 阻塞直到收到
+- Executor 完成后通过 `POST /inbox` Push 结果到 MailboxHTTPServer（主路径）
+- `ExecutorPoller` 后台拉取 `/result/{pid}` 作为 Pull 兜底
+- `get_executor_result` 纯 Mailbox 等待，不主动发 HTTP（120s 超时）
+- `_build_executor_status_brief` 将 Mailbox 内容（含 summary 摘要）注入 system prompt
 
 ---
 
@@ -210,123 +277,147 @@ flowchart LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Spawning: call_model 首次调用<br/>且 enable_v3_parallel=true<br/>(lazy singleton)
-    Spawning --> Starting: subprocess.Popen<br/>python -m src.executor_agent
-    Starting --> Ready: GET /health → 200<br/>(轮询直到成功或超时)
-    Starting --> Failed: 超时<br/>executor_startup_timeout
-    Failed --> Spawning: 重试（可选）
+    [*] --> Recovering: call_model 首次调用<br/>ensure_started()
 
-    Ready --> Executing: POST /execute
-    Executing --> Executing: POST /execute (多个任务)
-    Executing --> Ready: 任务完成
+    state Recovering {
+        [*] --> StartMailboxThread: 启动 MailboxHTTPServer 线程
+        StartMailboxThread --> StartPoller: 启动 ExecutorPoller asyncio.Task
+        StartPoller --> Ready_infra: V4 基础设施就绪
+    }
 
-    Ready --> ShuttingDown: Supervisor 关闭<br/>POST /shutdown
-    Executing --> ShuttingDown: Supervisor 关闭
+    Recovering --> Ready: 基础设施启动完成
 
-    ShuttingDown --> Stopped: 进程退出
-    ShuttingDown --> Terminated: 10s 超时 → process.terminate()
-    Terminated --> Killed: 5s 超时 → process.kill()
-    Killed --> [*]
-    Stopped --> [*]
+    state PerTask {
+        [*] --> CheckExisting: call_executor 调用
+        CheckExisting --> ReuseHandle: 进程已在运行
+        CheckExisting --> SpawnNew: 需要新进程
+        SpawnNew --> Writing: asyncio.create_subprocess_exec<br/>MAILBOX_URL 注入环境
+        Writing --> WaitPort: 写 logs/executor_{plan_id}.port
+        WaitPort --> PollHealth: GET /health 轮询
+        PollHealth --> HandleReady: 200 OK
+        PollHealth --> TimedOut: 超时 executor_startup_timeout
+    }
+
+    Ready --> PerTask: 每次 call_executor
+    PerTask --> Executing: POST /execute
+
+    Executing --> Completing: 任务完成
+    Completing --> PushResult: POST /inbox → MailboxHTTPServer
+    PushResult --> SelfShutdown: _schedule_self_shutdown()
+    SelfShutdown --> Stopped: 子进程自动退出
+
+    Ready --> ShuttingDown: Supervisor 关闭 / stop()
+    ShuttingDown --> Cleanup: 停 Poller → 停各子进程 → 停 Mailbox 线程
+    Cleanup --> [*]
 ```
+
+**与旧版的改进**：
+- 启动用 `asyncio.create_subprocess_exec`（非阻塞），不再用 `subprocess.Popen`
+- 端口动态分配（port=0），每个任务独立端口，不再固定 8100
+- Per-task 进程（`logs/executor_{plan_id}.port`），任务完成后进程自动退出
+- V4 基础设施启动同时包含 MailboxHTTPServer + ExecutorPoller
 
 ---
 
-## 7. V2 vs V3 对比
-
-```mermaid
-flowchart LR
-    subgraph V2["V2 — 单进程同步"]
-        V2_SM[Supervisor] -->|await run_executor| V2_EG[Executor]
-        V2_EG -->|阻塞返回| V2_SM
-        V2_SM -->|await run_planner| V2_PG[Planner]
-        V2_PG -->|阻塞返回| V2_SM
-    end
-
-    subgraph V3["V3 — 双进程异步"]
-        V3_SM[Supervisor] -->|await run_planner| V3_PG[Planner]
-        V3_PG -->|阻塞返回| V3_SM
-
-        V3_SM -->|"POST /execute"| V3_ES[Executor Server]
-        V3_ES -->|asyncio.Task| V3_EG[Executor Graph]
-        V3_EG -->|"callback/snapshot"| V3_MB[Mailbox]
-        V3_EG -->|"callback/completed"| V3_MB
-        V3_SM -->|"get_executor_result<br/>poll mailbox"| V3_MB
-    end
-
-    style V2 fill:#f0f0f0,stroke:#666
-    style V3 fill:#e8f4e8,stroke:#2d7d2d
-```
-
-**核心区别**：
-- V2: `call_executor` **阻塞**等 Executor 完成
-- V3: `call_executor` **立即返回**，`get_executor_result` **按需**等待
-- V3 可用 `check_executor_progress` 查看实时快照进度
-- V3 快照在 ReAct 循环中 **异步上报**，不中断执行
-- V3 软中断通过 **asyncio.Event** 实现，Executor **优雅退出**
-
----
-
-## 8. Supervisor LLM 工具决策树（V3 模式）
+## 7. Supervisor LLM 工具决策树
 
 ```mermaid
 flowchart TD
-    A[Supervisor call_model] --> B{LLM 分析任务}
+    A[Supervisor call_model] --> A0["force_poll_once()<br/>LLM 决策前刷新 Mailbox"]
+    A0 --> B{LLM 分析任务}
     B -->|Mode 1| C[Direct Response]
-    B -->|Mode 2| D[call_executor<br/>task_description]
-    B -->|Mode 3| E[call_planner → call_executor<br/>plan_id]
+    B -->|Mode 2| D["call_executor(task_description)<br/>poller.register(plan_id)"]
+    B -->|Mode 3| E["call_planner → call_executor(plan_id)<br/>poller.register(plan_id)"]
 
-    D --> F[get_executor_result<br/>poll until done]
+    D --> F["get_executor_result<br/>等待 Mailbox（poller 负责写入）<br/>120s 超时"]
     E --> F
 
     F --> G{结果?}
     G -->|completed| H[合成最终答案]
-    G -->|failed + 可重规划| I[call_planner → call_executor]
-    G -->|failed + 超过 MAX_REPLAN| J[返回失败分析]
+    G -->|"failed + 可重规划<br/>(replan_count < MAX_REPLAN)"| I[call_planner → call_executor]
+    G -->|"failed + 超过 MAX_REPLAN"| J[返回失败分析]
 
     subgraph Optional["可选：并行监控"]
-        K[check_executor_progress<br/>查看实时快照]
-        L[stop_executor<br/>软中断]
+        K["check_executor_progress<br/>GET /status"]
+        L["stop_executor<br/>软中断"]
+        M["list_executor_tasks<br/>GET /tasks + 探测"]
     end
 
     F -.->|等待期间| K
     F -.->|需要中断时| L
+    F -.->|查看所有任务| M
+
+    subgraph Background["后台常驻（无需 LLM 触发）"]
+        N["ExecutorPoller<br/>每 1.5s 扫描 active 任务<br/>Push 失败兜底"]
+    end
+
+    D -.->|register| N
+    E -.->|register| N
+    F -.->|unregister| N
 
     style Optional fill:#fff3cd,stroke:#856404,stroke-dasharray: 5 5
+    style Background fill:#d4edda,stroke:#155724,stroke-dasharray: 5 5
 ```
 
 ---
 
-## 9. 数据流：从 Executor 到 Supervisor
+## 8. 数据流：从 Executor 到 Supervisor
 
 ```mermaid
 flowchart TD
-    subgraph Executor Process
-        A[call_executor node] -->|LLM response| B{has tool_calls?}
+    subgraph ExecGraph["Executor Process"]
+        A["call_executor node"] -->|LLM response| B{has tool_calls?}
         B -->|Yes| C[tools_node]
-        C --> D{snapshot interval?}
-        D -->|Yes, hit| E["snapshot payload<br/>{plan_id, tool_rounds, steps}"]
-        D -->|No| F[route_after_tools → call_executor]
+        C --> F["route_after_tools → call_executor"]
         B -->|No| G["final result<br/>{status, summary, plan}"]
-        E --> F
     end
 
-    subgraph HTTP
-        E -.->|"fire-and-forget<br/>POST /callback/snapshot"| H[Callback Server]
-        G -.->|"POST /callback/completed<br/>(must-read)"| H
+    subgraph Storage["Executor 结果存储"]
+        G --> H["_results dict<br/>plan_id → ExecutorResult<br/>(终态常驻，最多50条)"]
+        I["派发时预填<br/>status=accepted"] --> H
+        G --> PUSH["_push_result_to_mailbox()<br/>POST /inbox → MailboxHTTPServer"]
     end
 
-    subgraph Supervisor Process
-        H --> I[Mailbox]
-        I --> J{item type}
-        J -->|snapshot| K["邮箱 (read=false)<br/>Supervisor 按需查看"]
-        J -->|completion| L["必读 (flag)<br/>get_executor_result 阻塞等待"]
-        K --> M["GET /mailbox/{plan_id}<br/>快速查看最新快照"]
-        L --> N["[EXECUTOR_RESULT]<br/>dynamic_tools_node 解析"]
-        N --> O[更新 PlannerSession<br/>replan_count 等状态]
+    subgraph SupervisorInfra["Supervisor 进程 — 基础设施"]
+        MBS["MailboxHTTPServer<br/>(独立线程)"]
+        EP["ExecutorPoller<br/>(asyncio.Task, 1.5s 间隔)"]
+        PUSH --> MBS
+        MBS -->|Push 写入| MB["Mailbox<br/>(上限80, 自动驱逐)"]
+        EP -->|"GET /result/{pid}<br/>Pull 兜底"| H
+        EP -->|Pull 写入| MB
     end
 
-    style E fill:#e8e8f4,stroke:#2d2d7d
-    style G fill:#f8d7da,stroke:#842029
-    style L fill:#f8d7da,stroke:#842029
+    subgraph SupervisorGraph["Supervisor Graph — 同步点"]
+        FC1["call_model 前<br/>force_poll_once()"] --> EP
+        FC2["dynamic_tools_node 后<br/>force_poll_once()"] --> EP
+    end
+
+    subgraph Consumption["邮箱消费"]
+        MB --> O["_build_executor_status_brief<br/>注入 system prompt<br/>（含 summary 前100字）"]
+        MB --> GER["get_executor_result<br/>纯 Mailbox 等待"]
+        GER --> P["dynamic_tools_node<br/>解析 [EXECUTOR_RESULT]"]
+        P --> Q["更新 PlannerSession<br/>executor_task_history (上限50)"]
+    end
+
+    style H fill:#fff3cd,stroke:#856404
+    style MB fill:#f8d7da,stroke:#842029
+    style MBS fill:#ffeeba,stroke:#856404
+    style EP fill:#d4edda,stroke:#155724
+    style O fill:#e8f4e8,stroke:#2d7d2d
 ```
+
+---
+
+## 9. 阻塞风险分析
+
+| 操作 | 阻塞？ | 说明 |
+|------|--------|------|
+| `asyncio.create_subprocess_exec` | ✅ 不阻塞 | asyncio 原生异步子进程 |
+| `process.stdout.readline()` | ✅ 不阻塞 | await，异步读取端口 |
+| `httpx.AsyncClient.get/post` | ✅ 不阻塞 | 所有 Executor 通信都是 async HTTP |
+| `ExecutorPoller._poll_loop` | ✅ 不阻塞 | 独立 asyncio.Task，Semaphore(5) 限并发 |
+| `force_poll_once()` | ✅ 不阻塞 | await gather，短暂等待一轮结果 |
+| `get_executor_result` 等待 | ✅ 不阻塞（协程内） | asyncio.sleep(1) 循环，等 Mailbox |
+| Mailbox dict 读写 | ✅ 不阻塞 | threading.Lock 内存操作，微秒级 |
+| MailboxHTTPServer 写入 | ✅ 不阻塞 | 独立线程，Lock 隔离 asyncio 事件循环 |
+| 端口文件读写 | ⚠️ <1ms | 已用 `asyncio.to_thread` 包裹 |

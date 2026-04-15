@@ -1,27 +1,25 @@
 """V3: Executor FastAPI server — runs in Process B.
 
 Wraps executor_graph.ainvoke() as async background tasks.
-Communication: Supervisor POSTs /execute, GETs /status, POSTs /stop.
-Callbacks: Executor POSTs /callback/snapshot and /callback/completed back to Supervisor.
+Communication: Supervisor POSTs /execute, GETs /result, POSTs /stop.
+Results stored in _results dict; Supervisor polls to retrieve them.
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from typing import Any
 
-import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from src.common.context import Context
-from src.common.executor_protocol import ExecuteRequest, ExecuteStatus, SnapshotPayload, StopRequest
-from src.executor_agent.graph import ExecutorResult, ExecutorState, executor_graph, run_executor
+from src.common.executor_protocol import ExecuteStatus, StopRequest
+from src.executor_agent.graph import ExecutorResult, run_executor
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +29,14 @@ _stop_events: dict[str, asyncio.Event] = {}
 _results: dict[str, ExecutorResult] = {}
 _statuses: dict[str, ExecuteStatus] = {}
 
-# Callback URL set at startup
-_callback_base_url: str = ""
+# Maximum number of completed results to keep in memory
+_MAX_STORED_RESULTS = 50
 
 
 class ExecuteRequestBody(BaseModel):
     plan_json: str
     plan_id: str
     executor_session_id: str = ""
-    callback_url: str = ""
     config: dict[str, Any] = {}
 
 
@@ -47,90 +44,58 @@ class StopRequestBody(BaseModel):
     reason: str = ""
 
 
-def _set_callback_url(url: str) -> None:
-    global _callback_base_url
-    _callback_base_url = url
-
-
-async def _send_callback(path: str, payload: dict) -> None:
-    """Fire-and-forget POST to Supervisor callback server."""
-    if not _callback_base_url:
+def _cleanup_old_results() -> None:
+    """Evict oldest results when the dict exceeds the cap."""
+    if len(_results) <= _MAX_STORED_RESULTS:
         return
-    url = f"{_callback_base_url}{path}"
-    try:
-        async with httpx.AsyncClient() as client:
-            await client.post(url, json=payload, timeout=10.0)
-    except Exception:
-        logger.debug("Callback to %s failed (non-critical)", url, exc_info=True)
-
-
-async def _extract_lightweight_snapshot(state: ExecutorState, tool_rounds: int) -> SnapshotPayload:
-    """Parse plan JSON from messages and extract step counts."""
-    plan_id = ""
-    completed = 0
-    total = 0
-    current_step = ""
-
-    for msg in state.messages:
-        if not hasattr(msg, "content") or not isinstance(msg.content, str):
-            continue
-        try:
-            data = json.loads(msg.content)
-            if isinstance(data, dict) and "steps" in data:
-                plan_id = data.get("plan_id", "")
-                steps = data.get("steps", [])
-                total = len(steps)
-                completed = sum(1 for s in steps if s.get("status") == "completed")
-                for s in steps:
-                    if s.get("status") not in ("completed", "failed", "skipped"):
-                        current_step = s.get("step_id", "")
-                        break
-                break
-        except (json.JSONDecodeError, AttributeError):
-            continue
-
-    return SnapshotPayload(
-        plan_id=plan_id,
-        tool_rounds=tool_rounds,
-        current_step=current_step,
-        completed_steps=completed,
-        total_steps=total,
-    )
+    # Remove oldest entries (dict preserves insertion order in Python 3.7+)
+    to_remove = len(_results) - _MAX_STORED_RESULTS
+    keys = list(_results.keys())[:to_remove]
+    for k in keys:
+        _results.pop(k, None)
 
 
 async def _run_executor_task(
     plan_json: str,
     plan_id: str,
     ctx: Context,
-    callback_url: str,
-    snapshot_interval: int,
+    trace_headers: dict[str, str] | None = None,
 ) -> None:
-    """Background task: run executor_graph and send callbacks."""
-    _callback_base_url_local = callback_url
+    """Background task: run executor_graph and store result in _results.
 
-    async def snapshot_callback(payload: SnapshotPayload) -> None:
-        """Fire-and-forget snapshot POST + update live status."""
-        data = asdict(payload)
-        # Update live status fields
-        status = _statuses.get(plan_id)
-        if status is not None:
-            status.tool_rounds = payload.tool_rounds
-            status.current_step = payload.current_step
-        await _send_callback("/callback/snapshot", data)
+    After completion, pushes result to the Supervisor's mailbox (if MAILBOX_URL
+    is configured) and schedules self-shutdown for per-task processes.
 
-    # Wire snapshot callback into context
-    ctx_v3 = ctx
-    ctx_v3._snapshot_callback = snapshot_callback
-    ctx_v3.snapshot_interval = snapshot_interval
+    If trace_headers is provided (langsmith-trace / baggage headers forwarded
+    from the Supervisor), all executor nodes are nested under the Supervisor's
+    LangSmith trace via tracing_context.
+    """
+    import langsmith as ls
 
     stop_event = _stop_events.get(plan_id)
-    # Store stop event reference for graph nodes to check
-    # (the call_executor node will access _stop_events directly)
 
     _statuses[plan_id].status = "running"
 
     try:
-        result = await run_executor(plan_json, context=ctx_v3)
+        # Mock mode for checkpoint testing — returns immediately without LLM.
+        # Set EXECUTOR_MOCK_MODE=completed|failed to control behavior.
+        _mock_mode = os.environ.get("EXECUTOR_MOCK_MODE", "")
+        with ls.tracing_context(
+            parent=trace_headers or {},
+            metadata={"plan_id": plan_id},
+        ):
+            if _mock_mode:
+                await asyncio.sleep(0.1)  # Simulate brief work
+                if _mock_mode == "failed":
+                    raise RuntimeError("Mock executor failure")
+                result = ExecutorResult(
+                    status="completed",
+                    updated_plan_json=plan_json,
+                    summary="Mock executor completed successfully",
+                )
+            else:
+                result = await run_executor(plan_json, context=ctx)
+
         _results[plan_id] = result
 
         if stop_event and stop_event.is_set():
@@ -139,26 +104,6 @@ async def _run_executor_task(
             actual_status = result.status
 
         _statuses[plan_id].status = actual_status
-
-        # Send completion callback (must-read)
-        completion_payload = {
-            "plan_id": plan_id,
-            "status": actual_status,
-            "updated_plan_json": result.updated_plan_json,
-            "summary": result.summary,
-            "snapshot_json": result.snapshot_json,
-        }
-        # Use direct HTTP call for completion (must-read)
-        if _callback_base_url_local:
-            try:
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"{_callback_base_url_local}/callback/completed",
-                        json=completion_payload,
-                        timeout=15.0,
-                    )
-            except Exception:
-                logger.error("Failed to send completion callback for %s", plan_id, exc_info=True)
 
     except Exception as e:
         logger.error("Executor task failed for %s: %s", plan_id, e, exc_info=True)
@@ -169,24 +114,23 @@ async def _run_executor_task(
         )
         _statuses[plan_id].status = "failed"
 
-        if _callback_base_url_local:
-            try:
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"{_callback_base_url_local}/callback/completed",
-                        json={
-                            "plan_id": plan_id,
-                            "status": "failed",
-                            "summary": f"Executor crashed: {e}",
-                            "updated_plan_json": "",
-                            "snapshot_json": "",
-                        },
-                        timeout=15.0,
-                    )
-            except Exception:
-                logger.error("Failed to send failure callback for %s", plan_id, exc_info=True)
+    except asyncio.CancelledError:
+        logger.warning("Executor task cancelled for %s", plan_id)
+        _results[plan_id] = ExecutorResult(
+            status="stopped",
+            updated_plan_json="",
+            summary=f"Executor task cancelled: {plan_id}",
+        )
+        _statuses[plan_id].status = "stopped"
     finally:
         _running_tasks.pop(plan_id, None)
+        _stop_events.pop(plan_id, None)
+        _statuses.pop(plan_id, None)
+        _cleanup_old_results()
+
+        # Push result to Supervisor's mailbox and schedule self-shutdown
+        await _push_result_to_mailbox(plan_id)
+        _schedule_self_shutdown()
 
 
 @asynccontextmanager
@@ -203,13 +147,110 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AgentTriad Executor", lifespan=lifespan)
 
 
+# ---------------------------------------------------------------------------
+# Mailbox push + self-shutdown (per-task process lifecycle)
+# ---------------------------------------------------------------------------
+
+async def _push_result_to_mailbox(plan_id: str) -> None:
+    """Push the task result to Supervisor's mailbox via HTTP POST.
+
+    Retries up to 3 times on failure. If all retries fail, the result
+    remains in _results for direct polling fallback.
+    """
+    mailbox_url = os.environ.get("MAILBOX_URL", "")
+    if not mailbox_url:
+        return
+
+    result = _results.get(plan_id)
+    if result is None:
+        return
+
+    payload = {
+        "plan_id": plan_id,
+        "item_type": "completion",
+        "payload": {
+            "plan_id": plan_id,
+            "status": result.status,
+            "updated_plan_json": result.updated_plan_json,
+            "summary": result.summary,
+            "snapshot_json": result.snapshot_json,
+        },
+    }
+
+    for attempt in range(3):
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(f"{mailbox_url}/inbox", json=payload)
+                if resp.status_code == 200:
+                    logger.info("Pushed result for %s to mailbox (attempt %d)", plan_id, attempt + 1)
+                    return
+                logger.warning(
+                    "Mailbox returned %d for %s (attempt %d)",
+                    resp.status_code, plan_id, attempt + 1,
+                )
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            logger.warning(
+                "Failed to push %s to mailbox (attempt %d): %s",
+                plan_id, attempt + 1, e,
+            )
+
+        if attempt < 2:
+            await asyncio.sleep(1.0)
+
+    logger.error("All mailbox push attempts failed for %s — result available via /result", plan_id)
+
+
+def _schedule_self_shutdown() -> None:
+    """Schedule graceful self-shutdown after result push (per-task lifecycle).
+
+    Only activates when MAILBOX_URL is set (per-task mode).
+    """
+    mailbox_url = os.environ.get("MAILBOX_URL", "")
+    if not mailbox_url:
+        return
+
+    async def _do_shutdown():
+        await asyncio.sleep(2.0)
+        logger.info("Per-task self-shutdown: stopping Executor server")
+        # Cancel all remaining tasks
+        for pid, task in list(_running_tasks.items()):
+            task.cancel()
+        _running_tasks.clear()
+        # Stop the uvicorn server
+        import uvicorn
+        for task in asyncio.all_tasks():
+            if task is not asyncio.current_task():
+                task.cancel()
+
+    asyncio.create_task(_do_shutdown())
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
 
+@app.get("/tasks")
+async def list_tasks():
+    """List all running tasks with brief status (for Supervisor context injection)."""
+    result = {}
+    # Active running tasks
+    for pid, task in _running_tasks.items():
+        status = _statuses.get(pid)
+        if status:
+            result[pid] = {
+                "status": status.status,
+                "current_step": status.current_step or "",
+                "tool_rounds": status.tool_rounds,
+            }
+        else:
+            result[pid] = {"status": "running", "current_step": "", "tool_rounds": 0}
+    return {"tasks": result, "count": len(result)}
+
+
 @app.post("/execute")
-async def execute(req: ExecuteRequestBody):
+async def execute(req: ExecuteRequestBody, request: Request):
     """Start plan execution as background task. Returns immediately."""
     if req.plan_id in _running_tasks:
         raise HTTPException(status_code=409, detail=f"Plan {req.plan_id} already running")
@@ -219,16 +260,27 @@ async def execute(req: ExecuteRequestBody):
     _stop_events[req.plan_id] = stop_event
     _statuses[req.plan_id] = ExecuteStatus(plan_id=req.plan_id, status="running")
     _results.pop(req.plan_id, None)
+    # Pre-populate result so /result endpoint always returns data after a successful dispatch.
+    # Overwritten by _run_executor_task once execution begins / completes.
+    _results[req.plan_id] = ExecutorResult(
+        status="accepted",
+        updated_plan_json=req.plan_json,
+        summary="Task accepted, execution pending",
+    )
 
-    # Build context
+    # Extract LangSmith distributed trace headers forwarded from Supervisor.
+    # Only propagate recognised tracing headers to avoid forwarding arbitrary headers.
+    trace_headers: dict[str, str] = {
+        k: v for k, v in request.headers.items()
+        if k.startswith("langsmith-") or k == "baggage"
+    }
+
+    # Build context from remaining config fields
     ctx = Context()
     if req.config:
         for k, v in req.config.items():
             if hasattr(ctx, k):
                 setattr(ctx, k, v)
-
-    # Extract snapshot_interval from config (default to context's value)
-    snapshot_interval = req.config.get("snapshot_interval", ctx.snapshot_interval)
 
     # Create and track background task
     task = asyncio.create_task(
@@ -236,8 +288,7 @@ async def execute(req: ExecuteRequestBody):
             plan_json=req.plan_json,
             plan_id=req.plan_id,
             ctx=ctx,
-            callback_url=req.callback_url,
-            snapshot_interval=snapshot_interval,
+            trace_headers=trace_headers,
         ),
         name=f"executor_{req.plan_id}",
     )
@@ -282,9 +333,8 @@ async def stop(plan_id: str, body: StopRequestBody | None = None):
 
 @app.post("/shutdown")
 async def shutdown():
-    """Graceful server shutdown."""
-    logger.info("Shutdown requested")
-    # Cancel all tasks
+    """Cancel all running tasks. The Supervisor will terminate this process afterwards."""
+    logger.info("Shutdown requested — cancelling all running tasks")
     for plan_id, task in _running_tasks.items():
         task.cancel()
     _running_tasks.clear()

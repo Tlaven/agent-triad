@@ -38,6 +38,17 @@
 - Mode 2：`{ "task_description": "..." }`
 - Mode 3：`{ "plan_id": "..." }`
 
+### plan_id 与 Executor 载体（V3）
+- **有 `plan_id`（Mode 3）**：以该 `plan_id` 为键启动或关联 **Executor 子进程**；同一 `plan_id` 在执行尚未结束时复用同一子进程。
+- **无显式 `plan_id`（Mode 2）**：工具内部为本次任务**生成新的 `plan_id`**（写入派发的临时 Plan JSON），并启动**新的** Executor 子进程——语义上等价于「新 executor」。
+- **Supervisor 对话历史**：`call_model` 仍会把整段 `state.messages` 交给 Supervisor LLM，因此多轮 `call_executor` 的摘要/工具返回会留在同一线程里；这与「每次派发可对应独立 Executor 子进程」不矛盾。
+
+### 同一 `plan_id` 再进入时：谁保留「历史上下文」
+- **Planner（`call_planner` 且传入同一 `plan_id`）**：保留。与决策 9 一致，复用该 `plan_id` 下的 **Planner 对话线程**，预期是在**此前规划对话之后接续**（重规划、增量改 plan），而不是新开一条 Planner 会话。
+- **Executor（`call_executor(plan_id=…)` 再次派发）**：**不**保留上一轮 **Executor 内部 ReAct 消息链**（工具调用与 observation 不会拼进下一轮图状态）。再次执行时仍是一次新的 `run_executor` 运行，入口消息为「当前 `plan_json`」全文。  
+  **续跑计划**依赖会话里已更新的 **`plan_json` / `updated_plan_json`**（各步 `status`、`result_summary`、`failure_reason` 等），即「同一 `plan_id` + 最新计划快照」，而非「同一 Executor 聊天历史」。
+- **Supervisor**：保留。同一线程内 `state.messages` 累积用户消息、工具返回与摘要；与是否同一 `plan_id` 无索引关系。
+
 ### ExecutorResult 返回值
 ```python
 @dataclass
@@ -123,6 +134,7 @@ class ExecutorResult:
 - **Executor 遇阻即停**（决策 4）：不内部重规划，重规划权只在 Supervisor
 - **Executor 工作区边界**：内置副作用工具仅在 `AGENT_WORKSPACE_DIR`（默认 `workspace/agent`）内执行/写入
 - **单线程**（决策 11）：Supervisor 每次只调用一个 Executor
+- **plan_id ↔ Executor 子进程（V3）**：有 `plan_id` 则以该 id 调度子进程；Mode 2 不显式传 `plan_id` 时每次派发新 `plan_id` 并新起子进程（见上「plan_id 与 Executor 载体」）
 - **Planner 只读**（决策 12）：Planner 仅可用只读工具/MCP，不可调用副作用工具
 - **Planner 会话复用**（决策 9）：同一 `plan_id` 复用同一 Planner 对话线程
 - **Observation 治理**（V2-a）：所有工具返回进入消息历史前走统一规范化（截断/外置）
