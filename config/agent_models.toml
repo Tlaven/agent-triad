@@ -2,3 +2,25 @@
 supervisor = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
 planner = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
 executor = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
+
+[sampling.supervisor]
+temperature = -1
+top_p = -1
+max_tokens = 0
+seed = -1
+
+[sampling.planner]
+temperature = -1
+top_p = -1
+max_tokens = 0
+seed = -1
+
+[sampling.executor]
+temperature = -1
+top_p = -1
+max_tokens = 0
+seed = -1
+
+[reasoning]
+enable_implicit_thinking = true
+supervisor_thinking_visibility = "implicit"

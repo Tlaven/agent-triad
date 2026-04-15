@@ -3,51 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Mapping
 
-DEFAULT_SUPERVISOR_MODEL = "siliconflow:stepfun-ai/Step-3.5-Flash"
-DEFAULT_PLANNER_MODEL = "siliconflow:Pro/zai-org/GLM-5"
-DEFAULT_EXECUTOR_MODEL = "siliconflow:stepfun-ai/Step-3.5-Flash"
-MODEL_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "agent_models.toml"
-
-
-def _load_model_defaults() -> dict[str, str]:
-    """Load agent model defaults from config file."""
-    defaults = {
-        "supervisor_model": DEFAULT_SUPERVISOR_MODEL,
-        "planner_model": DEFAULT_PLANNER_MODEL,
-        "executor_model": DEFAULT_EXECUTOR_MODEL,
-    }
-    if not MODEL_CONFIG_PATH.exists():
-        return defaults
-
-    try:
-        import tomllib
-
-        with MODEL_CONFIG_PATH.open("rb") as file:
-            data = tomllib.load(file)
-    except (OSError, ValueError):
-        return defaults
-
-    models = data.get("models")
-    if not isinstance(models, dict):
-        return defaults
-
-    model_key_map = {
-        "supervisor": "supervisor_model",
-        "planner": "planner_model",
-        "executor": "executor_model",
-    }
-    for file_key, field_name in model_key_map.items():
-        model_value = models.get(file_key)
-        if isinstance(model_value, str) and model_value:
-            defaults[field_name] = model_value
-
-    return defaults
-
-
-MODEL_DEFAULTS = _load_model_defaults()
+from .context_model_defaults import DEFAULT_SUPERVISOR_MODEL, MODEL_DEFAULTS
 
 
 @dataclass(kw_only=True)
@@ -91,13 +49,13 @@ class Context:
     # Global reasoning switch (best-effort): when enabled, pass `enable_thinking`
     # to provider adapters that support OpenAI-compatible extra_body payloads.
     enable_implicit_thinking: bool = field(
-        default=True,
+        default=MODEL_DEFAULTS["enable_implicit_thinking"],
         metadata={
             "description": "Whether to request implicit thinking/reasoning when provider supports it.",
         },
     )
     supervisor_thinking_visibility: str = field(
-        default="implicit",
+        default=MODEL_DEFAULTS["supervisor_thinking_visibility"],
         metadata={
             "description": "Supervisor only: whether to merge model reasoning into message "
             "content (visible) or keep it out of content (implicit). Planner/Executor stay implicit.",
@@ -107,51 +65,51 @@ class Context:
     # Per-agent LLM sampling configs. Sentinel values mean "use provider/model defaults".
     # temperature/top_p: < 0 => unset; max_tokens: <= 0 => unset; seed: < 0 => unset
     supervisor_temperature: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["supervisor_temperature"],
         metadata={"description": "Supervisor LLM temperature. <0 uses model default."},
     )
     supervisor_top_p: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["supervisor_top_p"],
         metadata={"description": "Supervisor LLM top_p. <0 uses model default."},
     )
     supervisor_max_tokens: int = field(
-        default=0,
+        default=MODEL_DEFAULTS["supervisor_max_tokens"],
         metadata={"description": "Supervisor LLM max_tokens. <=0 uses model default."},
     )
     supervisor_seed: int = field(
-        default=-1,
+        default=MODEL_DEFAULTS["supervisor_seed"],
         metadata={"description": "Supervisor LLM seed. <0 uses model default."},
     )
     planner_temperature: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["planner_temperature"],
         metadata={"description": "Planner LLM temperature. <0 uses model default."},
     )
     planner_top_p: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["planner_top_p"],
         metadata={"description": "Planner LLM top_p. <0 uses model default."},
     )
     planner_max_tokens: int = field(
-        default=0,
+        default=MODEL_DEFAULTS["planner_max_tokens"],
         metadata={"description": "Planner LLM max_tokens. <=0 uses model default."},
     )
     planner_seed: int = field(
-        default=-1,
+        default=MODEL_DEFAULTS["planner_seed"],
         metadata={"description": "Planner LLM seed. <0 uses model default."},
     )
     executor_temperature: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["executor_temperature"],
         metadata={"description": "Executor LLM temperature. <0 uses model default."},
     )
     executor_top_p: float = field(
-        default=-1.0,
+        default=MODEL_DEFAULTS["executor_top_p"],
         metadata={"description": "Executor LLM top_p. <0 uses model default."},
     )
     executor_max_tokens: int = field(
-        default=0,
+        default=MODEL_DEFAULTS["executor_max_tokens"],
         metadata={"description": "Executor LLM max_tokens. <=0 uses model default."},
     )
     executor_seed: int = field(
-        default=-1,
+        default=MODEL_DEFAULTS["executor_seed"],
         metadata={"description": "Executor LLM seed. <0 uses model default."},
     )
 
@@ -296,7 +254,6 @@ class Context:
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os
-        from dataclasses import fields
 
         # Backward compatibility: if only MODEL is set, use it as supervisor_model.
         if (
@@ -306,47 +263,63 @@ class Context:
         ):
             self.supervisor_model = os.environ["MODEL"]
 
+        self._apply_field_env_overrides(os.environ)
+        self._apply_legacy_thinking_visibility(os.environ)
+
+    @staticmethod
+    def _parse_env_for_default(default_value: Any, env_value: str) -> Any | None:
+        if isinstance(default_value, bool):
+            return env_value.lower() in ("true", "1", "yes", "on")
+        if isinstance(default_value, int):
+            try:
+                return int(env_value)
+            except ValueError:
+                return None
+        if isinstance(default_value, float):
+            try:
+                return float(env_value)
+            except ValueError:
+                return None
+        return env_value
+
+    def _apply_field_env_overrides(self, environ: Mapping[str, str]) -> None:
+        from dataclasses import fields
+
         for f in fields(self):
             if not f.init:
                 continue
 
             current_value = getattr(self, f.name)
             default_value = f.default
-            env_var_name = f.name.upper()
-            env_value = os.environ.get(env_var_name)
+            env_value = environ.get(f.name.upper())
 
             # Only override with environment variable if current value equals default
             # This preserves explicit configuration from LangGraph configurable
             if current_value == default_value and env_value is not None:
-                if isinstance(default_value, bool):
-                    # Handle boolean environment variables
-                    env_bool_value = env_value.lower() in ("true", "1", "yes", "on")
-                    setattr(self, f.name, env_bool_value)
-                elif isinstance(default_value, int):
-                    try:
-                        setattr(self, f.name, int(env_value))
-                    except ValueError:
-                        # Keep default value if env parsing fails.
-                        pass
-                elif isinstance(default_value, float):
-                    try:
-                        setattr(self, f.name, float(env_value))
-                    except ValueError:
-                        pass
-                else:
-                    setattr(self, f.name, env_value)
+                parsed_value = self._parse_env_for_default(default_value, env_value)
+                if parsed_value is not None:
+                    setattr(self, f.name, parsed_value)
+
+    def _apply_legacy_thinking_visibility(self, environ: Mapping[str, str]) -> None:
+        from dataclasses import fields
 
         # Deprecated: THINKING_VISIBILITY → supervisor_thinking_visibility when
         # SUPERVISOR_THINKING_VISIBILITY is unset (same semantics as old name).
-        if os.environ.get("SUPERVISOR_THINKING_VISIBILITY") is None:
-            legacy_tv = os.environ.get("THINKING_VISIBILITY")
-            if legacy_tv is not None:
-                for f in fields(self):
-                    if f.name != "supervisor_thinking_visibility":
-                        continue
-                    if getattr(self, f.name) == f.default:
-                        setattr(self, f.name, legacy_tv.strip())
-                    break
+        if environ.get("SUPERVISOR_THINKING_VISIBILITY") is not None:
+            return
+
+        legacy_tv = environ.get("THINKING_VISIBILITY")
+        if legacy_tv is None:
+            return
+
+        supervisor_tv_field = next(
+            (f for f in fields(self) if f.name == "supervisor_thinking_visibility"),
+            None,
+        )
+        if supervisor_tv_field is None:
+            return
+        if getattr(self, "supervisor_thinking_visibility") == supervisor_tv_field.default:
+            self.supervisor_thinking_visibility = legacy_tv.strip()
 
     def get_agent_llm_kwargs(self, agent: str) -> dict[str, Any]:
         """Build per-agent model kwargs from context.
@@ -359,19 +332,16 @@ class Context:
             return {}
 
         kwargs: dict[str, Any] = {}
-        temperature = getattr(self, f"{prefix}_temperature", -1.0)
-        top_p = getattr(self, f"{prefix}_top_p", -1.0)
-        max_tokens = getattr(self, f"{prefix}_max_tokens", 0)
-        seed = getattr(self, f"{prefix}_seed", -1)
-
-        if isinstance(temperature, (int, float)) and temperature >= 0:
-            kwargs["temperature"] = float(temperature)
-        if isinstance(top_p, (int, float)) and top_p >= 0:
-            kwargs["top_p"] = float(top_p)
-        if isinstance(max_tokens, int) and max_tokens > 0:
-            kwargs["max_tokens"] = max_tokens
-        if isinstance(seed, int) and seed >= 0:
-            kwargs["seed"] = seed
+        sampling_rules = (
+            ("temperature", -1.0, lambda value: isinstance(value, (int, float)) and value >= 0, float),
+            ("top_p", -1.0, lambda value: isinstance(value, (int, float)) and value >= 0, float),
+            ("max_tokens", 0, lambda value: isinstance(value, int) and value > 0, lambda value: value),
+            ("seed", -1, lambda value: isinstance(value, int) and value >= 0, lambda value: value),
+        )
+        for param_name, default_value, validator, converter in sampling_rules:
+            value = getattr(self, f"{prefix}_{param_name}", default_value)
+            if validator(value):
+                kwargs[param_name] = converter(value)
 
         # Best-effort reasoning toggle for OpenAI-compatible providers.
         # Unsupported providers should ignore this field.

@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.common import context_model_defaults as defaults_module
 from src.common.context import Context
 
 
@@ -105,3 +106,49 @@ def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
 def test_get_agent_llm_kwargs_skips_sentinel_defaults() -> None:
     ctx = Context()
     assert ctx.get_agent_llm_kwargs("executor").get("extra_body") == {"enable_thinking": True}
+
+
+def test_load_context_defaults_reads_sampling_and_reasoning(tmp_path, monkeypatch) -> None:
+    config_text = """
+[models]
+supervisor = "provider:supervisor"
+planner = "provider:planner"
+executor = "provider:executor"
+
+[sampling.supervisor]
+temperature = 0.1
+top_p = 0.8
+max_tokens = 1024
+seed = 7
+
+[sampling.planner]
+temperature = 0.2
+top_p = 0.9
+max_tokens = 2048
+seed = 8
+
+[sampling.executor]
+temperature = 0.3
+top_p = 0.7
+max_tokens = 3072
+seed = 9
+
+[reasoning]
+enable_implicit_thinking = false
+supervisor_thinking_visibility = "visible"
+"""
+    config_path = tmp_path / "agent_models.toml"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    monkeypatch.setattr(defaults_module, "MODEL_CONFIG_PATH", config_path)
+    loaded = defaults_module._load_context_defaults()
+
+    assert loaded["supervisor_model"] == "provider:supervisor"
+    assert loaded["planner_model"] == "provider:planner"
+    assert loaded["executor_model"] == "provider:executor"
+    assert loaded["supervisor_temperature"] == 0.1
+    assert loaded["planner_top_p"] == 0.9
+    assert loaded["executor_max_tokens"] == 3072
+    assert loaded["executor_seed"] == 9
+    assert loaded["enable_implicit_thinking"] is False
+    assert loaded["supervisor_thinking_visibility"] == "visible"
