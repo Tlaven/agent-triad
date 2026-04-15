@@ -10,7 +10,10 @@
 make test_unit           # 仅 unit_tests：纯函数 + Mock 节点，无真实 LLM，通常最快
 make test_integration    # 仅 integration：图级，Mock LLM
 make test_automated      # unit + integration（不含 e2e / live_llm）— 日常回归烟测推荐名
-make test_all            # 与 test_automated 完全相同（历史别名）
+make test_coverage       # unit + integration + 覆盖率报告（--cov=src），不含 lint
+make test_lint_coverage  # lint + test_coverage；Mock LLM 套件，不含 e2e（合并前/发版前推荐）
+make test_full / test_all # 同 test_lint_coverage（历史别名）
+make test_everything     # test_lint_coverage 后再 test_e2e（真实 LLM）
 make test_llm_health     # LLM 连通性 + 延迟诊断，真实 API，~15s
 make test_e2e            # e2e 中带 live_llm 的用例，真实 LLM，分钟级
 ```

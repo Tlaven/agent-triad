@@ -1,8 +1,9 @@
-.PHONY: all help setup dev dev_ui lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_all test_v1_auto test_v1_acceptance
+.PHONY: all help setup dev dev_ui lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_coverage test_lint_coverage test_full test_all test_everything test_v1_auto test_v1_acceptance
 
 all: help
 
 DEV_PORT ?= 2024
+TEST_COVERAGE_FAIL_UNDER ?= 80
 
 setup:
 	uv sync --dev
@@ -43,8 +44,16 @@ test_e2e_parallel:
 test_automated:
 	uv run pytest tests/unit_tests tests/integration -q
 
-# 与 test_automated 相同（历史名称，避免旧脚本/习惯用法断裂）。
-test_all: test_automated
+# 覆盖率统计（单元 + 集成，Mock LLM）。用于衡量代码行覆盖，不等于真实场景“行为全覆盖”。
+test_coverage:
+	uv run pytest tests/unit_tests tests/integration -q --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=$(TEST_COVERAGE_FAIL_UNDER)
+
+# 合并前 / 发版前推荐：静态检查（ruff + mypy）+ 单元与集成测试的 src 行覆盖率（Mock LLM，不含 E2E）。
+test_lint_coverage: lint test_coverage
+
+# 在 test_lint_coverage 基础上再跑真实 LLM E2E。需 API Key，慢且受配额/网络影响；
+# 适合发版前本地或夜间流水线，不适合无密钥的默认 PR CI。E2E 前可先 make test_llm_health。
+test_everything: test_lint_coverage test_e2e
 
 # V1 自动化验收（当前可自动化的部分）
 test_v1_auto:
@@ -78,7 +87,9 @@ help:
 	@echo "  make test_e2e_parallel 同上，但用 pytest-xdist 并行（可用 E2E_WORKERS=4）"
 	@echo "                          单测超时：E2E_TEST_TIMEOUT（秒，默认 600；0=关闭）"
 	@echo "  make test_automated     单元 + 集成（Mock LLM，改代码后推荐烟测）"
-	@echo "  make test_all           同上（test_automated 的别名）"
+	@echo "  make test_coverage      仅 pytest：单元 + 集成 + 覆盖率（不含 lint）"
+	@echo "  make test_lint_coverage lint + test_coverage（合并前/发版前；Mock LLM，不含 E2E）"
+	@echo "  make test_everything    test_lint_coverage + test_e2e（真实 LLM；见 Makefile 注释）"
 	@echo "  make test_v1_auto       运行 V1 自动化验收（等同 test_unit）"
 	@echo "  make test_v1_acceptance 运行自动化后给出手测步骤"
 

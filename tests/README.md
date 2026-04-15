@@ -8,19 +8,23 @@
 
 | 场景 | 命令 | 说明 |
 |------|------|------|
-| **日常回归（推荐）** | `make test_automated` | 单元 + 集成，Mock LLM，**不调真实 LLM**；跑的是仓库里已有的自动化用例，**不是**代码覆盖率意义上的「全量」或「全覆盖」。 |
+| **日常回归（推荐）** | `make test_automated` | 单元 + 集成，Mock LLM，**不调真实 LLM**；跑的是仓库里已有的自动化用例，适合改代码后的快速烟测。 |
+| **合并前检查（推荐）** | `make test_lint_coverage` | `lint`（ruff + mypy）+ `tests/unit_tests` 与 `tests/integration` 的 `src` 行覆盖率；**不含** `tests/e2e` 与真实 LLM。别名：`make test_full` / `make test_all`。 |
 | 只跑单元 | `make test_unit` | 更快，不含图级集成。 |
 | 只跑集成 | `make test_integration` | 图级 + Mock LLM。 |
 | 静态检查 | `make lint`（在项目根） | Ruff + MyPy；与 pytest 互补。 |
 | 真实 API 是否通 | `make test_llm_health` | 约十几秒；**跑 E2E 前建议先跑**。 |
 | 真实 LLM 全链路 | `make test_e2e` | 分钟级、计费与网络依赖；按需或发版前。 |
+| 自动化 + E2E 串联 | `make test_everything` | 先 `test_lint_coverage`，再 `test_e2e`；需 API Key，适合发版前本地。 |
 
-`make test_all` 与 `make test_automated` **完全相同**（仅为兼容旧名称与文档习惯）。
+`make test_coverage` 会执行 `unit + integration` 并输出覆盖率报告（含 `coverage.xml`）；默认覆盖率门槛由 `TEST_COVERAGE_FAIL_UNDER` 控制（默认 80）。
 
 等价 pytest（在项目根执行）：
 
 ```bash
 uv run pytest tests/unit_tests tests/integration -q
+# 或查看覆盖率：
+uv run pytest tests/unit_tests tests/integration -q --cov=src --cov-report=term-missing --cov-report=xml
 ```
 
 ---

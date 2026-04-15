@@ -264,8 +264,11 @@ ENV_FILE=.env.test make test_automated
 # 只运行单元测试（最快）
 make test_unit
 
-# 单元 + 集成（Mock LLM，不含 E2E）— 与 make test_all 相同
+# 单元 + 集成（Mock LLM，不含 E2E）— 日常回归推荐
 make test_automated
+
+# 合并前：lint + 单元/集成覆盖率（不含 E2E）
+make test_lint_coverage
 ```
 
 具体耗时与用例数随仓库演进变化；以本地 pytest 输出为准。
