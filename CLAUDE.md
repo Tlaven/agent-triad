@@ -22,7 +22,7 @@
 
 **`call_planner`**：`task_core`（意图或修改方向）；`plan_id` 仅重规划时传，状态来自 `session.plan_json`。
 
-**`call_executor`**：Mode 2 仅 `task_description`；Mode 3 仅 `plan_id`。
+**`call_executor`**：Mode 2 仅 `task_description`；Mode 3 仅 `plan_id`。默认 `wait_for_result=True`，自动阻塞等待并返回执行结果（`[EXECUTOR_RESULT]`），省去额外调用 `get_executor_result`。设 `wait_for_result=False` 时为异步派发，需后续调用 `get_executor_result(plan_id)` 获取结果。
 
 **`plan_id` 与 Executor（V3）**：Mode 3 以 `plan_id` 为键关联子进程，**同 id 且执行未结束时复用**同一子进程。Mode 2 不显式传 `plan_id` 时内部生成新 id 并**新起**子进程。Supervisor 的 `state.messages` 仍整条累积，与是否多子进程不矛盾。
 
@@ -90,6 +90,8 @@ class ExecutorResult:
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关；正整数启用。
 - **MCP**：`enable_deepwiki` / `enable_filesystem_mcp` 等须在 `.env` 显式开启方生效。
 - **分 Agent LLM 参数**：`SUPERVISOR_*` / `PLANNER_*` / `EXECUTOR_*`（`TEMPERATURE`、`TOP_P`、`MAX_TOKENS`、`SEED`）。
+- **Executor 超时保护**：`executor_call_model_timeout`（默认 180s）单次 LLM 调用超时 → 抛异常终止进程；`executor_tool_timeout`（默认 300s）tools_node 超时 → 返回部分结果让 LLM 摘要。Supervisor 侧 `_wait_for_executor_result` 超时（默认 120s）→ 终止 executor 进程并标记失败。
+- **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
 - **Thinking**：`ENABLE_IMPLICIT_THINKING`；仅 Supervisor 可用 `SUPERVISOR_THINKING_VISIBILITY`（`visible`|`implicit`，默认 implicit）把推理拼入对用户 `content`；Planner/Executor **不**拼。未设置时兼容旧名 `THINKING_VISIBILITY`。
 
 ---
@@ -100,7 +102,7 @@ class ExecutorResult:
 |------|------|
 | `src/supervisor_agent/graph.py` | 主循环、`call_model`、`dynamic_tools_node` |
 | `src/supervisor_agent/state.py` | `State`、`AgentSession` |
-| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`、`get_executor_full_output`、`_mark_plan_steps_failed` |
+| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`（`wait_for_result`）、`get_executor_result`、`get_executor_full_output`、`list_executor_tasks`（相对时间）、`_mark_plan_steps_failed` |
 | `src/planner_agent/graph.py` | Planner 图、`run_planner()` |
 | `src/executor_agent/graph.py` | Executor 图、Observation、Reflection、`run_executor()` |
 | `src/common/context.py` | `Context` |

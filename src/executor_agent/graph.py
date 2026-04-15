@@ -108,15 +108,28 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
         **runtime.context.get_agent_llm_kwargs("executor"),
     ).bind_tools(available_tools)
 
-    response = cast(
-        AIMessage,
-        await invoke_chat_model(
-            model,
-            [{"role": "system", "content": executor_system_prompt}, *state.messages]
-            ,
-            enable_streaming=runtime.context.enable_llm_streaming,
-        ),
-    )
+    # Wall-clock timeout for LLM call — if exceeded, process is unrecoverable
+    llm_timeout = runtime.context.executor_call_model_timeout
+    try:
+        if llm_timeout and llm_timeout > 0:
+            response = await asyncio.wait_for(
+                invoke_chat_model(
+                    model,
+                    [{"role": "system", "content": executor_system_prompt}, *state.messages],
+                    enable_streaming=runtime.context.enable_llm_streaming,
+                ),
+                timeout=llm_timeout,
+            )
+        else:
+            response = await invoke_chat_model(
+                model,
+                [{"role": "system", "content": executor_system_prompt}, *state.messages],
+                enable_streaming=runtime.context.enable_llm_streaming,
+            )
+        response = cast(AIMessage, response)
+    except asyncio.TimeoutError:
+        logger.error("Executor LLM call timed out (%.0fs), aborting", llm_timeout)
+        raise RuntimeError(f"Executor LLM 调用超时（{llm_timeout:.0f}秒），进程将被终止")
 
     # 达到最大步数时强制终止工具调用
     if state.is_last_step and response.tool_calls:
@@ -137,6 +150,8 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
 
     Sets plan_id context so tools can check for interrupt signals.
     If any tool returns an interrupt marker, injects a stop prompt.
+    Wall-clock timeout: if tools_node exceeds executor_tool_timeout, returns
+    a timeout warning to the LLM so it can summarize with partial results.
     """
     ctx = runtime.context
 
@@ -145,10 +160,40 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
     if plan_id:
         set_current_plan_id(plan_id)
 
+    tool_timeout = ctx.executor_tool_timeout
     try:
         available_tools = await _load_executor_tools(ctx)
         tool_node = ToolNode(available_tools)
-        result = await tool_node.ainvoke(state)
+        if tool_timeout and tool_timeout > 0:
+            try:
+                result = await asyncio.wait_for(
+                    tool_node.ainvoke(state),
+                    timeout=tool_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Executor tools_node timed out (%.0fs), returning partial", tool_timeout)
+                # Return timeout warning as a ToolMessage so the LLM can summarize
+                last_ai = None
+                for m in reversed(state.messages):
+                    if isinstance(m, AIMessage) and m.tool_calls:
+                        last_ai = m
+                        break
+                out_msgs: list[BaseMessage] = []
+                if last_ai and last_ai.tool_calls:
+                    for tc in last_ai.tool_calls:
+                        out_msgs.append(ToolMessage(
+                            content=f"[工具执行超时] 工具 {tc.get('name', '?')} 执行超过 {tool_timeout:.0f} 秒被强制中断。"
+                                    f"请根据已获取的部分信息输出执行摘要。",
+                            tool_call_id=tc.get("id", ""),
+                        ))
+                if not out_msgs:
+                    out_msgs.append(HumanMessage(
+                        content=f"[系统超时] 工具执行总耗时超过 {tool_timeout:.0f} 秒。"
+                                f"请立即停止调用工具，根据已有信息输出执行摘要。"
+                    ))
+                return {"messages": out_msgs, "tool_rounds": 1}
+        else:
+            result = await tool_node.ainvoke(state)
         messages = result.get("messages", [])
     finally:
         clear_current_plan_id()

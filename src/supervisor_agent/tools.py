@@ -24,6 +24,35 @@ def _normalize_plan_id_arg(plan_id: str | None) -> str | None:
     return s if s else None
 
 
+def _relative_time_ago(dt: datetime) -> str:
+    """将 datetime 转为 LLM 友好的相对时间描述。
+
+    LLM 对时间的理解与人类类似：以"多久之前"判断先后和长短。
+    粒度从秒到小时，超过 24 小时则显示具体日期。
+    """
+    now = datetime.now(dt.tzinfo)
+    delta = now - dt
+    seconds = int(delta.total_seconds())
+
+    if seconds < 0:
+        # 时钟偏移容忍：未来不超过 5 秒视为"刚刚"
+        return "刚刚" if seconds > -5 else dt.strftime("%m-%d %H:%M")
+    if seconds < 5:
+        return "刚刚"
+    if seconds < 60:
+        return f"{seconds}秒前"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}分钟前"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}小时前"
+    days = hours // 24
+    if days < 7:
+        return f"{days}天前"
+    return dt.strftime("%m-%d %H:%M")
+
+
 def _resolve_planner_input_for_call_planner(
     task_core: str,
     plan_id: str | None,
@@ -171,8 +200,9 @@ def _build_call_executor_tool(runtime_context: Context):
         state: Annotated[State, InjectedState],
         task_description: str = "",
         plan_id: str | None = None,
+        wait_for_result: bool = True,
     ) -> str:
-        """调用 Executor Agent 执行任务或执行已有计划（per-task 进程，fire-and-forget）。
+        """调用 Executor Agent 执行任务或执行已有计划（per-task 进程）。
 
         子进程调度约定（与 ``CLAUDE.md``「plan_id 与 Executor 载体」一致）：
         - 传 ``plan_id``（Mode 3）：以该 id 为键 ``start_for_task``；同一 id 且子进程仍在跑则复用，否则新建。
@@ -182,7 +212,9 @@ def _build_call_executor_tool(runtime_context: Context):
         - 仅传 ``task_description``（简短、明确、可执行）
         - 仅传 ``plan_id``（与当前 ``session.plan_json`` 顶层 ``plan_id`` 一致）
 
-        结果由 Executor 推送到 Supervisor 邮箱，使用 ``get_executor_result`` 获取。
+        ``wait_for_result`` 控制是否阻塞等待执行结果：
+        - ``True``（默认）：派发后自动等待结果并直接返回执行摘要，无需再调用 ``get_executor_result``。
+        - ``False``：仅异步派发，立即返回，需后续用 ``get_executor_result(plan_id)`` 获取结果。适用于并行派发多个独立任务的场景。
         """
         td = (task_description or "").strip()
         pid = _normalize_plan_id_arg(plan_id)
@@ -309,6 +341,14 @@ def _build_call_executor_tool(runtime_context: Context):
         if infra.poller:
             infra.poller.register(actual_plan_id, plan_json, executor_base_url=base_url)
 
+        if wait_for_result:
+            # 默认路径：阻塞等待结果，直接返回 [EXECUTOR_RESULT]，省去额外工具调用
+            logger.info("call_executor wait_for_result=True，等待 plan_id=%s 完成", actual_plan_id)
+            return await _wait_for_executor_result(
+                actual_plan_id, plan_json, runtime_context
+            )
+
+        # wait_for_result=False：异步派发，返回 [EXECUTOR_DISPATCH]
         dispatch_meta = json.dumps(
             {"plan_id": actual_plan_id, "status": "accepted"},
             ensure_ascii=False,
@@ -371,6 +411,21 @@ async def _ordered_executor_bases(pm: Any, plan_id: str) -> list[str]:
         if u not in bases:
             bases.append(u)
     return bases
+
+
+async def _cleanup_dead_executor(plan_id: str, ctx: Context) -> None:
+    """尝试终止并清理已死或卡住的 Executor 进程。
+
+    用于 executor 崩溃（不可达）或超时（卡住）场景。
+    """
+    from src.supervisor_agent.v3_lifecycle import v3_manager
+
+    try:
+        infra = await v3_manager.ensure_started(ctx)
+        await infra.process_manager.stop_task(plan_id)
+        logger.info("已清理 Executor 进程，plan_id=%s", plan_id)
+    except Exception:
+        logger.warning("清理 Executor 进程失败，plan_id=%s", plan_id, exc_info=True)
 
 
 async def _probe_executor_task(plan_id: str, ctx: Context) -> str:
@@ -477,6 +532,158 @@ async def _fetch_executor_result_directly(
     return None
 
 
+async def _wait_for_executor_result(
+    plan_id: str,
+    plan_json_cached: str,
+    ctx: Context,
+    *,
+    timeout: float = 120.0,
+) -> str:
+    """等待 Executor 任务完成并返回格式化结果（[EXECUTOR_RESULT] 标记）。
+
+    由 call_executor(wait_for_result=True) 和 get_executor_result 共用。
+    """
+    from src.common.mailbox import get_mailbox
+    from src.supervisor_agent.v3_lifecycle import v3_manager as _v3_manager
+
+    pid = plan_id
+
+    try:
+        mb = get_mailbox()
+    except RuntimeError:
+        try:
+            await _v3_manager.ensure_started(ctx)
+            mb = get_mailbox()
+        except asyncio.CancelledError:
+            raise
+        except Exception as init_err:
+            error_detail = f"回调邮箱未初始化，Executor 基础设施恢复失败：{init_err}"
+            meta = {
+                "status": "failed",
+                "error_detail": error_detail,
+                "updated_plan_json": "",
+                "snapshot_json": "",
+                "plan_id": pid,
+            }
+            meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+            return f"Executor 执行失败：{error_detail}\n\n{meta_line}"
+
+    # ---- 预检 1：非阻塞查 mailbox（结果可能已到达） ----
+    completion = await mb.get_completion(pid)
+    if completion is not None:
+        logger.info("_wait_for_executor_result 预检命中 mailbox，plan_id=%s", pid)
+        return _format_completion_result(completion.payload, pid, plan_json_cached)
+
+    # ---- 预检 2：探测 Executor 服务（任务是否还活着） ----
+    probe = await _probe_executor_task(pid, ctx)
+    if probe in ("not_found", "unreachable"):
+        # Executor 进程崩溃或不可达 → 构造 [EXECUTOR_RESULT] 让 dynamic_tools_node 正确更新 state
+        error_detail = (
+            f"Executor 进程不可达（{probe}），plan_id={pid}，任务状态已丢失。"
+            if probe == "unreachable"
+            else f"Executor 进程中找不到 plan_id={pid} 的任务，进程可能已重启。"
+        )
+        updated_plan_json = _mark_plan_steps_failed(plan_json_cached, error_detail)
+        meta = {
+            "status": "failed",
+            "error_detail": error_detail,
+            "updated_plan_json": updated_plan_json,
+            "snapshot_json": "",
+            "plan_id": pid,
+        }
+        meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+        # 尝试清理已死的 executor 进程
+        await _cleanup_dead_executor(pid, ctx)
+        return f"Executor 进程异常：{error_detail}\n\n{meta_line}"
+
+    # ---- 预检 3：任务已终态但回调丢失 → 直接从 Executor 获取结果 ----
+    if probe in ("completed", "failed", "stopped"):
+        direct = await _fetch_executor_result_directly(pid, plan_json_cached, ctx)
+        if direct is not None:
+            logger.info("_wait_for_executor_result 直接获取终态结果（回调丢失），plan_id=%s", pid)
+            return direct
+
+    # ---- 任务确认存在且运行中，等待 Mailbox（由统一 poller 写入） ----
+    try:
+        infra = await _v3_manager.ensure_started(ctx)
+        if infra.poller:
+            base_url_for_task = infra.process_manager.get_task_base_url(pid) or infra.process_manager.base_url
+            infra.poller.register(pid, plan_json_cached, executor_base_url=base_url_for_task or None)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        pass
+
+    result_data: dict | None = None
+    try:
+        deadline = asyncio.get_event_loop().time() + timeout
+        while asyncio.get_event_loop().time() < deadline:
+            completion = await mb.get_completion(pid)
+            if completion is not None:
+                result_data = completion.payload
+                break
+            await asyncio.sleep(1.0)
+    except asyncio.CancelledError:
+        return (
+            f"等待 Executor 结果时被中断（用户可能发送了新消息或断开连接）。\n"
+            f"任务 plan_id={pid} 仍在后台运行。可再次调用 get_executor_result 获取结果。"
+        )
+
+    if result_data is None:
+        # 超时 → 标记失败并终止卡住的 executor 进程
+        error_detail = f"等待 Executor 完成超时（{int(timeout)}秒）"
+        updated_plan_json = _mark_plan_steps_failed(plan_json_cached, error_detail)
+        meta = {
+            "status": "failed",
+            "error_detail": error_detail,
+            "updated_plan_json": updated_plan_json,
+            "snapshot_json": "",
+            "plan_id": pid,
+        }
+        meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+        # 终止卡住的 executor 进程
+        await _cleanup_dead_executor(pid, ctx)
+        return f"Executor 执行超时\n\n{meta_line}"
+
+    logger.info("_wait_for_executor_result 完成，plan_id=%s", pid)
+
+    # Unregister from poller (terminal state processed)
+    try:
+        infra2 = await _v3_manager.ensure_started(ctx)
+        if infra2.poller:
+            infra2.poller.unregister(pid)
+    except Exception:
+        pass
+
+    return _format_completion_result(result_data, pid, plan_json_cached)
+
+
+def _format_completion_result(
+    payload: dict,
+    plan_id: str,
+    plan_json_cached: str,
+) -> str:
+    """将 mailbox completion payload 格式化为 [EXECUTOR_RESULT] 标记字符串。"""
+    status = payload.get("status", "failed")
+    summary = payload.get("summary", "")
+    updated_plan_json = payload.get("updated_plan_json", "")
+    snapshot_json = payload.get("snapshot_json", "")
+    error_detail = None
+    if status == "failed" and not (updated_plan_json or "").strip():
+        fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+        updated_plan_json = _mark_plan_steps_failed(plan_json_cached, fallback_reason)
+        error_detail = fallback_reason
+    meta = {
+        "status": status,
+        "error_detail": error_detail,
+        "updated_plan_json": updated_plan_json,
+        "snapshot_json": snapshot_json,
+        "plan_id": plan_id,
+    }
+    meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+    return f"{summary}\n\n{meta_line}"
+
+
 def _build_get_executor_result_tool(runtime_context: Context):
     @tool
     async def get_executor_result(
@@ -499,154 +706,17 @@ def _build_get_executor_result_tool(runtime_context: Context):
         if pid not in state.active_executor_tasks:
             return f"错误：plan_id={pid} 不在活跃任务列表中。请先调用 call_executor 派发任务。"
 
-        from src.common.mailbox import get_mailbox
-        from src.supervisor_agent.v3_lifecycle import v3_manager as _v3_manager
-
         # Retrieve cached plan_json from unified poller (not stored in Graph State)
         plan_json_cached = ""
         try:
+            from src.supervisor_agent.v3_lifecycle import v3_manager as _v3_manager
             _infra_early = await _v3_manager.ensure_started(runtime_context)
             if _infra_early.poller:
                 plan_json_cached = _infra_early.poller.get_plan_json(pid)
         except Exception:
             pass
 
-        try:
-            mb = get_mailbox()
-        except RuntimeError:
-            try:
-                from src.supervisor_agent.v3_lifecycle import v3_manager
-
-                await v3_manager.ensure_started(runtime_context)
-                mb = get_mailbox()
-            except asyncio.CancelledError:
-                raise
-            except Exception as init_err:
-                error_detail = f"回调邮箱未初始化，Executor 基础设施恢复失败：{init_err}"
-                meta = {
-                    "status": "failed",
-                    "error_detail": error_detail,
-                    "updated_plan_json": "",
-                    "snapshot_json": "",
-                    "plan_id": pid,
-                }
-                meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
-                return f"Executor 执行失败：{error_detail}\n\n{meta_line}"
-
-        # ---- 预检 1：非阻塞查 mailbox（结果可能已到达） ----
-        completion = await mb.get_completion(pid)
-        if completion is not None:
-            logger.info("get_executor_result 预检命中 mailbox，plan_id=%s", pid)
-            payload = completion.payload
-            status = payload.get("status", "failed")
-            summary = payload.get("summary", "")
-            updated_plan_json = payload.get("updated_plan_json", "")
-            snapshot_json = payload.get("snapshot_json", "")
-            error_detail = None
-            if status == "failed" and not (updated_plan_json or "").strip():
-                fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
-                updated_plan_json = _mark_plan_steps_failed(plan_json_cached, fallback_reason)
-                error_detail = fallback_reason
-            meta = {
-                "status": status,
-                "error_detail": error_detail,
-                "updated_plan_json": updated_plan_json,
-                "snapshot_json": snapshot_json,
-                "plan_id": pid,
-            }
-            meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
-            return f"{summary}\n\n{meta_line}"
-
-        # ---- 预检 2：探测 Executor 服务（任务是否还活着） ----
-        probe = await _probe_executor_task(pid, runtime_context)
-        if probe == "not_found":
-            # 任务已派发（active_executor_tasks 中存在）但 Executor 不认识 → 进程可能已重启
-            return (
-                f"⚠️ plan_id={pid} 已派发至 Executor 但服务中找不到对应任务。\n"
-                f"Executor 进程可能已重启，任务状态已丢失。\n"
-                f"建议：检查 Executor 进程状态，或重新规划并派发任务。"
-            )
-        if probe == "unreachable":
-            return f"错误：无法连接到 Executor 服务。Executor 进程可能已停止运行。"
-
-        # ---- 预检 3：任务已终态但回调丢失 → 直接从 Executor 获取结果 ----
-        if probe in ("completed", "failed", "stopped"):
-            direct = await _fetch_executor_result_directly(pid, plan_json_cached, runtime_context)
-            if direct is not None:
-                logger.info("get_executor_result 直接获取终态结果（回调丢失），plan_id=%s", pid)
-                return direct
-
-        # ---- 任务确认存在且运行中，等待 Mailbox（由统一 poller 写入） ----
-        try:
-            infra = await _v3_manager.ensure_started(runtime_context)
-            # Ensure poller is tracking this task (covers tasks dispatched before poller or re-entry)
-            if infra.poller:
-                base_url_for_task = infra.process_manager.get_task_base_url(pid) or infra.process_manager.base_url
-                infra.poller.register(pid, plan_json_cached, executor_base_url=base_url_for_task or None)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            pass
-
-        result_data: dict | None = None
-        try:
-            deadline = asyncio.get_event_loop().time() + 120.0
-            while asyncio.get_event_loop().time() < deadline:
-                # Only check Mailbox — the background poller writes here on completion
-                completion = await mb.get_completion(pid)
-                if completion is not None:
-                    result_data = completion.payload
-                    break
-                await asyncio.sleep(1.0)
-        except asyncio.CancelledError:
-            return (
-                f"等待 Executor 结果时被中断（用户可能发送了新消息或断开连接）。\n"
-                f"任务 plan_id={pid} 仍在后台运行。可再次调用 get_executor_result 获取结果。"
-            )
-
-        if result_data is None:
-            error_detail = "等待 Executor 完成超时（120秒）"
-            updated_plan_json = _mark_plan_steps_failed(plan_json_cached, error_detail)
-            meta = {
-                "status": "failed",
-                "error_detail": error_detail,
-                "updated_plan_json": updated_plan_json,
-                "snapshot_json": "",
-                "plan_id": pid,
-            }
-            meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
-            return f"Executor 执行超时\n\n{meta_line}"
-
-        status = result_data.get("status", "failed")
-        summary = result_data.get("summary", "")
-        updated_plan_json = result_data.get("updated_plan_json", "")
-        snapshot_json = result_data.get("snapshot_json", "")
-        error_detail = None
-
-        if status == "failed" and not (updated_plan_json or "").strip():
-            fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
-            updated_plan_json = _mark_plan_steps_failed(plan_json_cached, fallback_reason)
-            error_detail = fallback_reason
-
-        logger.info("get_executor_result 完成，plan_id=%s，status=%s", pid, status)
-
-        # Unregister from poller (terminal state processed)
-        try:
-            infra2 = await _v3_manager.ensure_started(runtime_context)
-            if infra2.poller:
-                infra2.poller.unregister(pid)
-        except Exception:
-            pass
-
-        meta = {
-            "status": status,
-            "error_detail": error_detail,
-            "updated_plan_json": updated_plan_json,
-            "snapshot_json": snapshot_json,
-            "plan_id": pid,
-        }
-        meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
-        return f"{summary}\n\n{meta_line}"
+        return await _wait_for_executor_result(pid, plan_json_cached, runtime_context)
 
     return get_executor_result
 
@@ -849,12 +919,12 @@ def _build_list_executor_tasks_tool(runtime_context: Context):
             if status_changed:
                 last_updated = now_iso
 
-            # Format display time: show HH:MM:SS from ISO timestamp
+            # Format display time: relative time from LLM perspective
             display_time = "-"
             if last_updated:
                 try:
                     dt = datetime.fromisoformat(last_updated)
-                    display_time = dt.strftime("%H:%M:%S")
+                    display_time = _relative_time_ago(dt)
                 except (ValueError, OSError):
                     display_time = last_updated[-8:] if len(last_updated) >= 8 else last_updated
 
@@ -870,7 +940,7 @@ def _build_list_executor_tasks_tool(runtime_context: Context):
         # Build output
         lines = [
             f"Executor 任务注册表 ({len(history)} 个任务)：\n",
-            "  plan_id          | status     | queryable | 更新时间   | 备注",
+            "  plan_id          | status     | queryable | 上次更新     | 备注",
             "  " + "-" * 80,
         ]
         lines.extend(rows)

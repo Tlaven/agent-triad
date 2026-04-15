@@ -4,7 +4,7 @@
 
 无独立回调服务：Executor 将结果推送到 Mailbox HTTP 线程（Push 模式）。
 
-通过 atexit 或显式 stop() 清理。
+通过 atexit、信号处理或显式 stop() 清理，确保子进程随主进程退出。
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
+import os
+import signal
 from dataclasses import dataclass
 from typing import Any
 
@@ -91,6 +93,7 @@ class V3LifecycleManager:
 
         if not self._atexit_registered:
             atexit.register(self._sync_cleanup)
+            self._register_signal_handlers()
             self._atexit_registered = True
 
         return infra
@@ -133,7 +136,11 @@ class V3LifecycleManager:
             self._shutting_down = True
 
     def _sync_cleanup(self) -> None:
-        """atexit handler — best-effort synchronous cleanup."""
+        """atexit / signal handler — best-effort synchronous cleanup.
+
+        Terminates all Executor subprocesses and stops the Mailbox server.
+        Called via atexit on normal exit, and via SIGTERM/SIGINT on signal.
+        """
         if self._infra is None:
             return
         infra = self._infra
@@ -141,6 +148,27 @@ class V3LifecycleManager:
             infra.process_manager.sync_terminate()
         if infra.mailbox_server:
             infra.mailbox_server.stop()
+
+    def _register_signal_handlers(self) -> None:
+        """Register SIGTERM/SIGINT handlers so subprocesses die with the parent."""
+        handler = self._signal_handler
+        try:
+            signal.signal(signal.SIGTERM, handler)
+        except (OSError, ValueError):
+            pass  # Not main thread or not supported
+        try:
+            signal.signal(signal.SIGINT, handler)
+        except (OSError, ValueError):
+            pass
+
+    def _signal_handler(self, signum: int, frame: Any) -> None:
+        """Signal handler: clean up subprocesses, then re-raise the signal."""
+        sig_name = signal.Signals(signum).name
+        logger.info("Received %s, cleaning up Executor subprocesses", sig_name)
+        self._sync_cleanup()
+        # Restore default handler and re-raise so the process exits normally
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
 
 
 # Module-level singleton — one per process

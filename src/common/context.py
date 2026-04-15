@@ -242,6 +242,20 @@ class Context:
             "description": "Seconds to wait for Executor process /health to respond.",
         },
     )
+    executor_call_model_timeout: float = field(
+        default=180.0,
+        metadata={
+            "description": "Wall-clock timeout in seconds for a single Executor LLM call. "
+                           "Exceeding this terminates the executor process. 0 disables.",
+        },
+    )
+    executor_tool_timeout: float = field(
+        default=300.0,
+        metadata={
+            "description": "Wall-clock timeout in seconds for Executor tools_node execution. "
+                           "Exceeding this returns a timeout warning to the LLM. 0 disables.",
+        },
+    )
 
     mailbox_port: int = field(
         default=0,

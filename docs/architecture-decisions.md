@@ -10,6 +10,7 @@
 `call_executor` 接受 LLM 传入的结构化参数：
 - `task_description`: 纯文本，Mode 2（Executor-use ReAct）下只需要该参数
 - `plan_id`：Mode 3（Plan → Execute）下只需要该参数
+- `wait_for_result`（默认 `True`）：控制是否阻塞等待执行结果。`True` 时派发后自动等待并返回 `[EXECUTOR_RESULT]`，Supervisor 无需额外调用 `get_executor_result`，减少一次工具调用和 token 消耗。`False` 时为异步派发，需后续调用 `get_executor_result(plan_id)` 获取结果（适用于并行派发场景）。
 
 `call_planner` 接受 LLM 传入的结构化参数：
 - `task_core`：
@@ -282,3 +283,60 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 - 不论结果来源是本地工具还是 MCP，进入 ReAct 消息历史前都走统一规范化流程。
 
 **最终效果**：常见只读能力一处接入、两端复用；高风险能力收敛在 Executor；减少重复实现与语义偏差。
+
+---
+
+## 决策 13：Executor 子进程安全与超时保护
+
+**问题**：Executor 是独立 OS 子进程，存在两类风险：
+1. 进程崩溃（网络/系统/Python 异常导致进程死亡）
+2. 进程卡住（LLM 不响应或工具执行挂起）
+
+**保护机制（三层）**：
+
+### 1) Executor 内部超时（节点级）
+- **`call_model` 节点**（`executor_call_model_timeout`，默认 180s）：单次 LLM 调用超时后抛出 `RuntimeError`，由 `_run_executor_task` 捕获为 `failed`，推送结果到邮箱后自关闭。
+- **`tools_node`**（`executor_tool_timeout`，默认 300s）：工具执行超时后返回超时警告 `ToolMessage`，LLM 仍有机会基于部分结果生成摘要。不强制终止，避免丢失已有执行状态。
+
+**原因**：LLM 不响应意味着无法继续，应视为进程级故障；工具卡住可能只是某一轮慢，给 LLM 一次总结机会更合理。
+
+### 2) Supervisor 侧超时与崩溃处理
+- **`_wait_for_executor_result`**（默认 120s）：阻塞等待结果，超时后：
+  - 调用 `_cleanup_dead_executor` 终止卡住的 executor 进程（HTTP shutdown → terminate → kill）
+  - 返回 `[EXECUTOR_RESULT] status=failed`，触发 `_process_executor_completion` 正确更新 state
+- **executor 不可达**（进程崩溃）：探测到 `unreachable`/`not_found` 后同样构造 `[EXECUTOR_RESULT] status=failed` 并清理进程资源。
+- **新增 `_cleanup_dead_executor`**：统一封装进程终止逻辑，复用 `process_manager.stop_task()`。
+
+### 3) 主进程退出保护
+- **atexit**：`_sync_cleanup` 调用 `sync_terminate()`（terminate + 3s wait → kill）。
+- **信号处理**：SIGTERM/SIGINT 触发 `_sync_cleanup`，确保 Ctrl+C 或外部 kill 时子进程也被清理。
+- **`sync_terminate` 升级**：从单次 `terminate()` 改为 `terminate() → wait(3s) → kill()` 升级策略。
+
+**配置项**（`Context` 字段）：
+- `executor_startup_timeout`（30s）：进程启动等待
+- `executor_call_model_timeout`（180s）：单次 LLM 调用超时
+- `executor_tool_timeout`（300s）：tools_node 执行超时
+- `_wait_for_executor_result` timeout 参数（120s）：Supervisor 等待结果超时
+
+以上均为 0 禁用。
+
+---
+
+## 决策 14：list_executor_tasks 时间显示格式
+
+**问题**：LLM 对绝对时间戳（如 `22:35:17` 或 `2026-04-15T22:35:17`）缺乏直觉感知。与人类类似，LLM 对时间的理解以"多久之前"为锚点。
+
+**决策**：`list_executor_tasks` 面向 LLM 的输出中，`last_updated` 列使用相对时间格式：
+
+| 距离 | 显示 |
+|------|------|
+| < 5 秒 | 刚刚 |
+| 5–59 秒 | N秒前 |
+| 1–59 分钟 | N分钟前 |
+| 1–23 小时 | N小时前 |
+| 1–6 天 | N天前 |
+| ≥ 7 天 | MM-DD HH:MM |
+
+**内部存储不变**：`ExecutorTaskRecord.last_updated` 仍为 ISO 格式绝对时间戳，用于排序和计算。仅在最终输出给 LLM 时由 `_relative_time_ago()` 转换。
+
+**原因**：LLM 通过相对时间能更准确地判断任务先后顺序和超时状态（例如"5分钟前派发但仍在 dispatched"vs"22:35派发"），辅助其决策是否需要重试或重新规划。

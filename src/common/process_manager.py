@@ -430,11 +430,24 @@ class ExecutorProcessManager:
     # ------------------------------------------------------------------
 
     def sync_terminate(self) -> None:
-        """Best-effort synchronous termination for atexit."""
+        """Best-effort synchronous termination for atexit.
+
+        Escalates terminate → kill with a brief wait, so orphaned processes
+        are more reliably cleaned up even when the Supervisor crashes.
+        """
         for handle in self._task_processes.values():
-            if handle.process.returncode is None:
+            proc = handle.process
+            if proc.returncode is not None:
+                continue
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                continue
+            try:
+                proc.wait(timeout=3)
+            except Exception:
                 try:
-                    handle.process.terminate()
+                    proc.kill()
                 except ProcessLookupError:
                     pass
 

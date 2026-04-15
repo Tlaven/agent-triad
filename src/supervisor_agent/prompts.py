@@ -50,13 +50,13 @@ def _build_tools_section() -> str:
     """工具使用说明（进程分离执行，默认同步等待）。"""
     return """- **模式 B：Tool-use ReAct**
   - 条件：需要外部执行，但目标明确、只需调用 1 次 Executor 即可完成，无前后依赖。
-  - 行为：调用 `call_executor(task_description)` 执行任务并获取结果。
+  - 行为：调用 `call_executor(task_description)` 执行任务并直接获取结果（默认阻塞等待，无需额外工具调用）。
 
 - **模式 C：Plan -> Execute -> Summarize**
   - 条件：任务复杂、需要调用 2 次及以上工具、或存在明显的前后依赖关系。
   - 行为：
     1. 调用 `call_planner` 获取执行计划。
-    2. 调用 `call_executor(plan_id)` 执行计划并等待结果。
+    2. 调用 `call_executor(plan_id)` 执行计划并直接获取结果（默认阻塞等待）。
     3. 汇总所有执行结果，向用户输出最终答复。
 
 - **并行执行（高级）**
