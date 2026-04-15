@@ -1,6 +1,6 @@
-"""True E2E tests for V3 HTTP infrastructure -- real Executor server, real HTTP, mock only LLM.
+"""Executor HTTP 链路的真实 E2E：真实 Executor 服务与 HTTP，仅 mock LLM。
 
-vs test_v3_lifecycle.py:
+对比 test_v3_lifecycle.py：
   - That file mocks httpx.AsyncClient -> skips ALL Executor server-side code
   - This file starts real uvicorn server -> tests actual state management
 

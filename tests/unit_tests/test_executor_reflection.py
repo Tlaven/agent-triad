@@ -1,4 +1,4 @@
-"""Unit tests for V2-c Executor reflection/snapshot mechanism."""
+"""Unit tests for Executor reflection/snapshot mechanism."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch

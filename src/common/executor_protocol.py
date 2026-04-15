@@ -1,4 +1,4 @@
-"""V3: Cross-process protocol data structures for Executor ↔ Supervisor communication.
+"""Executor ↔ Supervisor 跨进程协议数据结构。
 
 All dataclasses are HTTP-serializable (JSON-safe). Used by:
 - Executor Server: receives ExecuteRequest, exposes ExecuteStatus / ExecutorResultResponse

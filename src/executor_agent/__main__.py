@@ -1,4 +1,4 @@
-"""V3: Entry point for Executor Process B.
+"""Executor 子进程入口（Process B）。
 
 Usage: python -m src.executor_agent
 

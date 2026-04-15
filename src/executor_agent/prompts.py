@@ -66,7 +66,7 @@ def get_executor_system_prompt(executor_capabilities: str) -> str:
     )
 
 
-_REFLECTION_SYSTEM_PROMPT = """你是 Executor 的 Reflection 节点（V2-c）。
+_REFLECTION_SYSTEM_PROMPT = """你是 Executor 的 Reflection 节点。
 
 你正在执行中途检查点：请基于当前对话与工具观测，判断路径是否偏离目标，并给出结构化快照。
 

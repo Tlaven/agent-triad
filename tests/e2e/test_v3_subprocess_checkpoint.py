@@ -1,4 +1,4 @@
-"""V3 Subprocess Lifecycle — Semi-automated checkpoint test.
+"""Executor 子进程生命周期 — 半自动检查点测试。
 
 Spawns a REAL Executor subprocess via asyncio.create_subprocess_exec.
 Uses EXECUTOR_MOCK_MODE to skip LLM calls inside the subprocess.

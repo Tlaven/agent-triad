@@ -1,4 +1,4 @@
-"""Integration tests for V2-b MCP (Model Context Protocol) integration."""
+"""Integration tests for Planner MCP (Model Context Protocol) integration."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch

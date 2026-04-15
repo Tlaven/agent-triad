@@ -1,4 +1,4 @@
-"""Unit tests for src.common.observation (V2-a)."""
+"""Unit tests for src.common.observation (tool output governance)."""
 
 import json
 import os

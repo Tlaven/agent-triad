@@ -1,4 +1,4 @@
-"""Unit tests for V3 in-memory mailbox (Pull mode — completion only)."""
+"""Unit tests for in-memory mailbox (Pull mode — completion only)."""
 
 import pytest
 

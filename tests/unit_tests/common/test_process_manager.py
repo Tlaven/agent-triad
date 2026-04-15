@@ -1,4 +1,4 @@
-"""Unit tests for V3 Executor Process Manager (mocked async subprocess)."""
+"""Unit tests for Executor Process Manager (mocked async subprocess)."""
 
 import asyncio
 import subprocess

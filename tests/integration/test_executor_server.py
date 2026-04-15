@@ -1,4 +1,4 @@
-"""Integration tests for V3 Executor Server (FastAPI endpoints).
+"""Executor FastAPI 服务端点的集成测试。
 
 Uses httpx.AsyncClient with ASGITransport to test the server in-process.
 """

@@ -1,4 +1,4 @@
-"""Integration tests for V2-c Executor reflection/snapshot mechanism.
+"""Integration tests for Executor reflection/snapshot mechanism.
 
 Focus: cross-module contracts — reflection_node output format, snapshot
 roundtrip through ExecutorResult, and Supervisor-facing paused status.

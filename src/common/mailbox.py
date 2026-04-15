@@ -31,7 +31,7 @@ _mailbox: Mailbox | None = None
 
 
 def set_mailbox(mailbox: Mailbox) -> None:
-    """Set the shared mailbox instance (called during V3 infrastructure init)."""
+    """设置共享 mailbox 实例（在 Executor 基础设施初始化时调用）。"""
     global _mailbox
     _mailbox = mailbox
 

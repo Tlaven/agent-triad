@@ -1,4 +1,4 @@
-"""Unit tests for V3 cross-process protocol data structures."""
+"""Unit tests for cross-process protocol data structures."""
 
 import json
 

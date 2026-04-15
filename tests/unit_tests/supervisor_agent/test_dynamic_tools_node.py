@@ -209,11 +209,11 @@ async def test_unknown_tool_passthrough(make_runtime) -> None:
 
 
 # ---------------------------------------------------------------------------
-# V3 fire-and-forget: call_executor dispatch detection
+# call_executor 异步派发（fire-and-forget）检测
 # ---------------------------------------------------------------------------
 
 async def test_call_executor_v3_dispatch_stores_active_task(make_runtime) -> None:
-    """V3 dispatch (no [EXECUTOR_RESULT]) stores ActiveExecutorTask."""
+    """异步派发（无 [EXECUTOR_RESULT]）时写入 ActiveExecutorTask。"""
     dispatch_content = (
         "Executor dispatched, plan_id=plan_dispatch_001, status=accepted."
         '\n[EXECUTOR_DISPATCH] {"plan_id": "plan_dispatch_001", "status": "accepted"}'
@@ -243,7 +243,7 @@ async def test_get_executor_result_completed_updates_session(
     make_runtime,
     sample_executor_result_completed,
 ) -> None:
-    """get_executor_result processes completion same as V2 call_executor."""
+    """get_executor_result 的完成处理与同步 call_executor 一致。"""
     plan_json = json.dumps({
         "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
     })

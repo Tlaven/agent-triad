@@ -205,7 +205,7 @@ class Context:
         },
     )
 
-    # V2-a: Observation / tool output governance
+    # Observation / 工具输出治理
     max_observation_chars: int = field(
         default=6500,
         metadata={
@@ -237,7 +237,7 @@ class Context:
         },
     )
 
-    # V2-b: Planner binds read-only tools only; Executor may add side-effect tools.
+    # Planner 仅绑定只读工具；Executor 可追加副作用工具。
     readonly_tools_only: bool = field(
         default=False,
         metadata={
@@ -245,7 +245,7 @@ class Context:
         },
     )
 
-    # V2-c: Executor reflection / snapshot（默认 0 关闭，避免改变既有单测/短任务行为；可用环境变量开启）
+    # Executor 中途 Reflection / snapshot（默认 0 关闭，避免改变既有单测/短任务行为；可用环境变量开启）
     reflection_interval: int = field(
         default=0,
         metadata={

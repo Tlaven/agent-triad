@@ -1,11 +1,10 @@
-"""V4 infrastructure lifecycle manager.
+"""Executor 子进程基础设施生命周期（懒加载单例）。
 
-Lazy singleton: starts the Mailbox HTTP server thread on first call.
-Per-task Executor processes are created on-demand by call_executor.
+首次调用时启动 Mailbox HTTP 服务线程；各任务按需由 call_executor 拉起独立 Executor 进程。
 
-No callback server — Executor pushes results to Mailbox HTTP thread (Push mode).
+无独立回调服务：Executor 将结果推送到 Mailbox HTTP 线程（Push 模式）。
 
-Cleanup happens via atexit or explicit stop().
+通过 atexit 或显式 stop() 清理。
 """
 
 from __future__ import annotations
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class V3Infrastructure:
-    """Holds references to all V3/V4 async resources."""
+    """持有子进程执行路径相关的异步资源引用。"""
 
     process_manager: Any  # ExecutorProcessManager
     mailbox: Any = None  # Mailbox
@@ -33,7 +32,7 @@ class V3Infrastructure:
 
 
 class V3LifecycleManager:
-    """Async-safe lazy singleton for V3/V4 infrastructure."""
+    """异步安全的懒加载单例，管理 Executor 子进程基础设施。"""
 
     def __init__(self) -> None:
         self._infra: V3Infrastructure | None = None
@@ -42,13 +41,12 @@ class V3LifecycleManager:
         self._atexit_registered = False
 
     async def ensure_started(self, ctx: Context) -> V3Infrastructure:
-        """Start V4 infrastructure (Mailbox thread + ProcessManager).
+        """启动基础设施（Mailbox 线程 + ProcessManager）。
 
-        Does NOT pre-start any Executor subprocess — those are created
-        per-task by call_executor.
+        不会预拉起任何 Executor 子进程；子进程由 call_executor 按任务创建。
         """
         if self._shutting_down:
-            raise RuntimeError("V3 lifecycle manager is shutting down")
+            raise RuntimeError("Executor 基础设施生命周期管理器正在关闭")
 
         async with self._lock:
             if self._infra is not None and self._infra.started:
@@ -73,7 +71,7 @@ class V3LifecycleManager:
         mailbox_server.start()
 
         logger.info(
-            "V4 infrastructure started: Mailbox server on port %d",
+            "Executor 基础设施已启动：Mailbox 服务监听端口 %d",
             mailbox_server.port,
         )
 
@@ -126,7 +124,7 @@ class V3LifecycleManager:
                 logger.exception("Error stopping Mailbox server")
 
         infra.started = False
-        logger.info("V4 infrastructure stopped")
+        logger.info("Executor 基础设施已停止")
 
     async def stop(self) -> None:
         """Public stop. Acquires lock. Marks as shutting down."""

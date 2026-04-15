@@ -51,7 +51,7 @@ class ExecutorResult:
     status: Literal["completed", "failed", "paused"]
     updated_plan_json: str  # 带执行状态的完整 plan JSON 字符串
     summary: str  # 给 Supervisor LLM 读的文字摘要
-    snapshot_json: str = ""  # V2-c：status=paused 时的结构化快照 JSON
+    snapshot_json: str = ""  # status=paused 时的结构化快照 JSON（Reflection 检查点）
 
 
 # ==================== 工具加载（本地 + 可选 MCP） ====================
@@ -75,10 +75,10 @@ async def _load_executor_tools(ctx: Context) -> list[object]:
 async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
     """Executor 核心节点：ReAct 循环的 LLM 调用。
 
-    V3: Checks stop flag before each LLM call. If set, returns
-    a no-tool_calls AIMessage to route to __end__ gracefully.
+    在子进程服务模式下：每次调用 LLM 前检查停止标志；若已设置则返回
+    无 tool_calls 的 AIMessage，以便路由到 __end__ 正常结束。
     """
-    # V3: Stop flag check
+    # 停止标志检查（Supervisor 可通过 HTTP 触发）
     plan_id = _extract_plan_id_from_messages(state.messages)
     if plan_id:
         try:
@@ -98,7 +98,7 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
                     ]
                 }
         except ImportError:
-            pass  # Not running in server mode (V2 path)
+            pass  # 非子进程服务模式（无 server 侧 stop 事件表）
 
     available_tools = await _load_executor_tools(runtime.context)
     capabilities = get_executor_capabilities_docs()
@@ -133,7 +133,7 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
 
 
 async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
-    """执行工具调用，并对 Observation 做 V2-a 规范化。
+    """执行工具调用，并对 Observation 做统一规范化。
 
     Sets plan_id context so tools can check for interrupt signals.
     If any tool returns an interrupt marker, injects a stop prompt.
@@ -187,7 +187,7 @@ def route_executor_output(state: ExecutorState) -> Literal["__end__", "tools"]:
 
 
 def route_after_tools(state: ExecutorState) -> Literal["reflection", "call_executor"]:
-    """工具执行后：按间隔触发 Reflection（V2-c），否则回到主循环。"""
+    """工具执行后：按间隔触发 Reflection，否则回到主循环。"""
     if state.reflection_interval <= 0:
         return "call_executor"
     if state.tool_rounds > 0 and state.tool_rounds % state.reflection_interval == 0:
@@ -196,7 +196,7 @@ def route_after_tools(state: ExecutorState) -> Literal["reflection", "call_execu
 
 
 async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
-    """V2-c：中途 Reflection，产出 paused 结构化结果并结束本轮 Executor。"""
+    """中途 Reflection：产出 paused 结构化结果并结束本轮 Executor。"""
     prompt = get_reflection_system_prompt()
     model = load_chat_model(
         runtime.context.executor_model,

@@ -29,7 +29,7 @@ class PlannerSession:
     last_executor_error: str | None = None   # 最近一次 Executor 失败时的原因（异常信息或摘要）
     last_executor_summary: str | None = None  # 最近一次 Executor 返回的 summary
     last_executor_full_output: str | None = None  # 完整执行详情（含 updated_plan_json 步骤级细节），供 Supervisor 按需查阅
-    # 按 plan_id 复用 Planner 对话上下文（V1: 仅内存，不持久化）
+    # 按 plan_id 复用 Planner 对话上下文（仅内存，不持久化）
     planner_history_by_plan_id: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     planner_last_version_by_plan_id: dict[str, int] = field(default_factory=dict)
     planner_last_output_by_plan_id: dict[str, str] = field(default_factory=dict)
@@ -49,7 +49,7 @@ class SupervisorDecision:
 
 @dataclass
 class ActiveExecutorTask:
-    """Tracks a dispatched V3 async executor task.
+    """跟踪已派发的异步 Executor 任务。
 
     plan_json is intentionally NOT stored here to keep Graph State lightweight.
     The original plan_json is cached in ExecutorPoller (src/common/polling.py)
@@ -79,7 +79,7 @@ class State(InputState):
     supervisor_decision: SupervisorDecision | None = None
     replan_count: int = 0
     is_last_step: IsLastStep = field(default=False)
-    # V3: active async executor tasks keyed by plan_id
+    # 按 plan_id 索引的活跃异步 Executor 任务
     active_executor_tasks: dict[str, ActiveExecutorTask] = field(default_factory=dict)
-    # V3: persistent executor task history (survives completion)
+    # 持久化的任务历史（完成后仍保留记录）
     executor_task_history: dict[str, ExecutorTaskRecord] = field(default_factory=dict)

@@ -1,9 +1,9 @@
-"""Integration tests for the full Supervisor StateGraph (mock LLM & V3 HTTP).
+"""Supervisor StateGraph 全链路集成测试（mock LLM + mock Executor HTTP）。
 
 Patches:
   - src.supervisor_agent.graph.load_chat_model   → mock LLM with sequential responses
   - src.supervisor_agent.tools.run_planner       → async mock returning preset plan JSON
-  - src.supervisor_agent.v3_lifecycle.v3_manager  → mock V3 infrastructure
+  - src.supervisor_agent.v3_lifecycle.v3_manager  → mock 子进程基础设施
   - httpx.AsyncClient                             → mock HTTP responses from Executor subprocess
 """
 
@@ -52,7 +52,7 @@ def _ctx(max_replan: int = 2) -> Context:
 
 
 def _make_mock_v3_infra() -> tuple[MagicMock, MagicMock]:
-    """Create mock V3 infrastructure (v3_manager + infra)."""
+    """Create mock subprocess infrastructure (v3_manager + infra)."""
     mock_pm = MagicMock()
     mock_pm.base_url = "http://localhost:9999"
     mock_pm.is_running = True

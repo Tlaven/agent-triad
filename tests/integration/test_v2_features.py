@@ -1,8 +1,7 @@
-"""Integration tests for V2 features working together.
+"""跨模块特性组合的集成测试。
 
-Covers: observation governance (V2-a) and cross-feature combinations.
-Routing logic (V2-c reflection) is in unit tests; planner tool contracts
-are in test_tools_registry.py.
+覆盖：工具输出治理（observation）与相关组合场景。
+Reflection 路由逻辑在单元测试中覆盖；Planner 工具契约见 test_tools_registry.py。
 """
 
 import json
@@ -17,7 +16,7 @@ from src.planner_agent.tools import get_planner_tools
 
 
 # ---------------------------------------------------------------------------
-# Observation governance (V2-a)
+# Observation governance
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("size,expect_offloaded", [
@@ -50,7 +49,7 @@ def test_governed_observation_preserves_error_prefix():
 
 
 # ---------------------------------------------------------------------------
-# V2 all-features smoke test
+# 组合冒烟
 # ---------------------------------------------------------------------------
 
 def test_v2_features_do_not_interfere():
@@ -64,7 +63,7 @@ def test_v2_features_do_not_interfere():
         enable_observation_offload=True,
     )
 
-    # V2-a: observation governance
+    # observation governance
     obs = normalize_observation("x" * 30_000, context=ctx)
     assert obs.offloaded
 
@@ -73,7 +72,7 @@ def test_v2_features_do_not_interfere():
     assert len(tools) == 2
     assert {t.name for t in tools} == {"read_workspace_text_file", "list_workspace_entries"}
 
-    # V2-c: reflection triggers correctly
+    # reflection routing
     state = ExecutorState(
         messages=[HumanMessage(content="Test")],
         tool_rounds=2,

@@ -146,7 +146,7 @@ async def call_model(
     except asyncio.CancelledError:
         raise  # 让取消信号正常传播，不做任何额外处理
     except Exception as e:
-        logger.error("Failed to start V3 infrastructure: %s", e)
+        logger.error("Failed to start Executor subprocess infrastructure: %s", e)
 
     # Flush unified poller before LLM call so Mailbox is up-to-date
     await _force_poll_active_tasks(runtime.context)
@@ -218,7 +218,7 @@ async def call_model(
     ).bind_tools(available_tools)
     system_message = get_supervisor_system_prompt(runtime.context)
 
-    # 注入 Executor 实时任务状态（V3 模式，0-3 行，~50 tokens）
+    # 注入 Executor 实时任务状态（子进程异步路径，0-3 行，~50 tokens）
     executor_brief = await _build_executor_status_brief(state, runtime.context)
     if executor_brief:
         system_message = system_message + "\n\n" + executor_brief
@@ -367,7 +367,7 @@ async def dynamic_tools_node(
 
         elif tool_name == "call_executor":
             if "[EXECUTOR_RESULT]" in content:
-                # V2 完成 或 V3 派发失败 → 完整状态更新
+                # 同步完成或异步派发失败 → 完整状态更新
                 updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
                 # Record in executor_task_history
                 meta_plan_id = _extract_plan_id_from_meta(content)
@@ -382,7 +382,7 @@ async def dynamic_tools_node(
                     )
                     updates["executor_task_history"] = _trim_task_history(history)
             elif "[EXECUTOR_DISPATCH]" in content:
-                # V3 派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
+                # 异步派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
                 clean_content = re.sub(r'\n?\[EXECUTOR_DISPATCH\]\s*\{.*?\}', '', content, flags=re.DOTALL).strip()
                 sanitized_tool_messages.append(tm.model_copy(update={"content": clean_content or "Executor 已异步派发。"}))
                 dispatched_pid = _extract_dispatched_plan_id(content)
@@ -393,7 +393,7 @@ async def dynamic_tools_node(
                         status="dispatched",
                     )
                     updates["active_executor_tasks"] = new_tasks
-                    logger.info("V3 dispatch recorded, plan_id=%s", dispatched_pid)
+                    logger.info("Async executor dispatch recorded, plan_id=%s", dispatched_pid)
                 # Record in executor_task_history
                 if dispatched_pid:
                     history = dict(state.executor_task_history)
@@ -407,7 +407,7 @@ async def dynamic_tools_node(
             else:
                 sanitized_tool_messages.append(tm)
         elif tool_name == "get_executor_result":
-            # V3 结果获取 → 与 V2 call_executor 完成处理一致
+            # get_executor_result 与同步 call_executor 完成路径共用处理逻辑
             updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
             # 更新 ActiveExecutorTask 状态，并清理已终态的任务
             meta_plan_id = _extract_plan_id_from_meta(content)
@@ -433,7 +433,7 @@ async def dynamic_tools_node(
                     )
                 updates["active_executor_tasks"] = new_tasks
         elif tool_name == "check_executor_progress":
-            # V3 进度查看 → 如果发现任务在运行，升级 dispatched → running
+            # 进度查看：若任务在运行，将 dispatched 升级为 running
             sanitized_tool_messages.append(tm)
             if "任务运行中" in content:
                 tool_call = id_to_call.get(tm.tool_call_id, {})
@@ -450,7 +450,7 @@ async def dynamic_tools_node(
                         )
                         updates["active_executor_tasks"] = new_tasks
         elif tool_name == "list_executor_tasks":
-            # V3 任务注册表 → 更新 executor_task_history
+            # 任务注册表同步 → 更新 executor_task_history
             sanitized_tool_messages.append(tm)
             registry_updates = _extract_registry_updates(content)
             if registry_updates:
@@ -586,7 +586,7 @@ def _extract_dispatched_plan_id(content: str) -> str | None:
 
 
 def _extract_plan_id_from_meta(content: str) -> str | None:
-    """从 [EXECUTOR_RESULT] meta JSON 中提取 plan_id（V3 get_executor_result 返回）。"""
+    """从 [EXECUTOR_RESULT] meta JSON 中提取 plan_id（含 get_executor_result 返回）。"""
     match = re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, re.DOTALL)
     if not match:
         return None
@@ -625,7 +625,7 @@ def _process_executor_completion(
     tm: ToolMessage,
     sanitized_tool_messages: List[ToolMessage],
 ) -> Dict:
-    """处理 Executor 完成结果（V2 call_executor 完成 / V3 get_executor_result）。
+    """处理 Executor 完成结果（call_executor 同步完成或 get_executor_result）。
 
     返回 updates dict 供 dynamic_tools_node 合并。
     """

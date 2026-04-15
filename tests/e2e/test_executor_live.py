@@ -28,7 +28,7 @@ def _has_siliconflow() -> bool:
 
 @pytest.mark.skipif(not _has_siliconflow(), reason="SILICONFLOW_API_KEY not set (Executor default model)")
 async def test_executor_live_create_hello_txt(tmp_path, monkeypatch) -> None:
-    """与 V1 scenario B 类似的短任务，只跑 `run_executor`。"""
+    """与 ROADMAP 中「仅 Executor」短任务场景类似的冒烟，只跑 `run_executor`。"""
     monkeypatch.setenv("AGENT_WORKSPACE_DIR", str(tmp_path))
     plan = {
         "plan_id": "plan_e2e_executor_only",

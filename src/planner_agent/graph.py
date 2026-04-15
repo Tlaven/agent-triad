@@ -1,5 +1,5 @@
 # planner_agent/graph.py
-"""Planner Agent - ReAct 循环产出意图层 Plan JSON（V2-b 可挂载规划辅助工具 + 只读 MCP）。
+"""Planner Agent - ReAct 循环产出意图层 Plan JSON（可挂载规划辅助工具 + 只读 MCP）。
 
 消息约定：第一条为完整 Planner 系统提示（`_PLANNER_SYSTEM_PROMPT_TEMPLATE`）；第二条为 Supervisor 提供的 **task_core**（须足够详细）；重规划时第三条为带执行状态的 plan JSON。
 """
@@ -120,7 +120,7 @@ async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[s
 
 
 async def planner_tools_node(state: PlannerState, runtime: Runtime[Context]) -> dict[str, list[BaseMessage]]:
-    """执行 Planner 侧工具调用，并对 Observation 做 V2-a 规范化。"""
+    """执行 Planner 侧工具调用，并对 Observation 做统一规范化。"""
     ctx = replace(runtime.context, readonly_tools_only=True)
     tools = await _load_planner_tools(ctx)
     tool_node = ToolNode(tools)

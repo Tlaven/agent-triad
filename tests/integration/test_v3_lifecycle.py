@@ -1,11 +1,10 @@
-"""V3 lifecycle integration tests for Pull-mode architecture.
+"""Executor 子进程（Pull 模式）生命周期与工具链路的集成测试。
 
-Tests verify the V3 infrastructure lifecycle and tool integration
-without requiring real LLM calls or subprocess spawning (mocked where needed).
+在无需真实 LLM 或拉起子进程的前提下（按需 mock）验证基础设施与工具集成。
 
-Mailbox unit-level behaviour → tests/unit_tests/common/test_mailbox.py
-Context fields → tests/unit_tests/common/test_context.py
-ProcessManager recover logic → tests/unit_tests/common/test_process_manager.py
+Mailbox 单元行为 → tests/unit_tests/common/test_mailbox.py
+Context 字段 → tests/unit_tests/common/test_context.py
+ProcessManager 恢复逻辑 → tests/unit_tests/common/test_process_manager.py
 """
 
 import json
@@ -35,11 +34,11 @@ def mailbox():
 
 
 @pytest.fixture
-def v3_ctx():
+def subprocess_ctx():
     return Context(executor_host="localhost", executor_port=0, snapshot_interval=0)
 
 
-# ==================== V3 State Contract ====================
+# ==================== State 契约 ====================
 
 
 def test_state_with_active_executor_tasks():
@@ -53,14 +52,14 @@ def test_state_with_active_executor_tasks():
     assert state.active_executor_tasks["plan_001"].status == "running"
 
 
-# ==================== V3 Tools Integration ====================
+# ==================== 工具集 ====================
 
 
-async def test_get_tools_returns_full_set(v3_ctx):
+async def test_get_tools_returns_full_set(subprocess_ctx):
     """get_tools returns all expected tool names."""
     from src.supervisor_agent.tools import get_tools
 
-    tools = await get_tools(v3_ctx)
+    tools = await get_tools(subprocess_ctx)
     tool_names = [t.name for t in tools]
     for expected in ["call_planner", "call_executor", "stop_executor",
                      "get_executor_result", "get_executor_full_output",
@@ -68,11 +67,11 @@ async def test_get_tools_returns_full_set(v3_ctx):
         assert expected in tool_names
 
 
-# ==================== Unified call_executor V3 Dispatch Format ====================
+# ==================== call_executor 异步派发格式 ====================
 
 
 async def test_call_executor_v3_dispatch_format(mailbox):
-    """call_executor in V3 mode returns [EXECUTOR_DISPATCH] format (fire-and-forget)."""
+    """call_executor 在子进程路径下返回 [EXECUTOR_DISPATCH]（fire-and-forget）。"""
     from unittest.mock import AsyncMock, MagicMock, patch
 
     from src.supervisor_agent.tools import _build_call_executor_tool
@@ -157,7 +156,7 @@ async def test_get_executor_result_returns_executor_result_format(mailbox):
         payload={
             "plan_id": plan_id,
             "status": "completed",
-            "summary": "Test completed via V3",
+            "summary": "Test completed via mailbox",
             "updated_plan_json": plan_json,
             "snapshot_json": "",
         },
@@ -176,7 +175,7 @@ async def test_get_executor_result_returns_executor_result_format(mailbox):
         result = await result_tool.ainvoke({"state": state, "plan_id": plan_id})
 
     assert "[EXECUTOR_RESULT]" in result
-    assert "Test completed via V3" in result
+    assert "Test completed via mailbox" in result
 
     match = re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', result, re.DOTALL)
     assert match is not None
@@ -185,11 +184,11 @@ async def test_get_executor_result_returns_executor_result_format(mailbox):
     assert meta["plan_id"] == plan_id
 
 
-# ==================== V3 Lifecycle Manager ====================
+# ==================== 生命周期管理器 ====================
 
 
 async def test_v3_lifecycle_starts_process_manager(mailbox):
-    """V3LifecycleManager.ensure_started initializes mailbox and process manager."""
+    """V3LifecycleManager.ensure_started 会初始化 mailbox 与 process manager。"""
     from unittest.mock import AsyncMock, MagicMock, patch
 
     from src.supervisor_agent.v3_lifecycle import V3LifecycleManager

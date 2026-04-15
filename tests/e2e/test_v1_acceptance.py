@@ -1,4 +1,4 @@
-"""E2E acceptance tests for V1 (ROADMAP V1 validation criteria).
+"""端到端验收测试（调用真实 LLM，对应 ROADMAP 首期里程碑标准）。
 
 These tests call the REAL LLM APIs and are skipped in normal CI runs.
 Run manually with:
@@ -9,7 +9,7 @@ Requires environment variables:
     SILICONFLOW_API_KEY  (for Planner / Executor)
     DASHSCOPE_API_KEY    (for Supervisor, if using Qwen)
 
-Verification criteria (from ROADMAP.md V1):
+验收标准（详见 ROADMAP.md 首期 MVP）：
   Given a multi-step task, the system should complete:
     plan generation → tool execution → failure-triggered replan (up to 3x) → final answer
   with no hidden crashes, and execution status fully readable in updated_plan_json.

@@ -1,4 +1,4 @@
-"""V3: Executor Process Manager — spawn, monitor, stop Process B.
+"""Executor 进程管理器：拉起、监控、停止 Process B。
 
 Supports per-task Executor processes:
 - start_for_task(plan_id, ctx, mailbox_url): spawn a dedicated Executor for one task

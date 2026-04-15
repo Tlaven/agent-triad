@@ -1,8 +1,8 @@
-"""V3: Executor FastAPI server — runs in Process B.
+"""Executor FastAPI 服务进程（Process B）。
 
-Wraps executor_graph.ainvoke() as async background tasks.
-Communication: Supervisor POSTs /execute, GETs /result, POSTs /stop.
-Results stored in _results dict; Supervisor polls to retrieve them.
+将 executor_graph.ainvoke() 包装为异步后台任务。
+通信：Supervisor POST /execute、GET /result、POST /stop。
+结果暂存于 _results；由 Supervisor 轮询拉取。
 """
 
 from __future__ import annotations

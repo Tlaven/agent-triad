@@ -62,7 +62,7 @@ def _resolve_planner_input_for_call_planner(
 
 
 def _normalize_plan_json(plan_json: str, previous_plan_json: str | None = None) -> str:
-    """Normalize planner output to V1 schema with stable plan_id/version."""
+    """将 Planner 输出规范为意图层 Plan JSON，并托管稳定的 plan_id/version。"""
     if not plan_json or not plan_json.strip():
         return plan_json
     try:
@@ -174,7 +174,7 @@ def _build_call_executor_tool(runtime_context: Context):
     ) -> str:
         """调用 Executor Agent 执行任务或执行已有计划（per-task 进程，fire-and-forget）。
 
-        V3 调度约定（与 ``CLAUDE.md``「plan_id 与 Executor 载体」一致）：
+        子进程调度约定（与 ``CLAUDE.md``「plan_id 与 Executor 载体」一致）：
         - 传 ``plan_id``（Mode 3）：以该 id 为键 ``start_for_task``；同一 id 且子进程仍在跑则复用，否则新建。
         - 仅传 ``task_description``（Mode 2）：每次调用在计划 JSON 内生成**新** ``plan_id`` 并新建子进程（新 executor）。
 
@@ -522,7 +522,7 @@ def _build_get_executor_result_tool(runtime_context: Context):
             except asyncio.CancelledError:
                 raise
             except Exception as init_err:
-                error_detail = f"回调邮箱未初始化，V3 基础设施恢复失败：{init_err}"
+                error_detail = f"回调邮箱未初始化，Executor 基础设施恢复失败：{init_err}"
                 meta = {
                     "status": "failed",
                     "error_detail": error_detail,
@@ -687,7 +687,7 @@ def _build_check_executor_progress_tool():
         try:
             mb = get_mailbox()
         except RuntimeError:
-            return "邮箱未初始化。请确认 V3 模式已启用。"
+            return "邮箱未初始化。请确认已按部署文档启用子进程并行执行相关配置。"
 
         # Check Mailbox for completion first
         completion = await mb.get_completion(plan_id)
@@ -706,11 +706,11 @@ def _build_check_executor_progress_tool():
             infra = await v3_manager.ensure_started(Context())
             pm = infra.process_manager
         except Exception:
-            return "V3 基础设施不可用，无法查询 Executor。"
+            return "Executor 子进程基础设施不可用，无法查询 Executor。"
 
         bases = await _ordered_executor_bases(pm, plan_id)
         if not bases:
-            return "V3 基础设施不可用，无法查询 Executor。"
+            return "Executor 子进程基础设施不可用，无法查询 Executor。"
 
         unreachable = True
         try:
