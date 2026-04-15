@@ -4,13 +4,16 @@
 > **日期**: 2026-04-09
 > **状态**: 352 项测试全部通过 ✅
 
-本文档说明 V2 功能的测试覆盖和执行方法。
+本文档说明 V2 功能的测试覆盖和执行方法。  
+**日常回归命令**请优先使用 `make test_automated`（见 [`README.md`](README.md)）；下文中的「完整」均指 **V2 相关用例集合**，不是全仓库覆盖率。
 
 ---
 
 ## 测试覆盖总览
 
 ### 总体统计
+
+下表为**文档撰写时**的快照；当前用例数以本地 `uv run pytest tests/unit_tests tests/integration --collect-only` 为准。
 
 | 测试类型 | 测试数量 | V2 专项 | 通过率 |
 |---------|---------|---------|--------|
@@ -230,7 +233,7 @@ CONFIDENCE_THRESHOLD=0.6     # 置信度阈值
 
 ```bash
 # 使用测试配置运行
-ENV_FILE=.env.test make test_all
+ENV_FILE=.env.test make test_automated
 ```
 
 ### 启用 MCP（V2-b）
@@ -248,24 +251,24 @@ FILESYSTEM_MCP_ROOT_DIR=workspace
 
 ```bash
 # 使用测试配置运行
-ENV_FILE=.env.test make test_all
+ENV_FILE=.env.test make test_automated
 ```
 
 ---
 
-## 运行完整测试套件
+## 运行自动化套件（单元 + 集成）
 
 ### 快速测试
 
 ```bash
 # 只运行单元测试（最快）
 make test_unit
-# 预期：~1 分钟，266 项测试通过
 
-# 运行所有测试
-make test_all
-# 预期：~3 分钟，331 项测试通过
+# 单元 + 集成（Mock LLM，不含 E2E）— 与 make test_all 相同
+make test_automated
 ```
+
+具体耗时与用例数随仓库演进变化；以本地 pytest 输出为准。
 
 ### 详细测试输出
 

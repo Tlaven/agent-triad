@@ -1,4 +1,4 @@
-.PHONY: all help setup dev dev_ui lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_all test_v1_auto test_v1_acceptance
+.PHONY: all help setup dev dev_ui lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_all test_v1_auto test_v1_acceptance
 
 all: help
 
@@ -39,8 +39,12 @@ E2E_WORKERS ?= auto
 test_e2e_parallel:
 	uv run pytest tests/e2e -m live_llm -q -n $(E2E_WORKERS)
 
-test_all:
+# 单元 + 集成（Mock LLM），不含 E2E / live_llm。适合改代码后的快速回归，≠「覆盖率全量」。
+test_automated:
 	uv run pytest tests/unit_tests tests/integration -q
+
+# 与 test_automated 相同（历史名称，避免旧脚本/习惯用法断裂）。
+test_all: test_automated
 
 # V1 自动化验收（当前可自动化的部分）
 test_v1_auto:
@@ -73,7 +77,8 @@ help:
 	@echo "  make test_e2e           运行 E2E 验收测试（真实 LLM，需 API Key，串行）"
 	@echo "  make test_e2e_parallel 同上，但用 pytest-xdist 并行（可用 E2E_WORKERS=4）"
 	@echo "                          单测超时：E2E_TEST_TIMEOUT（秒，默认 600；0=关闭）"
-	@echo "  make test_all           运行单元测试 + 集成测试"
+	@echo "  make test_automated     单元 + 集成（Mock LLM，改代码后推荐烟测）"
+	@echo "  make test_all           同上（test_automated 的别名）"
 	@echo "  make test_v1_auto       运行 V1 自动化验收（等同 test_unit）"
 	@echo "  make test_v1_acceptance 运行自动化后给出手测步骤"
 

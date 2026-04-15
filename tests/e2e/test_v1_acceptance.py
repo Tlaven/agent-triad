@@ -1,4 +1,4 @@
-"""端到端验收测试（调用真实 LLM，对应 ROADMAP 首期里程碑标准）。
+"""端到端验收测试（调用真实 LLM，对应 docs/product-roadmap.md §7.1 V1.0）。
 
 These tests call the REAL LLM APIs and are skipped in normal CI runs.
 Run manually with:
@@ -9,7 +9,7 @@ Requires environment variables:
     SILICONFLOW_API_KEY  (for Planner / Executor)
     DASHSCOPE_API_KEY    (for Supervisor, if using Qwen)
 
-验收标准（详见 ROADMAP.md 首期 MVP）：
+验收标准（详见 docs/product-roadmap.md §7.1 V1.0）：
   Given a multi-step task, the system should complete:
     plan generation → tool execution → failure-triggered replan (up to 3x) → final answer
   with no hidden crashes, and execution status fully readable in updated_plan_json.

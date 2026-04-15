@@ -1,13 +1,18 @@
 # 测试注意事项
 
-## 快速参考
+> **入口**：改代码后跑哪条命令、文档分工见 [`tests/README.md`](README.md)。
+
+## 命令一览（命名含义）
+
+下列命令对应「能测到什么」，**没有**一条代表「仓库 100% 行为已验证」；自动化套件只覆盖已编写的用例。
 
 ```
-make test_unit          # 纯函数 + Mock 节点，无网络，秒级
-make test_integration   # 图级集成，Mock LLM，秒级
-make test_llm_health    # LLM 连通性诊断，真实 API，~15s
-make test_e2e           # 全链路验收，真实 LLM，分钟级
-make test_all           # unit + integration（不含 e2e）
+make test_unit           # 仅 unit_tests：纯函数 + Mock 节点，无真实 LLM，通常最快
+make test_integration    # 仅 integration：图级，Mock LLM
+make test_automated      # unit + integration（不含 e2e / live_llm）— 日常回归烟测推荐名
+make test_all            # 与 test_automated 完全相同（历史别名）
+make test_llm_health     # LLM 连通性 + 延迟诊断，真实 API，~15s
+make test_e2e            # e2e 中带 live_llm 的用例，真实 LLM，分钟级
 ```
 
 ### 本次变更：按 Agent 独立 LLM 参数（回归建议）
