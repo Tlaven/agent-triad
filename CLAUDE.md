@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 > AI 助手必读：**执行硬规则**；背景与论证见 [`docs/architecture-decisions.md`](docs/architecture-decisions.md)。产品与里程碑见 [`docs/product-roadmap.md`](docs/product-roadmap.md)；`docs/` 导航见 [`docs/README.md`](docs/README.md)。
 
 ---
@@ -15,6 +17,28 @@
 ```
 
 入口：`langgraph.json` → `src/supervisor_agent/graph.py:graph`。各 Agent 默认模型见 `config/agent_models.toml`。
+
+### V3 进程分离架构
+
+每个 `call_executor` 派发时 spawn 独立子进程（`python -m src.executor_agent`），子进程启动 FastAPI + uvicorn，动态分配端口。
+
+```
+Supervisor 进程
+  ├── V3LifecycleManager（懒加载单例）
+  │     ├── ExecutorProcessManager  — spawn/stop per-task 子进程
+  │     ├── Mailbox                 — 线程安全结果缓存（plan_id → MailboxItem）
+  │     ├── MailboxHTTPServer       — 后台线程，Executor POST /inbox 推结果
+  │     └── ExecutorPoller          — 后台 asyncio Task，轮询 Executor /result
+  └── call_executor → pm.start_for_task(plan_id) → POST /execute
+                          ↓
+                    Executor 子进程（FastAPI）
+                      ├── POST /execute   — 接收任务
+                      ├── GET  /result    — 返回 ExecutorResult
+                      ├── POST /stop      — 软中断
+                      └── _push_result_to_mailbox → POST {mailbox_url}/inbox
+```
+
+通信双路径：**Push**（Executor 完成后推 Mailbox）+ **Pull**（Poller 定时 GET /result 兜底）。Supervisor 的 `_wait_for_executor_result` 阻塞读取 Mailbox。
 
 ---
 
@@ -101,17 +125,48 @@ class ExecutorResult:
 | 路径 | 职责 |
 |------|------|
 | `src/supervisor_agent/graph.py` | 主循环、`call_model`、`dynamic_tools_node` |
-| `src/supervisor_agent/state.py` | `State`、`AgentSession` |
+| `src/supervisor_agent/state.py` | `State`、`PlannerSession`、`ActiveExecutorTask` |
 | `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`（`wait_for_result`）、`get_executor_result`（`detail`）、`list_executor_tasks`（相对时间）、`_mark_plan_steps_failed` |
+| `src/supervisor_agent/v3_lifecycle.py` | V3 基础设施单例（Mailbox + ProcessManager + Poller + 信号处理） |
 | `src/planner_agent/graph.py` | Planner 图、`run_planner()` |
 | `src/executor_agent/graph.py` | Executor 图、Observation、Reflection、`run_executor()` |
-| `src/common/context.py` | `Context` |
+| `src/executor_agent/server.py` | Executor FastAPI 子进程服务器（/execute、/result、/stop） |
+| `src/executor_agent/__main__.py` | 子进程入口：动态端口 + uvicorn 启动 |
+| `src/executor_agent/interrupt.py` | 软中断（stop event、`run_with_interrupt_check`） |
+| `src/common/context.py` | `Context`（所有运行时配置） |
+| `src/common/process_manager.py` | 每任务子进程生命周期（spawn/port-discovery/health/stop） |
+| `src/common/mailbox.py` | 线程安全 per-plan 结果缓存 |
+| `src/common/mailbox_server.py` | HTTP 后台线程接收 Executor 推送 |
+| `src/common/polling.py` | `ExecutorPoller`：统一后台轮询 + `force_poll_once` |
+| `src/common/executor_protocol.py` | 跨进程数据结构（`ExecuteRequest`、`ExecuteStatus` 等） |
 | `src/common/observation.py` | Observation 规范化 |
 | `src/common/utils.py` | `load_chat_model("provider:model")` |
 
 各层 `prompts.py` / `tools.py` 见同包。
 
 ---
+
+## 开发命令
+
+包管理器：**`uv`**（所有命令前缀 `uv run`）。`make setup` 安装依赖。
+
+```bash
+make dev              # LangGraph 开发服务器（端口 2024）
+make dev_ui           # 同上 + 打开 LangGraph Studio UI
+make test_unit        # 单元测试
+make test_integration # 集成测试
+make test_automated   # 单元 + 集成（无真实 LLM）
+make test_e2e         # E2E（需 API key，-m live_llm）
+make test_coverage    # 覆盖率（阈值 80%）
+make lint             # ruff check + mypy --strict src
+make format           # ruff format + import 排序
+```
+
+运行单个测试：
+
+```bash
+uv run pytest tests/unit_tests/supervisor_agent/test_dynamic_tools_node.py::test_name -q
+```
 
 ## 运行与环境
 
