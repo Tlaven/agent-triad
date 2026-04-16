@@ -6,8 +6,11 @@ from typing import TYPE_CHECKING
 
 from src.common.tools import (
     apply_context_workspace_root,
+    grep_content,
     list_workspace_entries,
+    read_file_structure,
     read_workspace_text_file,
+    search_files,
 )
 
 if TYPE_CHECKING:
@@ -17,4 +20,10 @@ if TYPE_CHECKING:
 def get_planner_tools(ctx: "Context | None" = None) -> list[object]:
     """返回 Planner 绑定的本地只读工具列表。"""
     apply_context_workspace_root(ctx)
-    return [read_workspace_text_file, list_workspace_entries]
+    return [
+        read_workspace_text_file,
+        list_workspace_entries,
+        search_files,
+        grep_content,
+        read_file_structure,
+    ]

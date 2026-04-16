@@ -44,7 +44,7 @@ Supervisor 进程
 
 ## I/O 契约
 
-**`call_planner`**：`task_core`（意图或修改方向）；`plan_id` 仅重规划时传，状态来自 `session.plan_json`。
+**`call_planner`**：`task_core`（意图或修改方向）；`plan_id` 仅重规划时传，状态来自 `session.plan_json`。返回含 `[PLANNER_REASONING]...[/PLANNER_REASONING]` 标记的推理分析 + 规范化 Plan JSON。`dynamic_tools_node` 拆分后分别存入 `planner_session.planner_reasoning` 和 `planner_session.plan_json`。
 
 **`call_executor`**：Mode 2 仅 `task_description`；Mode 3 仅 `plan_id`。默认 `wait_for_result=True`，自动阻塞等待并返回执行结果（`[EXECUTOR_RESULT]`），省去额外调用 `get_executor_result`。设 `wait_for_result=False` 时为异步派发，需后续调用 `get_executor_result(plan_id)` 获取结果。
 
@@ -63,7 +63,7 @@ class ExecutorResult:
     snapshot_json: str = ""  # paused（如 Reflection）时结构化快照
 ```
 
-**Plan JSON**：顶层 `plan_id`、`version`、`goal`、`steps[]`；每步 `step_id`（`call_planner` 归一化为字符串）、`intent`、`expected_output`、`status`（pending|completed|failed|skipped）、`result_summary`、`failure_reason`。
+**Plan JSON**：顶层 `plan_id`、`version`、`goal`、`steps[]`；每步 `step_id`（`call_planner` 归一化为字符串）、`intent`、`expected_output`、`status`（pending|completed|failed|skipped）、`result_summary`、`failure_reason`、`parallel_group`（可选，同值步骤可并行执行，`null` 表示顺序执行）。
 
 **`snapshot_json`（paused）**：JSON，含如 `trigger_type`、`current_step`、`confidence_score`、`reflection_analysis`、`suggestion`（continue|replan|abort）、`progress_summary` 等；解析见 `executor_agent/graph.py`。
 
@@ -108,7 +108,7 @@ class ExecutorResult:
 - **工作区**：副作用工具仅在 `AGENT_WORKSPACE_DIR`（默认 `workspace`）内。
 - **单 Executor 调用**（决策 11）：Supervisor 每次只派一个 Executor。
 - **`plan_id`↔子进程**（V3）：见上 I/O；Mode 2 每次新 id 新进程。
-- **Planner 只读**（决策 12）：只读工具/MCP；无副作用工具。
+- **Planner 只读**（决策 12）：只读工具/MCP；无副作用工具。可用工具：`read_workspace_text_file`、`list_workspace_entries`、`search_files`（glob 搜索）、`grep_content`（正则搜索）、`read_file_structure`（目录树）+ 只读 MCP。
 - **Planner 会话**（决策 9）：同 `plan_id` 复用规划对话线程。
 - **Observation**（V2-a）：工具返回进历史前统一截断/外置。
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关；正整数启用。
@@ -128,7 +128,7 @@ class ExecutorResult:
 | `src/supervisor_agent/state.py` | `State`、`PlannerSession`、`ActiveExecutorTask` |
 | `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`（`wait_for_result`）、`get_executor_result`（`detail`）、`list_executor_tasks`（相对时间）、`_mark_plan_steps_failed` |
 | `src/supervisor_agent/v3_lifecycle.py` | V3 基础设施单例（Mailbox + ProcessManager + Poller + 信号处理） |
-| `src/planner_agent/graph.py` | Planner 图、`run_planner()` |
+| `src/planner_agent/graph.py` | Planner 图、`PlannerOutput`、`run_planner()`（返回 reasoning + plan_json） |
 | `src/executor_agent/graph.py` | Executor 图、Observation、Reflection、`run_executor()` |
 | `src/executor_agent/server.py` | Executor FastAPI 子进程服务器（/execute、/result、/stop） |
 | `src/executor_agent/__main__.py` | 子进程入口：动态端口 + uvicorn 启动 |
@@ -141,6 +141,8 @@ class ExecutorResult:
 | `src/common/executor_protocol.py` | 跨进程数据结构（`ExecuteRequest`、`ExecuteStatus` 等） |
 | `src/common/observation.py` | Observation 规范化 |
 | `src/common/utils.py` | `load_chat_model("provider:model")` |
+
+| `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
 
 各层 `prompts.py` / `tools.py` 见同包。
 

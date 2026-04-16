@@ -7,7 +7,13 @@ from src.planner_agent.tools import get_planner_tools
 from src.common.context import Context
 
 
-EXPECTED_TOOL_NAMES = ["read_workspace_text_file", "list_workspace_entries"]
+EXPECTED_TOOL_NAMES = [
+    "read_workspace_text_file",
+    "list_workspace_entries",
+    "search_files",
+    "grep_content",
+    "read_file_structure",
+]
 DANGEROUS_KEYWORDS = ["write", "delete", "remove", "create", "execute", "run", "command"]
 
 

@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
@@ -37,6 +37,13 @@ from src.planner_agent.tools import get_planner_tools
 
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class PlannerOutput:
+    """Planner 一次调用的完整返回。"""
+
+    plan_json: str       # 规范化后的 Plan JSON 字符串
+    reasoning: str       # Planner 的分析推理原文（JSON 代码块之前的部分）
 
 def build_planner_messages(
     task_core: str,
@@ -191,8 +198,8 @@ async def run_planner(
     replan_plan_json: str | None = None,
     planner_history_messages: list[dict[str, str]] | None = None,
     context: Context | None = None,
-) -> str:
-    """运行 planner，返回生成的 JSON 计划字符串。
+) -> PlannerOutput:
+    """运行 planner，返回完整规划结果（含推理与 Plan JSON）。
 
     与架构约定一致：Planner 只接收 **task_core** 与（重规划时）**session 中的完整 plan**，
     不接收 Supervisor 全量对话。
@@ -204,7 +211,7 @@ async def run_planner(
         context: 运行时上下文（模型等）；默认 ``Context()``，会从环境变量填充
 
     Returns:
-        str: 干净且已规范化（含稳定 plan_id/version）的 JSON 字符串
+        PlannerOutput: 包含 plan_json（规范化 JSON）和 reasoning（分析推理原文）
     """
     ctx = context if context is not None else Context()
     planner_messages = build_planner_messages(
@@ -220,12 +227,13 @@ async def run_planner(
     )
 
     content = _final_planner_text_from_messages(result["messages"])
-    extracted = _extract_plan_json_from_planner_content(content)
-    return _normalize_planner_output_plan_json(
+    reasoning, extracted = _split_reasoning_and_json(content)
+    normalized = _normalize_planner_output_plan_json(
         extracted,
         plan_id=plan_id,
         previous_plan_json=replan_plan_json,
     )
+    return PlannerOutput(plan_json=normalized, reasoning=reasoning)
 
 
 def _extract_plan_json_from_planner_content(content: str) -> str:
@@ -241,6 +249,26 @@ def _extract_plan_json_from_planner_content(content: str) -> str:
     if len(matches) != 1:
         return content
     return matches[0].strip()
+
+
+def _split_reasoning_and_json(content: str) -> tuple[str, str]:
+    """将 Planner 输出拆分为推理部分和 JSON 部分。
+
+    Returns:
+        (reasoning, json_text): reasoning 为 JSON 代码块之前的文字；json_text 为提取的 JSON。
+    """
+    matches = list(re.finditer(
+        r"```(?:json)?\s*([\s\S]*?)```",
+        content,
+        re.IGNORECASE | re.DOTALL,
+    ))
+    if len(matches) != 1:
+        # 无 JSON 块或多个块 —— 整段都作为 reasoning，原始内容当作 json_text
+        return content, content
+    match = matches[0]
+    reasoning = content[:match.start()].strip()
+    json_text = match.group(1).strip()
+    return reasoning, json_text
 
 
 def _generate_plan_id() -> str:

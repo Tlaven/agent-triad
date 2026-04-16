@@ -70,7 +70,8 @@ Planner **不知道 Executor 有哪些工具**，Plan 的每个 step 只描述**
   "expected_output": "完成验收标准",
   "status": "pending | completed | failed | skipped",
   "result_summary": null,
-  "failure_reason": null
+  "failure_reason": null,
+  "parallel_group": null
 }
 ```
 
@@ -272,7 +273,7 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 - **执行副作用层（Executor-only）**：写文件、执行本地命令、外部系统写操作等，仅允许 Executor 使用。
 
 ### 2) 权限约束
-- Planner 默认仅挂载只读能力，不暴露 `write_file`、`run_local_command` 等副作用工具。
+- Planner 默认仅挂载只读能力（工作区文件读取、glob 搜索、正则搜索、目录树浏览 + 只读 MCP），不暴露 `write_file`、`run_local_command` 等副作用工具。
 - Executor 可挂载只读 + 副作用能力，但仍受现有安全校验约束。
 
 ### 3) 与意图层 Plan 的关系
@@ -361,3 +362,91 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 - **合并为一枚工具**：工具数少、schema 集中；必须在 docstring 中**强烈区分**只读与停止，并在实现上对 `stop` 分支做参数校验（如必填 `reason`），降低误停风险。
 
 **结论**：默认维持拆分即可；当出现上述「冗余度 / 歧义」症状时再落地合并，并同步 `CLAUDE.md`、`prompts.py` 与序列图文档中的工具名。
+
+---
+
+## 决策 16：Planner 完整输出传递（reasoning + plan_json）
+
+**问题**：此前 `run_planner()` 仅返回提取后的 Plan JSON 字符串，Planner 的分析推理（如步骤拆分理由、依赖判断、风险评估）被丢弃。Supervisor 无法理解 Planner 为何如此规划，重规划时缺少设计意图上下文。
+
+**决策**：
+
+### 1) PlannerOutput 数据类
+
+`run_planner()` 返回 `PlannerOutput` 而非纯字符串：
+
+```python
+@dataclass
+class PlannerOutput:
+    plan_json: str   # 规范化后的 Plan JSON
+    reasoning: str   # Planner 的分析推理原文（JSON 代码块之前的部分）
+```
+
+### 2) 拆分逻辑
+
+`_split_reasoning_and_json(content)` 从 Planner 原始输出中分离：
+- `reasoning`：```json``` 代码块之前的所有文字
+- `json_text`：代码块内的 JSON 内容
+
+### 3) 传递格式
+
+`call_planner` 工具返回给 Supervisor 的格式：
+```
+[PLANNER_REASONING]
+...推理分析...
+[/PLANNER_REASONING]
+
+{规范化 Plan JSON}
+```
+
+`dynamic_tools_node` 通过 `_split_planner_output()` 解析：
+- `planner_reasoning` 存入 `PlannerSession.planner_reasoning`
+- `plan_json` 存入 `PlannerSession.plan_json`（与原有逻辑一致）
+
+### 4) PlannerSession 更新
+
+新增字段 `planner_reasoning: str`（默认空字符串）。Executor 完成后重建 `PlannerSession` 时保留上一轮 reasoning 不变。
+
+**原因**：Supervisor 看到推理后能更好地调度（理解步骤设计意图、判断并行可行性、做更精准的重规划），同时 Plan JSON 仍作为系统级主数据独立存储和传递。
+
+---
+
+## 决策 17：parallel_group 并行执行标注
+
+**问题**：某些任务中多个步骤之间无依赖关系，可以并行执行以减少总耗时。此前 Plan JSON 中无并行标注，Supervisor 只能顺序派发。
+
+**决策**：
+
+### 1) Plan step 新增可选字段
+
+```json
+{
+  "step_id": "step_2",
+  "intent": "...",
+  "expected_output": "...",
+  "parallel_group": "group_a"
+}
+```
+
+- `parallel_group` 为 `null`（默认）时：顺序执行
+- `parallel_group` 为非空字符串时：同组步骤可并行执行
+
+### 2) 标注职责
+
+- **Planner** 负责判断步骤间依赖关系并标注 `parallel_group`
+- **Supervisor** 负责根据标注将同组步骤拆为独立子任务，用 `call_executor(task_description, wait_for_result=false)` 并行派发
+- Planner 仅在**确信步骤完全独立**时才标注并行组
+
+### 3) 规范化处理
+
+`_normalize_plan_json()` 确保每个 step 都有 `parallel_group` 字段（缺失时补 `null`），与 `step_id`、`status` 等字段处理方式一致。
+
+### 4) 与现有并行机制的关系
+
+此决策与决策 1 中 `wait_for_result=false` 异步派发机制互补：
+- `wait_for_result=false` 是 Supervisor 的执行能力（如何并行派发）
+- `parallel_group` 是 Planner 的规划能力（哪些步骤应并行）
+
+Supervisor 提示词明确指导：当计划中有 `parallel_group` 时，将同组步骤拆为 Mode 2 子任务并行派发；无标注的步骤用 Mode 3 同步执行。
+
+**原因**：将并行性判断交给规划层（Planner 更理解步骤语义），而非让 Supervisor 从步骤文本中猜测依赖关系，减少误判。

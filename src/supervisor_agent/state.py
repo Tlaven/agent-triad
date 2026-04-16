@@ -29,6 +29,7 @@ class PlannerSession:
     last_executor_error: str | None = None   # 最近一次 Executor 失败时的原因（异常信息或摘要）
     last_executor_summary: str | None = None  # 最近一次 Executor 返回的 summary
     last_executor_full_output: str | None = None  # 完整执行详情（含 updated_plan_json 步骤级细节），供 Supervisor 按需查阅
+    planner_reasoning: str = ""              # 最近一次 Planner 返回的分析推理原文
     # 按 plan_id 复用 Planner 对话上下文（仅内存，不持久化）
     planner_history_by_plan_id: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     planner_last_version_by_plan_id: dict[str, int] = field(default_factory=dict)

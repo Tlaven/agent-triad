@@ -11,7 +11,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
 from src.common.context import Context
-from src.planner_agent.graph import run_planner
+from src.planner_agent.graph import PlannerOutput, run_planner
 from src.supervisor_agent.state import PlannerSession, State
 
 logger = logging.getLogger(__name__)
@@ -128,6 +128,9 @@ def _normalize_plan_json(plan_json: str, previous_plan_json: str | None = None) 
             step["status"] = step.get("status") or "pending"
             step["result_summary"] = step.get("result_summary", None)
             step["failure_reason"] = step.get("failure_reason", None)
+            # parallel_group: 可选字段，同值步骤可并行执行；null 表示顺序执行
+            if "parallel_group" not in step:
+                step["parallel_group"] = None
 
     return json.dumps(parsed, ensure_ascii=False, indent=2)
 
@@ -163,17 +166,23 @@ def _build_call_planner_tool(runtime_context: Context):
         if normalized_pid and state.planner_session is not None:
             planner_history_messages = state.planner_session.planner_history_by_plan_id.get(normalized_pid)
 
-        plan_json = await run_planner(
+        planner_output: PlannerOutput = await run_planner(
             task_core,
             plan_id=plan_id,
             replan_plan_json=replan_plan_json,
             planner_history_messages=planner_history_messages,
             context=runtime_context,
         )
-        normalized = _normalize_plan_json(plan_json, previous_plan_json=previous_plan_json)
+        normalized = _normalize_plan_json(planner_output.plan_json, previous_plan_json=previous_plan_json)
 
         logger.info("Planner 生成计划，session_id=%s，长度=%d", session_id, len(normalized))
-        return normalized
+
+        # 组装返回：reasoning + plan_json，让 Supervisor 能看到 Planner 的分析推理
+        parts = []
+        if planner_output.reasoning.strip():
+            parts.append(f"[PLANNER_REASONING]\n{planner_output.reasoning.strip()}\n[/PLANNER_REASONING]")
+        parts.append(normalized)
+        return "\n\n".join(parts)
 
     return call_planner
 

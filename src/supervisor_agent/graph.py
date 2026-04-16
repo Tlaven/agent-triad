@@ -318,7 +318,7 @@ async def dynamic_tools_node(
                 else {}
             )
 
-            new_plan_json = content.strip()
+            planner_reasoning, new_plan_json = _split_planner_output(content.strip())
             new_plan_id, new_version = _parse_plan_meta(new_plan_json)
             if new_plan_id:
                 tool_call = id_to_call.get(tm.tool_call_id, {})
@@ -349,6 +349,7 @@ async def dynamic_tools_node(
             updates["planner_session"] = PlannerSession(
                 session_id=session_id,
                 plan_json=new_plan_json,
+                planner_reasoning=planner_reasoning,
                 last_executor_status=(
                     state.planner_session.last_executor_status if state.planner_session else None
                 ),
@@ -515,6 +516,23 @@ def _build_id_to_call(state: State) -> Dict[str, dict]:
         if "id" in tc:
             out[tc["id"]] = tc
     return out
+
+
+def _split_planner_output(content: str) -> tuple[str, str]:
+    """从 call_planner 返回中拆分 reasoning 和 plan_json。
+
+    约定格式：[PLANNER_REASONING]...[/PLANNER_REASONING] 后跟 JSON。
+    若无标记则整个内容视为 plan_json。
+    """
+    m = re.search(
+        r"\[PLANNER_REASONING\]\s*([\s\S]*?)\s*\[/PLANNER_REASONING\]",
+        content,
+    )
+    if m:
+        reasoning = m.group(1).strip()
+        remaining = content[:m.start()] + content[m.end():]
+        return reasoning, remaining.strip()
+    return "", content.strip()
 
 
 def _parse_plan_meta(plan_json: str) -> tuple[str | None, int | None]:
@@ -720,6 +738,9 @@ def _build_executor_updates(
         "planner_session": PlannerSession(
             session_id=session_id,
             plan_json=next_plan_json,
+            planner_reasoning=(
+                state.planner_session.planner_reasoning if state.planner_session else ""
+            ),
             last_executor_status=exec_status,
             last_executor_error=exec_error,
             last_executor_summary=exec_summary,

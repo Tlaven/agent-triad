@@ -55,17 +55,19 @@ def _build_tools_section() -> str:
 - **模式 C：Plan -> Execute -> Summarize**
   - 条件：任务复杂、需要调用 2 次及以上工具、或存在明显的前后依赖关系。
   - 行为：
-    1. 调用 `call_planner` 获取执行计划。
+    1. 调用 `call_planner` 获取执行计划（返回中 `[PLANNER_REASONING]` 部分为 Planner 的分析推理，JSON 部分为计划本身）。
     2. 调用 `call_executor(plan_id)` 执行计划并直接获取结果（默认阻塞等待）。
     3. 汇总所有执行结果，向用户输出最终答复。
 
 - **并行执行（高级）**
   - 条件：多个子任务之间无依赖关系，可以同时执行以节省总耗时。
+  - Planner 可能在步骤中标注 `parallel_group`：同组步骤可并行执行，不同组顺序执行。
   - 行为：
-    1. 连续调用 `call_executor(..., wait_for_result=false)` 派发多个任务（每次立即返回）。
-    2. 用 `get_executor_result(plan_id)` 逐个获取结果；需要步骤级正文时在任务已结束后使用 `detail=\"full\"`（或与 overview 同时在单次异步收束调用中指定）。
-    3. 等待过程中若只需**非阻塞**查看某任务进度（当前步骤、工具轮数等），可调用 `check_executor_progress(plan_id)`；它不返回 `[EXECUTOR_RESULT]`，不能替代第 2 步收束状态。
-    4. 需要总览已派发任务与是否仍可查询结果时，用 `list_executor_tasks`。
+    1. 当计划中有 `parallel_group` 时，将同组步骤拆为独立子任务，连续调用 `call_executor(task_description, wait_for_result=false)` 派发。
+    2. 无 `parallel_group` 的顺序步骤用 `call_executor(plan_id)` 同步执行。
+    3. 用 `get_executor_result(plan_id)` 逐个获取结果；需要步骤级正文时在任务已结束后使用 `detail=\"full\"`。
+    4. 等待过程中若只需**非阻塞**查看某任务进度（当前步骤、工具轮数等），可调用 `check_executor_progress(plan_id)`；它不返回 `[EXECUTOR_RESULT]`，不能替代第 3 步收束状态。
+    5. 需要总览已派发任务与是否仍可查询结果时，用 `list_executor_tasks`。
   - 注意：只在确认多个任务确实可以并行时才使用此模式，绝大多数场景下应使用默认的同步等待。"""
 
 

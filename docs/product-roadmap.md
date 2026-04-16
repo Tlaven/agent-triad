@@ -63,11 +63,16 @@
 - `plan_id`：重规划时用于索引已有会话与执行状态
 
 **输出**：
-- 合法 Plan JSON（包含 `plan_id` / `version` / `steps`）
+- `PlannerOutput`：含 `plan_json`（规范化 Plan JSON）+ `reasoning`（分析推理原文）
+- Supervisor 通过 `call_planner` 接收完整输出；reasoning 存入 `PlannerSession.planner_reasoning`
+
+**可用工具（规划前信息搜集）**：
+- `read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure` + 只读 MCP
 
 **边界**：
 - 不输出具体工具名/API 名
 - 仅描述 `intent` 与 `expected_output`
+- 可标注 `parallel_group` 指示并行执行机会
 - 在同一 `plan_id` 下复用 Planner 会话上下文（`version` 递增）
 
 ### 2.3 Executor Agent
@@ -104,9 +109,11 @@
       "expected_output": "可验证完成标准",
       "status": "pending",
       "result_summary": null,
-      "failure_reason": null
+      "failure_reason": null,
+      "parallel_group": null
     }
-  ]
+  ],
+  "overall_expected_output": "任务最终产出定义"
 }
 ```
 
@@ -120,6 +127,7 @@
 | `steps[].status` | `pending / completed / failed / skipped` |
 | `result_summary` | 步骤成功后的摘要 |
 | `failure_reason` | 步骤失败原因 |
+| `parallel_group` | 可选，同值步骤可并行执行，`null` 表示顺序执行 |
 
 ### 3.3 重规划规则
 
