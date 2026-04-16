@@ -25,8 +25,6 @@ from src.common.context import Context
 
 logger = logging.getLogger(__name__)
 
-PORT_FILE = Path("logs/executor.port")
-
 
 @dataclass
 class ProcessHandle:
@@ -62,12 +60,10 @@ class ExecutorProcessManager:
 
     @property
     def base_url(self) -> str:
-        """Return base_url of any running process (for backward compat). Empty if none."""
+        """Return base_url of any running process. Empty if none."""
         for handle in self._task_processes.values():
             if handle.process.returncode is None:
                 return handle.base_url
-        if self._base_url_legacy:
-            return self._base_url_legacy
         return ""
 
     @property
@@ -329,86 +325,6 @@ class ExecutorProcessManager:
 
         if handle.client and not handle.client.is_closed:
             await handle.client.aclose()
-
-    # ------------------------------------------------------------------
-    # Legacy compatibility (recover_or_start uses shared port file)
-    # ------------------------------------------------------------------
-
-    async def recover_or_start(self) -> None:
-        """Try to recover existing Executor from shared port file, else start new.
-
-        Legacy method for backward compatibility.
-        """
-        port = await self._read_port_file(PORT_FILE)
-        if port is not None:
-            candidate_url = f"http://{self._ctx.executor_host}:{port}"
-            try:
-                async with httpx.AsyncClient(base_url=candidate_url, timeout=5.0) as probe:
-                    resp = await probe.get("/health")
-                    if resp.status_code == 200:
-                        logger.info("Recovered existing Executor on port %d", port)
-                        self._base_url_legacy = candidate_url
-                        return
-            except (httpx.ConnectError, httpx.TimeoutException):
-                pass
-        await self.start()
-
-    _base_url_legacy: str = ""
-
-    async def start(self) -> None:
-        """Start a shared Executor subprocess (legacy, for backward compat)."""
-        env = os.environ.copy()
-        env["EXECUTOR_PORT"] = "0"
-
-        await self._clear_port_file(PORT_FILE)
-
-        logger.info("Starting shared Executor process ...")
-
-        process = await self._spawn_executor_process(env)
-
-        deadline = asyncio.get_event_loop().time() + self._ctx.executor_startup_timeout
-        discovered_port: int | None = None
-
-        while asyncio.get_event_loop().time() < deadline:
-            discovered_port = await self._read_port_file(PORT_FILE)
-            if discovered_port is not None:
-                break
-            await asyncio.sleep(0.3)
-
-        if discovered_port is None:
-            process.terminate()
-            raise TimeoutError(
-                f"Executor failed to write port file within {self._ctx.executor_startup_timeout}s"
-            )
-
-        base_url = f"http://{self._ctx.executor_host}:{discovered_port}"
-        client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
-
-        while asyncio.get_event_loop().time() < deadline:
-            try:
-                resp = await client.get("/health")
-                if resp.status_code == 200:
-                    logger.info("Shared Executor ready (PID=%d, port=%d)", process.pid, discovered_port)
-                    # Register under a special key
-                    handle = ProcessHandle(
-                        plan_id="__shared__",
-                        process=process,
-                        base_url=base_url,
-                        port=discovered_port,
-                        client=client,
-                    )
-                    self._task_processes["__shared__"] = handle
-                    self._base_url_legacy = base_url
-                    return
-            except (httpx.ConnectError, httpx.TimeoutException):
-                pass
-            await asyncio.sleep(0.3)
-
-        process.terminate()
-        await client.aclose()
-        raise TimeoutError(
-            f"Executor health check failed within {self._ctx.executor_startup_timeout}s"
-        )
 
     # ------------------------------------------------------------------
     # Stop all processes

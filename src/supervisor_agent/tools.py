@@ -270,7 +270,7 @@ def _build_call_executor_tool(runtime_context: Context):
             mailbox_url = infra.mailbox_server.base_url
             pm = infra.process_manager
         except Exception as e:
-            error_detail = f"V4 基础设施启动失败：{e}"
+            error_detail = f"V3 基础设施启动失败：{e}"
             updated_plan_json = _mark_plan_steps_failed(plan_json, error_detail)
             meta = {"status": "failed", "error_detail": error_detail,
                     "updated_plan_json": updated_plan_json, "snapshot_json": ""}

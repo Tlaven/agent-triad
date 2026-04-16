@@ -1,12 +1,12 @@
 # Checkpoint Report: v3_subprocess_lifecycle
 
-- Generated: 2026-04-14T21:38:03
-- Duration: 0:00:39.261274
+- Generated: 2026-04-16T12:28:54
+- Duration: 0:00:38.762332
 - Checkpoints: 9
 
 ---
 ## CP1: subprocess_spawn
-`timestamp: 2026-04-14T21:37:24`
+`timestamp: 2026-04-16T12:28:16`
 
 ### success
 ```
@@ -15,7 +15,7 @@ True
 
 ### port_file_path
 ```
-logs\executor.port
+logs\executor_plan_checkpoint_test.port
 ```
 
 ### port_file_exists
@@ -25,12 +25,12 @@ True
 
 ### port_file_content
 ```
-62878
+52536
 ```
 
 ### base_url
 ```
-http://127.0.0.1:62878
+http://127.0.0.1:52536
 ```
 
 ### is_running
@@ -40,7 +40,7 @@ True
 
 ### subprocess_pid
 ```
-24500
+19904
 ```
 
 ### subprocess_returncode
@@ -50,16 +50,16 @@ None
 
 ### subprocess_stdout
 ```
-INFO:     Started server process [2308]
+INFO:     Started server process [19904]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:62884 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52542 - "GET /health HTTP/1.1" 200 OK
 
 ```
 
 ---
 ## CP2: health_check
-`timestamp: 2026-04-14T21:37:27`
+`timestamp: 2026-04-16T12:28:19`
 
 ### http_status_code
 ```
@@ -76,7 +76,7 @@ INFO:     127.0.0.1:62884 - "GET /health HTTP/1.1" 200 OK
 ### response_headers
 ```
 {
-  "date": "Tue, 14 Apr 2026 13:37:27 GMT",
+  "date": "Thu, 16 Apr 2026 04:28:19 GMT",
   "server": "uvicorn",
   "content-length": "15",
   "content-type": "application/json"
@@ -85,7 +85,7 @@ INFO:     127.0.0.1:62884 - "GET /health HTTP/1.1" 200 OK
 
 ---
 ## CP3: task_dispatch
-`timestamp: 2026-04-14T21:37:27`
+`timestamp: 2026-04-16T12:28:19`
 
 ### http_status_code
 ```
@@ -102,7 +102,7 @@ INFO:     127.0.0.1:62884 - "GET /health HTTP/1.1" 200 OK
 
 ---
 ## CP4: immediate_result_after_dispatch
-`timestamp: 2026-04-14T21:37:28`
+`timestamp: 2026-04-16T12:28:19`
 
 ### http_status_code
 ```
@@ -131,7 +131,7 @@ Mock executor completed successfully
 
 ---
 ## CP5: completion_poll
-`timestamp: 2026-04-14T21:37:28`
+`timestamp: 2026-04-16T12:28:19`
 
 ### final_status
 ```
@@ -160,7 +160,7 @@ True
 
 ---
 ## CP6: status_cleanup_after_completion
-`timestamp: 2026-04-14T21:37:28`
+`timestamp: 2026-04-16T12:28:20`
 
 ### GET /status code
 ```
@@ -189,7 +189,7 @@ True
 
 ---
 ## CP7: process_stop
-`timestamp: 2026-04-14T21:37:28`
+`timestamp: 2026-04-16T12:28:20`
 
 ### stop_success
 ```
@@ -203,51 +203,36 @@ False
 
 ### port_file_exists_after_stop
 ```
-True
+False
+```
+
+### returncode
+```
+1
 ```
 
 ---
-## CP8: recovery_reuse
-`timestamp: 2026-04-14T21:37:38`
+## CP8: per_task_spawn
+`timestamp: 2026-04-16T12:28:30`
 
-### first_start_base_url
+### spawn_base_url
 ```
-http://127.0.0.1:53194
-```
-
-### first_start_port_file
-```
-53194
+http://127.0.0.1:52555
 ```
 
-### first_start_is_running
+### spawn_is_running
 ```
 True
 ```
 
-### recovery_base_url
+### get_task_base_url
 ```
-http://127.0.0.1:53194
-```
-
-### recovery_port_file
-```
-53194
-```
-
-### recovery_is_running
-```
-True
-```
-
-### base_url_unchanged
-```
-True
+http://127.0.0.1:52555
 ```
 
 ---
 ## CP9: duplicate_dispatch_409
-`timestamp: 2026-04-14T21:37:51`
+`timestamp: 2026-04-16T12:28:42`
 
 ### first_dispatch_status
 ```

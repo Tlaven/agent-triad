@@ -420,6 +420,8 @@ async def test_tool_dispatch_then_get_result(
         mock_pm = MagicMock()
         mock_pm.base_url = f"http://127.0.0.1:{port}"
         mock_pm.is_running = True
+        mock_pm.stop_task = AsyncMock()
+        mock_pm.iter_active_base_urls = MagicMock(return_value=[])
         # Mock start_for_task to return a handle with the existing executor's base_url
         mock_handle = MagicMock()
         mock_handle.base_url = f"http://127.0.0.1:{port}"
@@ -429,9 +431,13 @@ async def test_tool_dispatch_then_get_result(
         mock_mailbox_server = MagicMock()
         mock_mailbox_server.base_url = "http://127.0.0.1:19999"
 
+        mock_poller = MagicMock()
+        mock_poller.register = MagicMock()
+
         mock_infra = MagicMock()
         mock_infra.process_manager = mock_pm
         mock_infra.mailbox_server = mock_mailbox_server
+        mock_infra.poller = mock_poller
 
         # 1) call_executor (fire-and-forget)
         call_exec = _build_call_executor_tool(ctx)
@@ -446,7 +452,7 @@ async def test_tool_dispatch_then_get_result(
         with patch("src.supervisor_agent.v3_lifecycle.v3_manager") as mock_v3:
             mock_v3.ensure_started = AsyncMock(return_value=mock_infra)
             dispatch_result = await call_exec.ainvoke(
-                {"state": state, "plan_id": plan_id}
+                {"state": state, "plan_id": plan_id, "wait_for_result": False}
             )
 
         assert "[EXECUTOR_DISPATCH]" in dispatch_result, (
@@ -564,8 +570,14 @@ async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
         mock_pm = MagicMock()
         mock_pm.base_url = f"http://127.0.0.1:{port}"
         mock_pm.is_running = True
+        mock_pm.stop_task = AsyncMock()
+        mock_pm.get_task_base_url = MagicMock(return_value=f"http://127.0.0.1:{port}")
+        mock_pm.iter_active_base_urls = MagicMock(return_value=[])
+        mock_poller = MagicMock()
+        mock_poller.get_plan_json = MagicMock(return_value=_simple_plan(plan_id))
         mock_infra = MagicMock()
         mock_infra.process_manager = mock_pm
+        mock_infra.poller = mock_poller
         with patch("src.supervisor_agent.v3_lifecycle.v3_manager") as mock_v3, \
              patch("src.common.mailbox.get_mailbox", return_value=mailbox):
             mock_v3.ensure_started = AsyncMock(return_value=mock_infra)
@@ -612,6 +624,8 @@ async def test_tool_dispatch_and_get_result_separate(executor_server, mailbox):
         mock_pm = MagicMock()
         mock_pm.base_url = f"http://127.0.0.1:{port}"
         mock_pm.is_running = True
+        mock_pm.stop_task = AsyncMock()
+        mock_pm.iter_active_base_urls = MagicMock(return_value=[])
         mock_handle = MagicMock()
         mock_handle.base_url = f"http://127.0.0.1:{port}"
         mock_pm.start_for_task = AsyncMock(return_value=mock_handle)
@@ -620,9 +634,13 @@ async def test_tool_dispatch_and_get_result_separate(executor_server, mailbox):
         mock_mailbox_server = MagicMock()
         mock_mailbox_server.base_url = "http://127.0.0.1:19999"
 
+        mock_poller = MagicMock()
+        mock_poller.register = MagicMock()
+
         mock_infra = MagicMock()
         mock_infra.process_manager = mock_pm
         mock_infra.mailbox_server = mock_mailbox_server
+        mock_infra.poller = mock_poller
 
         call_exec = _build_call_executor_tool(ctx)
         state = State(
@@ -636,7 +654,7 @@ async def test_tool_dispatch_and_get_result_separate(executor_server, mailbox):
         with patch("src.supervisor_agent.v3_lifecycle.v3_manager") as mock_v3:
             mock_v3.ensure_started = AsyncMock(return_value=mock_infra)
             result = await call_exec.ainvoke(
-                {"state": state, "plan_id": plan_id}
+                {"state": state, "plan_id": plan_id, "wait_for_result": False}
             )
 
         assert "[EXECUTOR_DISPATCH]" in result, (
@@ -721,7 +739,7 @@ async def test_call_executor_starts_real_subprocess_lifecycle(monkeypatch):
             ) as mock_async_spawn,
         ):
             dispatch_result = await call_exec.ainvoke(
-                {"state": state, "plan_id": plan_id}
+                {"state": state, "plan_id": plan_id, "wait_for_result": False}
             )
 
             assert "[EXECUTOR_DISPATCH]" in dispatch_result

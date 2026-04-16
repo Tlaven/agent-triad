@@ -60,6 +60,8 @@ class ExecutorPoller:
         self._task: asyncio.Task | None = None
         # Event to trigger an immediate extra sweep
         self._force_event = asyncio.Event()
+        # Shared client for sweeps (created lazily)
+        self._sweep_client: "httpx.AsyncClient | None" = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -87,6 +89,9 @@ class ExecutorPoller:
             except (asyncio.CancelledError, Exception):
                 pass
         self._task = None
+        if self._sweep_client is not None:
+            await self._sweep_client.aclose()
+            self._sweep_client = None
         logger.info("ExecutorPoller stopped")
 
     # ------------------------------------------------------------------
@@ -170,15 +175,16 @@ class ExecutorPoller:
                     logger.warning("ExecutorPoller loop error: %s", exc)
 
     async def _sweep(self) -> None:
-        """Immediate single sweep using a short-lived client."""
+        """Immediate single sweep, reusing a persistent httpx client."""
         import httpx
 
         ids = list(self._active.keys())
         if not ids:
             return
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            coros = [self._poll_one(client, pid) for pid in ids]
-            await asyncio.gather(*coros, return_exceptions=True)
+        if self._sweep_client is None or self._sweep_client.is_closed:
+            self._sweep_client = httpx.AsyncClient(timeout=3.0)
+        coros = [self._poll_one(self._sweep_client, pid) for pid in ids]
+        await asyncio.gather(*coros, return_exceptions=True)
 
     async def _poll_one(self, client, plan_id: str) -> None:
         """Poll /result/{plan_id} once; write to Mailbox on terminal status."""

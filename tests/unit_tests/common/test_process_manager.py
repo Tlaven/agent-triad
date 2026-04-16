@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.common.context import Context
-from src.common.process_manager import ExecutorProcessManager, PORT_FILE, ProcessHandle
+from src.common.process_manager import ExecutorProcessManager, ProcessHandle
 
 
 def _make_ctx(**overrides) -> Context:
@@ -239,28 +239,3 @@ async def test_get_task_handle_returns_none_for_dead_process() -> None:
         plan_id="dead", process=mock_proc, base_url="http://localhost:8199", port=8199,
     )
     assert mgr.get_task_handle("dead") is None
-
-
-# ==================== recover_or_start (legacy) ====================
-
-
-async def test_recover_reuses_existing_executor() -> None:
-    ctx = _make_ctx()
-    mgr = ExecutorProcessManager(ctx)
-
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-
-    with (
-        patch.object(mgr, "_read_port_file", return_value=8199),
-        patch("httpx.AsyncClient") as MockClient,
-    ):
-        instance = AsyncMock()
-        instance.get = AsyncMock(return_value=mock_response)
-        instance.__aenter__ = AsyncMock(return_value=instance)
-        instance.__aexit__ = AsyncMock(return_value=False)
-        MockClient.return_value = instance
-
-        await mgr.recover_or_start()
-
-    assert mgr.base_url == "http://localhost:8199"

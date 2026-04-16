@@ -95,6 +95,8 @@ async def test_call_executor_v3_dispatch_format(mailbox):
     mock_pm = MagicMock()
     mock_pm.base_url = "http://localhost:9999"
     mock_pm.is_running = True
+    mock_pm.stop_task = AsyncMock()
+    mock_pm.iter_active_base_urls = MagicMock(return_value=[])
     mock_handle = MagicMock()
     mock_handle.base_url = "http://localhost:9999"
     mock_pm.start_for_task = AsyncMock(return_value=mock_handle)
@@ -102,9 +104,13 @@ async def test_call_executor_v3_dispatch_format(mailbox):
     mock_mailbox_server = MagicMock()
     mock_mailbox_server.base_url = "http://127.0.0.1:19999"
 
+    mock_poller = MagicMock()
+    mock_poller.register = MagicMock()
+
     mock_infra = MagicMock()
     mock_infra.process_manager = mock_pm
     mock_infra.mailbox_server = mock_mailbox_server
+    mock_infra.poller = mock_poller
 
     mock_health_response = MagicMock()
     mock_health_response.status_code = 200
@@ -124,7 +130,7 @@ async def test_call_executor_v3_dispatch_format(mailbox):
         patch("httpx.AsyncClient", return_value=mock_client_instance),
     ):
         mock_v3_mgr.ensure_started = AsyncMock(return_value=mock_infra)
-        result = await executor_tool.ainvoke({"state": state, "plan_id": plan_id})
+        result = await executor_tool.ainvoke({"state": state, "plan_id": plan_id, "wait_for_result": False})
 
     assert "[EXECUTOR_DISPATCH]" in result
     assert "[EXECUTOR_RESULT]" not in result
@@ -197,7 +203,6 @@ async def test_v3_lifecycle_starts_process_manager(mailbox):
     mock_pm = MagicMock()
     mock_pm.base_url = "http://localhost:8080"
     mock_pm.is_running = True
-    mock_pm.recover_or_start = AsyncMock()
     mock_pm.stop = AsyncMock()
 
     ctx = Context(executor_port=0)
@@ -262,6 +267,8 @@ async def test_call_executor_dispatches_then_get_result(mailbox):
     mock_pm = MagicMock()
     mock_pm.base_url = "http://localhost:9999"
     mock_pm.is_running = True
+    mock_pm.stop_task = AsyncMock()
+    mock_pm.iter_active_base_urls = MagicMock(return_value=[])
     mock_handle = MagicMock()
     mock_handle.base_url = "http://localhost:9999"
     mock_pm.start_for_task = AsyncMock(return_value=mock_handle)
@@ -269,9 +276,13 @@ async def test_call_executor_dispatches_then_get_result(mailbox):
     mock_mailbox_server = MagicMock()
     mock_mailbox_server.base_url = "http://127.0.0.1:19999"
 
+    mock_poller = MagicMock()
+    mock_poller.register = MagicMock()
+
     mock_infra = MagicMock()
     mock_infra.process_manager = mock_pm
     mock_infra.mailbox_server = mock_mailbox_server
+    mock_infra.poller = mock_poller
 
     mock_post_resp = MagicMock()
     mock_post_resp.status_code = 200
@@ -287,7 +298,7 @@ async def test_call_executor_dispatches_then_get_result(mailbox):
         patch("httpx.AsyncClient", return_value=mock_client),
     ):
         mock_v3_mgr.ensure_started = AsyncMock(return_value=mock_infra)
-        dispatch_result = await executor_tool.ainvoke({"state": state, "plan_id": plan_id})
+        dispatch_result = await executor_tool.ainvoke({"state": state, "plan_id": plan_id, "wait_for_result": False})
 
     assert "[EXECUTOR_DISPATCH]" in dispatch_result
 

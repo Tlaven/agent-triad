@@ -15,12 +15,13 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
 
 from src.common.context import Context
-from src.common.process_manager import ExecutorProcessManager, PORT_FILE
+from src.common.process_manager import ExecutorProcessManager
 from tests.e2e.checkpoint_recorder import CheckpointRecorder
 
 # ---------- helpers ----------
@@ -75,17 +76,19 @@ def _mock_mode_env():
 
 
 @pytest.fixture(autouse=True)
-def _clean_port_file():
-    """Ensure no stale port file before/after test."""
-    PORT_FILE.unlink(missing_ok=True)
+def _clean_port_files():
+    """Ensure no stale per-task port files before/after test."""
+    logs_dir = Path("logs")
+    for pf in logs_dir.glob("executor_*.port"):
+        pf.unlink(missing_ok=True)
     yield
-    PORT_FILE.unlink(missing_ok=True)
+    for pf in logs_dir.glob("executor_*.port"):
+        pf.unlink(missing_ok=True)
 
 
 @pytest.fixture
 def ctx() -> Context:
     return Context(
-        
         executor_host="127.0.0.1",
         executor_port=0,
         executor_startup_timeout=15.0,
@@ -102,36 +105,35 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
     plan_id = "plan_checkpoint_test"
 
     # ================================================================
-    # CP1: Subprocess Spawn — ProcessManager.start()
+    # CP1: Per-task Subprocess Spawn — start_for_task()
     # ================================================================
     cp1 = recorder.checkpoint("subprocess_spawn")
     try:
-        await pm.start()
+        handle = await pm.start_for_task(plan_id, ctx, mailbox_url=None)
         cp1.record("success", True)
     except Exception as e:
         cp1.record("success", f"FAILED: {e}")
-        # Write partial report and stop
         report = recorder.write_report()
         pytest.fail(f"CP1 spawn failed. Partial report: {report}")
         return
 
-    cp1.record("port_file_path", str(PORT_FILE))
-    cp1.record("port_file_exists", PORT_FILE.exists())
-    cp1.record("port_file_content", PORT_FILE.read_text() if PORT_FILE.exists() else "(missing)")
-    cp1.record("base_url", pm.base_url)
+    port_file = pm._port_file_for_task(plan_id)
+    cp1.record("port_file_path", str(port_file))
+    cp1.record("port_file_exists", port_file.exists())
+    cp1.record("port_file_content", port_file.read_text() if port_file.exists() else "(missing)")
+    cp1.record("base_url", handle.base_url)
     cp1.record("is_running", pm.is_running)
-    if pm._process:
-        cp1.record("subprocess_pid", pm._process.pid)
-        cp1.record("subprocess_returncode", pm._process.returncode)
-        stdout = await _read_available_stdout(pm._process, timeout=1.0)
-        cp1.record_raw("subprocess_stdout", stdout)
+    cp1.record("subprocess_pid", handle.process.pid)
+    cp1.record("subprocess_returncode", handle.process.returncode)
+    stdout = await _read_available_stdout(handle.process, timeout=1.0)
+    cp1.record_raw("subprocess_stdout", stdout)
 
     # ================================================================
     # CP2: Health Check — GET /health
     # ================================================================
     cp2 = recorder.checkpoint("health_check")
     try:
-        async with httpx.AsyncClient(base_url=pm.base_url, timeout=5.0) as client:
+        async with httpx.AsyncClient(base_url=handle.base_url, timeout=5.0) as client:
             resp = await client.get("/health")
             cp2.record("http_status_code", resp.status_code)
             cp2.record("response_body", resp.json())
@@ -144,7 +146,7 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
     # ================================================================
     cp3 = recorder.checkpoint("task_dispatch")
     try:
-        async with httpx.AsyncClient(base_url=pm.base_url, timeout=10.0) as client:
+        async with httpx.AsyncClient(base_url=handle.base_url, timeout=10.0) as client:
             resp = await client.post(
                 "/execute",
                 json={
@@ -162,7 +164,7 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
     # ================================================================
     cp4 = recorder.checkpoint("immediate_result_after_dispatch")
     try:
-        async with httpx.AsyncClient(base_url=pm.base_url, timeout=5.0) as client:
+        async with httpx.AsyncClient(base_url=handle.base_url, timeout=5.0) as client:
             resp = await client.get(f"/result/{plan_id}")
             cp4.record("http_status_code", resp.status_code)
             cp4.record("response_body", resp.json())
@@ -180,7 +182,7 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
         deadline = asyncio.get_event_loop().time() + 10.0
         final_data = None
         while asyncio.get_event_loop().time() < deadline:
-            async with httpx.AsyncClient(base_url=pm.base_url, timeout=3.0) as client:
+            async with httpx.AsyncClient(base_url=handle.base_url, timeout=3.0) as client:
                 resp = await client.get(f"/result/{plan_id}")
                 if resp.status_code == 200:
                     data = resp.json()
@@ -204,7 +206,7 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
     # ================================================================
     cp6 = recorder.checkpoint("status_cleanup_after_completion")
     try:
-        async with httpx.AsyncClient(base_url=pm.base_url, timeout=5.0) as client:
+        async with httpx.AsyncClient(base_url=handle.base_url, timeout=5.0) as client:
             # /status should be 404 (cleaned up in finally block)
             resp_status = await client.get(f"/status/{plan_id}")
             cp6.record("GET /status code", resp_status.status_code)
@@ -218,43 +220,34 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
         cp6.record("error", f"{type(e).__name__}: {e}")
 
     # ================================================================
-    # CP7: Process Stop — ProcessManager.stop()
+    # CP7: Process Stop — ProcessManager.stop_task()
     # ================================================================
     cp7 = recorder.checkpoint("process_stop")
     try:
-        await pm.stop()
+        await pm.stop_task(plan_id)
         cp7.record("stop_success", True)
         cp7.record("is_running_after_stop", pm.is_running)
-        cp7.record("port_file_exists_after_stop", PORT_FILE.exists())
-        if pm._process:
-            cp7.record("returncode", pm._process.returncode)
+        cp7.record("port_file_exists_after_stop", port_file.exists())
+        cp7.record("returncode", handle.process.returncode)
     except Exception as e:
         cp7.record("stop_error", f"{type(e).__name__}: {e}")
 
     # ================================================================
-    # CP8: Recovery — start new, then recover_or_start should reuse
+    # CP8: Per-task spawn — start_for_task creates isolated process
     # ================================================================
-    cp8 = recorder.checkpoint("recovery_reuse")
+    cp8 = recorder.checkpoint("per_task_spawn")
     pm2 = ExecutorProcessManager(ctx)
     try:
-        # Start fresh
-        await pm2.start()
-        cp8.record("first_start_base_url", pm2.base_url)
-        cp8.record("first_start_port_file", PORT_FILE.read_text() if PORT_FILE.exists() else "(missing)")
-        cp8.record("first_start_is_running", pm2.is_running)
-
-        # recover_or_start should reuse existing process
-        await pm2.recover_or_start()
-        cp8.record("recovery_base_url", pm2.base_url)
-        cp8.record("recovery_port_file", PORT_FILE.read_text() if PORT_FILE.exists() else "(missing)")
-        cp8.record("recovery_is_running", pm2.is_running)
-        cp8.record("base_url_unchanged", pm2.base_url == cp8.records[0][1])
+        plan_id_8 = "plan_recovery_test"
+        handle8 = await pm2.start_for_task(plan_id_8, ctx, mailbox_url=None)
+        cp8.record("spawn_base_url", handle8.base_url)
+        cp8.record("spawn_is_running", pm2.is_running)
+        cp8.record("get_task_base_url", pm2.get_task_base_url(plan_id_8))
 
         # Cleanup
         await pm2.stop()
     except Exception as e:
         cp8.record("error", f"{type(e).__name__}: {e}")
-        # Best-effort cleanup
         try:
             await pm2.stop()
         except Exception:
@@ -266,9 +259,9 @@ async def test_v3_subprocess_lifecycle_checkpoints(ctx: Context):
     cp9 = recorder.checkpoint("duplicate_dispatch_409")
     pm3 = ExecutorProcessManager(ctx)
     try:
-        await pm3.start()
-        async with httpx.AsyncClient(base_url=pm3.base_url, timeout=10.0) as client:
-            dup_plan_id = "plan_dup_test"
+        dup_plan_id = "plan_dup_test"
+        handle3 = await pm3.start_for_task(dup_plan_id, ctx, mailbox_url=None)
+        async with httpx.AsyncClient(base_url=handle3.base_url, timeout=10.0) as client:
             # First dispatch
             resp1 = await client.post(
                 "/execute",
