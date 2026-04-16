@@ -73,7 +73,7 @@ class ExecutorResult:
 
 - `call_planner` 后：`plan_json` 写入 Planner 会话。
 - `call_executor` 后：更新 `last_executor_*`；`updated_plan_json` 非空则刷新 `plan_json`，**空则保留**原 `plan_json`。
-- `completed` 时 Supervisor 默认只收 `summary`；步骤级细节用 `get_executor_full_output`。
+- `completed` 时 Supervisor 默认只收 `summary`；步骤级细节用 `get_executor_result(plan_id, detail="full")`（任务已结束且 `plan_id` 与会话计划一致时读缓存；异步仍在跑时与 `overview` 相同先等待，再由图节点附带详情）。
 
 ---
 
@@ -102,7 +102,7 @@ class ExecutorResult:
 |------|------|
 | `src/supervisor_agent/graph.py` | 主循环、`call_model`、`dynamic_tools_node` |
 | `src/supervisor_agent/state.py` | `State`、`AgentSession` |
-| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`（`wait_for_result`）、`get_executor_result`、`get_executor_full_output`、`list_executor_tasks`（相对时间）、`_mark_plan_steps_failed` |
+| `src/supervisor_agent/tools.py` | `call_planner`、`call_executor`（`wait_for_result`）、`get_executor_result`（`detail`）、`list_executor_tasks`（相对时间）、`_mark_plan_steps_failed` |
 | `src/planner_agent/graph.py` | Planner 图、`run_planner()` |
 | `src/executor_agent/graph.py` | Executor 图、Observation、Reflection、`run_executor()` |
 | `src/common/context.py` | `Context` |

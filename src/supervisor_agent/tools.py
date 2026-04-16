@@ -178,20 +178,20 @@ def _build_call_planner_tool(runtime_context: Context):
     return call_planner
 
 
-def _build_get_executor_full_output_tool():
-    @tool
-    def get_executor_full_output(
-        state: Annotated[State, InjectedState],
-    ) -> str:
-        """查看最近一次 Executor 执行的完整详情（含每个步骤的 result_summary / failure_reason 等）。
-
-        仅在 call_executor 的摘要不足以做出判断时调用。
-        """
-        if state.planner_session is None or not state.planner_session.last_executor_full_output:
-            return "当前没有可查看的 Executor 完整输出。"
-        return state.planner_session.last_executor_full_output
-
-    return get_executor_full_output
+def _session_plan_id_for_detail_read(planner_session: PlannerSession | None) -> str | None:
+    """从 session.plan_json 读取顶层 plan_id，供 detail=full 缓存读取校验。"""
+    if planner_session is None or not (planner_session.plan_json or "").strip():
+        return None
+    try:
+        data = json.loads(planner_session.plan_json or "")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    pid = data.get("plan_id")
+    if isinstance(pid, str) and pid.strip():
+        return pid.strip()
+    return None
 
 
 def _build_call_executor_tool(runtime_context: Context):
@@ -214,7 +214,7 @@ def _build_call_executor_tool(runtime_context: Context):
 
         ``wait_for_result`` 控制是否阻塞等待执行结果：
         - ``True``（默认）：派发后自动等待结果并直接返回执行摘要，无需再调用 ``get_executor_result``。
-        - ``False``：仅异步派发，立即返回，需后续用 ``get_executor_result(plan_id)`` 获取结果。适用于并行派发多个独立任务的场景。
+        - ``False``：仅异步派发，立即返回，需后续用 ``get_executor_result(plan_id)`` 获取结果（可选 ``detail``）。适用于并行派发多个独立任务的场景。
         """
         td = (task_description or "").strip()
         pid = _normalize_plan_id_arg(plan_id)
@@ -626,7 +626,7 @@ async def _wait_for_executor_result(
     except asyncio.CancelledError:
         return (
             f"等待 Executor 结果时被中断（用户可能发送了新消息或断开连接）。\n"
-            f"任务 plan_id={pid} 仍在后台运行。可再次调用 get_executor_result 获取结果。"
+            f"任务 plan_id={pid} 仍在后台运行。可再次调用 get_executor_result(plan_id) 获取结果。"
         )
 
     if result_data is None:
@@ -689,19 +689,43 @@ def _build_get_executor_result_tool(runtime_context: Context):
     async def get_executor_result(
         state: Annotated[State, InjectedState],
         plan_id: str,
+        detail: str = "overview",
     ) -> str:
-        """获取已异步派发的 Executor 任务的执行结果（阻塞等待完成）。
+        """获取 Executor 任务结果，或通过 ``detail`` 读取已落库的步骤级详情。
 
-        仅在以下场景需要使用：
-        - call_executor 使用了 wait_for_result=false（异步派发）
-        - call_executor 等待过程中被中断，提示需要用此工具重新获取结果
+        **detail=overview（默认）**：用于异步派发后的收束——``plan_id`` 须在
+        ``active_executor_tasks`` 中；阻塞等待终态，返回含 ``[EXECUTOR_RESULT]`` 的正文
+        （与同步 ``call_executor`` 完成路径一致，供图节点更新会话）。
 
-        此工具会先快速探测任务是否存在，不存在则立即返回。
-        任务运行中时阻塞等待直到完成或超时。
+        **detail=full**：除在任务**仍在异步执行**时与 overview 相同（阻塞等待终态）外，
+        还可于任务结束后读取会话中已缓存的步骤级详情（``result_summary`` /
+        ``failure_reason`` 等）：此时 ``plan_id`` 须与 ``session.plan_json`` 顶层
+        ``plan_id`` 一致且任务已不在活跃列表。同步 ``call_executor`` 完成后也可用
+        此模式拉取同一会话内的步骤级正文。
         """
         pid = _normalize_plan_id_arg(plan_id)
         if pid is None:
             return "错误：必须提供有效的 plan_id。"
+
+        d = (detail or "overview").strip().lower()
+        if d not in ("overview", "full"):
+            return '错误：detail 仅支持 "overview" 或 "full"。'
+
+        if d == "full" and pid not in state.active_executor_tasks:
+            sess_pid = _session_plan_id_for_detail_read(state.planner_session)
+            if sess_pid != pid:
+                return (
+                    f"错误：无法读取详情。当前会话 plan 的 plan_id 为 {sess_pid!r}，"
+                    f"与请求的 {pid!r} 不一致；或尚未产生执行结果。"
+                )
+            full = (
+                state.planner_session.last_executor_full_output
+                if state.planner_session
+                else None
+            )
+            if not (full or "").strip():
+                return "当前没有可查看的 Executor 完整输出（请先完成一次执行并收到概览结果）。"
+            return full.strip()
 
         if pid not in state.active_executor_tasks:
             return f"错误：plan_id={pid} 不在活跃任务列表中。请先调用 call_executor 派发任务。"
@@ -739,16 +763,19 @@ def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def _build_check_executor_progress_tool():
+def _build_check_executor_progress_tool(runtime_context: Context):
     @tool
     async def check_executor_progress(
         plan_id: str,
     ) -> str:
-        """查看 Executor 异步任务的实时执行进度。
+        """查看 Executor 任务的执行进度（非阻塞，用于并行派发后的轮询）。
 
-        直接查询 Executor /status 和 /result 端点。
-        不会阻塞等待——如果任务仍在运行，只返回当前进度。
-        如果任务已完成，返回完成状态。
+        与同步 `call_executor` 默认路径不同：本工具**不等待**任务结束，也不返回
+        ``[EXECUTOR_RESULT]``；终态契约与 session 更新仍由 ``get_executor_result`` 或
+        带默认等待的 ``call_executor`` 完成。
+
+        查询顺序：先读 Mailbox（若结果已投递则直接返回摘要）；否则对 Executor
+        HTTP 服务 ``GET /status/{plan_id}``，必要时再 ``GET /result/{plan_id}``。
         """
         import httpx
 
@@ -771,9 +798,8 @@ def _build_check_executor_progress_tool():
         # Poll Executor directly (try task base first, then other active executors)
         try:
             from src.supervisor_agent.v3_lifecycle import v3_manager
-            from src.common.context import Context
 
-            infra = await v3_manager.ensure_started(Context())
+            infra = await v3_manager.ensure_started(runtime_context)
             pm = infra.process_manager
         except Exception:
             return "Executor 子进程基础设施不可用，无法查询 Executor。"
@@ -826,7 +852,8 @@ def _build_list_executor_tasks_tool(runtime_context: Context):
         """列出所有已派发的 Executor 任务及其当前状态和可查询性。
 
         返回一个表格，包含所有已知任务的 plan_id、状态、是否可查询。
-        可查询的任务可以用 get_executor_result 获取结果；不可查询的任务需要重新规划。
+        可查询的任务可用 get_executor_result(plan_id) 取结果；步骤级正文在任务已结束后使用 detail="full"。
+        不可查询的任务需要重新规划。
         """
         from src.supervisor_agent.state import ExecutorTaskRecord
 
@@ -945,7 +972,10 @@ def _build_list_executor_tasks_tool(runtime_context: Context):
         ]
         lines.extend(rows)
         lines.append("")
-        lines.append("请使用 get_executor_result(plan_id) 查询可查询任务的结果。不可查询的任务需要重新规划。")
+        lines.append(
+            "请使用 get_executor_result(plan_id) 查询可查询任务的结果；步骤级详情在任务已结束后使用 detail=\"full\"。"
+            "不可查询的任务需要重新规划。"
+        )
 
         # Append structured update marker for dynamic_tools_node
         updates_json = json.dumps(updates, ensure_ascii=False)
@@ -963,11 +993,10 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
 
     tools = [
         _build_call_planner_tool(runtime_context),
-        _build_get_executor_full_output_tool(),
         _build_call_executor_tool(runtime_context),
         _build_stop_executor_tool(runtime_context),
         _build_get_executor_result_tool(runtime_context),
-        _build_check_executor_progress_tool(),
+        _build_check_executor_progress_tool(runtime_context),
         _build_list_executor_tasks_tool(runtime_context),
     ]
 

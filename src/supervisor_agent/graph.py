@@ -407,31 +407,44 @@ async def dynamic_tools_node(
             else:
                 sanitized_tool_messages.append(tm)
         elif tool_name == "get_executor_result":
-            # get_executor_result 与同步 call_executor 完成路径共用处理逻辑
-            updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
-            # 更新 ActiveExecutorTask 状态，并清理已终态的任务
-            meta_plan_id = _extract_plan_id_from_meta(content)
-            if meta_plan_id and meta_plan_id in state.active_executor_tasks:
-                exec_status, _ = _extract_executor_status(content)
-                new_tasks = dict(state.active_executor_tasks)
-                if exec_status in ("completed", "failed", "stopped"):
-                    # G6: 已终态 → 从追踪字典中移除
-                    del new_tasks[meta_plan_id]
-                    # Update executor_task_history (persists after removal)
-                    history = dict(state.executor_task_history)
-                    history[meta_plan_id] = ExecutorTaskRecord(
-                        plan_id=meta_plan_id,
-                        status=exec_status,
-                        queryable=True,
-                        last_updated=datetime.now().isoformat(timespec="seconds"),
-                    )
-                    updates["executor_task_history"] = _trim_task_history(history)
-                else:
-                    new_tasks[meta_plan_id] = ActiveExecutorTask(
-                        plan_id=meta_plan_id,
-                        status=exec_status or "unknown",
-                    )
-                updates["active_executor_tasks"] = new_tasks
+            if "[EXECUTOR_RESULT]" in content:
+                # get_executor_result 与同步 call_executor 完成路径共用处理逻辑
+                updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+                tool_call = id_to_call.get(tm.tool_call_id, {})
+                args = tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
+                detail_arg = str(args.get("detail", "overview")).strip().lower()
+                if detail_arg == "full":
+                    ps = updates.get("planner_session")
+                    if ps and (ps.last_executor_full_output or "").strip():
+                        _append_full_executor_detail_to_last_tool_message(
+                            sanitized_tool_messages, ps.last_executor_full_output or ""
+                        )
+                # 更新 ActiveExecutorTask 状态，并清理已终态的任务
+                meta_plan_id = _extract_plan_id_from_meta(content)
+                if meta_plan_id and meta_plan_id in state.active_executor_tasks:
+                    exec_status, _ = _extract_executor_status(content)
+                    new_tasks = dict(state.active_executor_tasks)
+                    if exec_status in ("completed", "failed", "stopped"):
+                        # G6: 已终态 → 从追踪字典中移除
+                        del new_tasks[meta_plan_id]
+                        # Update executor_task_history (persists after removal)
+                        history = dict(state.executor_task_history)
+                        history[meta_plan_id] = ExecutorTaskRecord(
+                            plan_id=meta_plan_id,
+                            status=exec_status,
+                            queryable=True,
+                            last_updated=datetime.now().isoformat(timespec="seconds"),
+                        )
+                        updates["executor_task_history"] = _trim_task_history(history)
+                    else:
+                        new_tasks[meta_plan_id] = ActiveExecutorTask(
+                            plan_id=meta_plan_id,
+                            status=exec_status or "unknown",
+                        )
+                    updates["active_executor_tasks"] = new_tasks
+            else:
+                # detail=full 且命中会话缓存：无 [EXECUTOR_RESULT]，不触发会话再合并
+                sanitized_tool_messages.append(tm)
         elif tool_name == "check_executor_progress":
             # 进度查看：若任务在运行，将 dispatched 升级为 running
             sanitized_tool_messages.append(tm)
@@ -619,6 +632,24 @@ def _extract_registry_updates(content: str) -> dict[str, ExecutorTaskRecord]:
         return {}
 
 
+def _append_full_executor_detail_to_last_tool_message(
+    sanitized_tool_messages: List[ToolMessage],
+    full_output: str,
+) -> None:
+    """在 get_executor_result(detail=full) 且含 [EXECUTOR_RESULT] 时，把步骤级详情拼入给 LLM 的 ToolMessage。"""
+    if not sanitized_tool_messages or not (full_output or "").strip():
+        return
+    last = sanitized_tool_messages[-1]
+    if not isinstance(last, ToolMessage):
+        return
+    old = last.content if isinstance(last.content, str) else str(last.content)
+    hint_legacy = "\n\n（如需查看完整的步骤级执行详情，请调用 get_executor_full_output）"
+    hint_new = "\n\n（如需步骤级执行详情，可调用 get_executor_result(plan_id=…, detail=\"full\")）"
+    body = old.replace(hint_legacy, "").replace(hint_new, "").rstrip()
+    new_content = f"{body}\n\n{(full_output or '').strip()}"
+    sanitized_tool_messages[-1] = last.model_copy(update={"content": new_content})
+
+
 def _process_executor_completion(
     state: State,
     content: str,
@@ -773,7 +804,7 @@ def _build_executor_feedback_for_llm(
     """构造给 Supervisor LLM 的精简反馈，避免注入大体量 updated_plan_json。"""
     marker = "[EXECUTOR_RESULT]"
     summary_text = content.split(marker, 1)[0].strip() if marker in content else content.strip()
-    hint = "\n\n（如需查看完整的步骤级执行详情，请调用 get_executor_full_output）"
+    hint = "\n\n（如需步骤级执行详情，可调用 get_executor_result(plan_id=当前计划顶层 id, detail=\"full\")）"
     if status == "completed":
         return summary_text + hint
     if status == "failed":

@@ -11,6 +11,7 @@
 - `task_description`: 纯文本，Mode 2（Executor-use ReAct）下只需要该参数
 - `plan_id`：Mode 3（Plan → Execute）下只需要该参数
 - `wait_for_result`（默认 `True`）：控制是否阻塞等待执行结果。`True` 时派发后自动等待并返回 `[EXECUTOR_RESULT]`，Supervisor 无需额外调用 `get_executor_result`，减少一次工具调用和 token 消耗。`False` 时为异步派发，需后续调用 `get_executor_result(plan_id)` 获取结果（适用于并行派发场景）。
+- `get_executor_result` 可选参数 `detail`（默认 `overview`）：与 `wait_for_result=false` 配套时仍为阻塞收束并返回 `[EXECUTOR_RESULT]`。`detail=full` 时，若任务仍在 `active_executor_tasks` 中与 `overview` 同路径等待；终态后由 `dynamic_tools_node` 把 `last_executor_full_output`（步骤级摘要）拼入给 LLM 的 ToolMessage。若任务已不在 active 且 `plan_id` 与会话中 `plan_json` 顶层一致，则只读会话缓存中的步骤级正文（返回体不含 `[EXECUTOR_RESULT]`，不重复跑会话合并）。原独立工具 `get_executor_full_output` 已并入本参数语义。
 
 `call_planner` 接受 LLM 传入的结构化参数：
 - `task_core`：
@@ -340,3 +341,23 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 **内部存储不变**：`ExecutorTaskRecord.last_updated` 仍为 ISO 格式绝对时间戳，用于排序和计算。仅在最终输出给 LLM 时由 `_relative_time_ago()` 转换。
 
 **原因**：LLM 通过相对时间能更准确地判断任务先后顺序和超时状态（例如"5分钟前派发但仍在 dispatched"vs"22:35派发"），辅助其决策是否需要重试或重新规划。
+
+---
+
+## 决策 15：Supervisor 工具面收缩与「直连 Executor」工具合并（备忘）
+
+**背景**：当前 `stop_executor` 与 `check_executor_progress` 在实现上都属于 Supervisor 经 HTTP **直连 Executor 进程**的路径（与 `call_executor` 经派发、邮箱收结果的主路径并列）。二者能力不同（写：请求停止；读：查进度），但**工具名多一条、模型多一次「该点哪个」的选择**。
+
+**何时值得考虑合并**（无硬编码阈值，按症状判断即可）：
+
+- Supervisor 暴露的工具继续增加，且**多枚工具共享同一资源边界**（例如都对着「按 `plan_id` 找子进程 / 调同一组 REST」），导致提示词里难以用一句话区分职责；或
+- 实测中 **tool 选择错误率**（该查却停、该停却反复查）或 **无效 tool 轮次** 明显上升。
+
+此时可考虑合并为**单一工具 + 枚举参数**（例如 `action`: `status` | `stop`），由模型在调用时显式选择模式。先例见决策 1：`get_executor_result` 的 `detail` 参数吸收原 `get_executor_full_output` 的语义。
+
+**取舍**（对 LLM 友好度无绝对优劣）：
+
+- **拆成两枚工具**：读/写名字即约束，误触破坏性操作的概率更低；工具列表略长。
+- **合并为一枚工具**：工具数少、schema 集中；必须在 docstring 中**强烈区分**只读与停止，并在实现上对 `stop` 分支做参数校验（如必填 `reason`），降低误停风险。
+
+**结论**：默认维持拆分即可；当出现上述「冗余度 / 歧义」症状时再落地合并，并同步 `CLAUDE.md`、`prompts.py` 与序列图文档中的工具名。

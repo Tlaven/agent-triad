@@ -63,7 +63,9 @@ def _build_tools_section() -> str:
   - 条件：多个子任务之间无依赖关系，可以同时执行以节省总耗时。
   - 行为：
     1. 连续调用 `call_executor(..., wait_for_result=false)` 派发多个任务（每次立即返回）。
-    2. 用 `get_executor_result(plan_id)` 逐个获取结果。
+    2. 用 `get_executor_result(plan_id)` 逐个获取结果；需要步骤级正文时在任务已结束后使用 `detail=\"full\"`（或与 overview 同时在单次异步收束调用中指定）。
+    3. 等待过程中若只需**非阻塞**查看某任务进度（当前步骤、工具轮数等），可调用 `check_executor_progress(plan_id)`；它不返回 `[EXECUTOR_RESULT]`，不能替代第 2 步收束状态。
+    4. 需要总览已派发任务与是否仍可查询结果时，用 `list_executor_tasks`。
   - 注意：只在确认多个任务确实可以并行时才使用此模式，绝大多数场景下应使用默认的同步等待。"""
 
 

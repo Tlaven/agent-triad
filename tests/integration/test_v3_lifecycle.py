@@ -62,7 +62,7 @@ async def test_get_tools_returns_full_set(subprocess_ctx):
     tools = await get_tools(subprocess_ctx)
     tool_names = [t.name for t in tools]
     for expected in ["call_planner", "call_executor", "stop_executor",
-                     "get_executor_result", "get_executor_full_output",
+                     "get_executor_result",
                      "check_executor_progress", "list_executor_tasks"]:
         assert expected in tool_names
 

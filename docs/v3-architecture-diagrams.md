@@ -12,7 +12,7 @@
 > **设计原则**：
 > - Executor 完成后通过 `POST /inbox` 主动推送结果到 MailboxHTTPServer（Push 优先）
 > - `ExecutorPoller` 作为兜底：每 1.5s 对 `/result/{pid}` 发起一次拉取，填补 Push 失败的场景
-> - `get_executor_result` 工具不再自行轮询 HTTP，只等待 Mailbox（poller 负责写入）
+> - `get_executor_result` 工具不再自行轮询 HTTP，只等待 Mailbox（poller 负责写入）；可选 `detail=full` 拉取步骤级详情（见下文第 2 节序列图与第 7 节决策树）
 > - `ActiveExecutorTask` 不存 `plan_json`（移至 poller 缓存），Graph State 保持轻量
 > - `executor_task_history` 上限 50 条，防止长期运行内存膨胀
 
@@ -127,8 +127,8 @@ sequenceDiagram
     ES-->>EP: status: running
 
     SM->>SM: LLM 决定 get_executor_result
-    SM->>DT: tool_call: get_executor_result(plan_id)
-    Note over DT: 查 Mailbox → 无结果<br/>probe → 任务运行中<br/>等待 Mailbox (poller 写入)
+    SM->>DT: tool_call: get_executor_result(plan_id[, detail])
+    Note over DT: 查 Mailbox → 无结果<br/>probe → 任务运行中<br/>等待 Mailbox (poller 写入)<br/>detail=full 时终态后再拼 last_executor_full_output
 
     Note over EG: 执行完成
     EG->>ES: 结果写入 _results dict
@@ -168,7 +168,7 @@ flowchart TD
     end
 
     subgraph Consume["消费点"]
-        R1["get_executor_result<br/>等待 Mailbox（无 HTTP）"]
+        R1["get_executor_result<br/>等待 Mailbox（无 HTTP）<br/>可选 detail=full"]
         R2["_build_executor_status_brief<br/>注入 system prompt（含 summary 前100字）"]
         R3["dynamic_tools_node<br/>解析 [EXECUTOR_RESULT]"]
     end
@@ -195,7 +195,7 @@ flowchart TD
 **关键原则**：
 - Push 是主路径，延迟最低（Executor 完成即通知）
 - Pull 是兜底，确保 Push 丢失时（网络异常等）结果也能到达
-- `get_executor_result` 纯等待 Mailbox，不自行发 HTTP 请求
+- `get_executor_result` 纯等待 Mailbox，不自行发 HTTP 请求（`detail=full` 不改变收束路径，仅在终态后附加步骤级正文，或任务已结束时读会话缓存）
 - `force_poll_once()` 在 LLM 决策前强制刷新一次，消除信息滞后
 
 ---
@@ -247,7 +247,7 @@ flowchart LR
 
     subgraph SupervisorProc["Supervisor Process"]
         EP_box["ExecutorPoller<br/>(后台 asyncio.Task)<br/>GET /result/{pid} 兜底"]
-        GER["get_executor_result<br/>等待 Mailbox (无 HTTP)"]
+        GER["get_executor_result<br/>等待 Mailbox (无 HTTP)<br/>detail=full 可选"]
         BES["_build_executor_status_brief<br/>注入 system prompt<br/>+ summary 前100字预览"]
         MBS_box["MailboxHTTPServer<br/>独立线程 :port"]
     end
@@ -268,7 +268,7 @@ flowchart LR
 **关键区分**：
 - Executor 完成后通过 `POST /inbox` Push 结果到 MailboxHTTPServer（主路径）
 - `ExecutorPoller` 后台拉取 `/result/{pid}` 作为 Pull 兜底
-- `get_executor_result` 纯 Mailbox 等待，不主动发 HTTP（120s 超时）
+- `get_executor_result` 纯 Mailbox 等待，不主动发 HTTP（120s 超时）；`detail` 见决策 1 与上文「消费点」
 - `_build_executor_status_brief` 将 Mailbox 内容（含 summary 摘要）注入 system prompt
 
 ---
@@ -329,7 +329,7 @@ flowchart TD
     B -->|Mode 2| D["call_executor(task_description)<br/>poller.register(plan_id)"]
     B -->|Mode 3| E["call_planner → call_executor(plan_id)<br/>poller.register(plan_id)"]
 
-    D --> F["get_executor_result<br/>等待 Mailbox（poller 负责写入）<br/>120s 超时"]
+    D --> F["get_executor_result(plan_id[, detail])<br/>等待 Mailbox（poller 负责写入）<br/>120s 超时；detail=full 步骤级"]
     E --> F
 
     F --> G{结果?}
@@ -394,7 +394,7 @@ flowchart TD
 
     subgraph Consumption["邮箱消费"]
         MB --> O["_build_executor_status_brief<br/>注入 system prompt<br/>（含 summary 前100字）"]
-        MB --> GER["get_executor_result<br/>纯 Mailbox 等待"]
+        MB --> GER["get_executor_result<br/>纯 Mailbox 等待<br/>可选 detail=full"]
         GER --> P["dynamic_tools_node<br/>解析 [EXECUTOR_RESULT]"]
         P --> Q["更新 PlannerSession<br/>executor_task_history (上限50)"]
     end
@@ -417,7 +417,7 @@ flowchart TD
 | `httpx.AsyncClient.get/post` | ✅ 不阻塞 | 所有 Executor 通信都是 async HTTP |
 | `ExecutorPoller._poll_loop` | ✅ 不阻塞 | 独立 asyncio.Task，Semaphore(5) 限并发 |
 | `force_poll_once()` | ✅ 不阻塞 | await gather，短暂等待一轮结果 |
-| `get_executor_result` 等待 | ✅ 不阻塞（协程内） | asyncio.sleep(1) 循环，等 Mailbox |
+| `get_executor_result` 等待 | ✅ 不阻塞（协程内） | asyncio.sleep(1) 循环，等 Mailbox；`detail=full` 时同循环，终态后附加步骤级文本或读缓存 |
 | Mailbox dict 读写 | ✅ 不阻塞 | threading.Lock 内存操作，微秒级 |
 | MailboxHTTPServer 写入 | ✅ 不阻塞 | 独立线程，Lock 隔离 asyncio 事件循环 |
 | 端口文件读写 | ⚠️ <1ms | 已用 `asyncio.to_thread` 包裹 |
