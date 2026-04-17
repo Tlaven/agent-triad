@@ -1,12 +1,12 @@
 # Checkpoint Report: v3_subprocess_lifecycle
 
-- Generated: 2026-04-16T12:28:54
-- Duration: 0:00:38.762332
+- Generated: 2026-04-17T13:07:04
+- Duration: 0:00:38.527430
 - Checkpoints: 9
 
 ---
 ## CP1: subprocess_spawn
-`timestamp: 2026-04-16T12:28:16`
+`timestamp: 2026-04-17T13:06:26`
 
 ### success
 ```
@@ -25,12 +25,12 @@ True
 
 ### port_file_content
 ```
-52536
+57733
 ```
 
 ### base_url
 ```
-http://127.0.0.1:52536
+http://127.0.0.1:57733
 ```
 
 ### is_running
@@ -40,7 +40,7 @@ True
 
 ### subprocess_pid
 ```
-19904
+19768
 ```
 
 ### subprocess_returncode
@@ -50,16 +50,16 @@ None
 
 ### subprocess_stdout
 ```
-INFO:     Started server process [19904]
+INFO:     Started server process [10244]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:52542 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57736 - "GET /health HTTP/1.1" 200 OK
 
 ```
 
 ---
 ## CP2: health_check
-`timestamp: 2026-04-16T12:28:19`
+`timestamp: 2026-04-17T13:06:29`
 
 ### http_status_code
 ```
@@ -76,7 +76,7 @@ INFO:     127.0.0.1:52542 - "GET /health HTTP/1.1" 200 OK
 ### response_headers
 ```
 {
-  "date": "Thu, 16 Apr 2026 04:28:19 GMT",
+  "date": "Fri, 17 Apr 2026 05:06:29 GMT",
   "server": "uvicorn",
   "content-length": "15",
   "content-type": "application/json"
@@ -85,7 +85,7 @@ INFO:     127.0.0.1:52542 - "GET /health HTTP/1.1" 200 OK
 
 ---
 ## CP3: task_dispatch
-`timestamp: 2026-04-16T12:28:19`
+`timestamp: 2026-04-17T13:06:29`
 
 ### http_status_code
 ```
@@ -102,7 +102,7 @@ INFO:     127.0.0.1:52542 - "GET /health HTTP/1.1" 200 OK
 
 ---
 ## CP4: immediate_result_after_dispatch
-`timestamp: 2026-04-16T12:28:19`
+`timestamp: 2026-04-17T13:06:29`
 
 ### http_status_code
 ```
@@ -131,7 +131,7 @@ Mock executor completed successfully
 
 ---
 ## CP5: completion_poll
-`timestamp: 2026-04-16T12:28:19`
+`timestamp: 2026-04-17T13:06:30`
 
 ### final_status
 ```
@@ -160,7 +160,7 @@ True
 
 ---
 ## CP6: status_cleanup_after_completion
-`timestamp: 2026-04-16T12:28:20`
+`timestamp: 2026-04-17T13:06:30`
 
 ### GET /status code
 ```
@@ -189,7 +189,7 @@ True
 
 ---
 ## CP7: process_stop
-`timestamp: 2026-04-16T12:28:20`
+`timestamp: 2026-04-17T13:06:30`
 
 ### stop_success
 ```
@@ -213,11 +213,11 @@ False
 
 ---
 ## CP8: per_task_spawn
-`timestamp: 2026-04-16T12:28:30`
+`timestamp: 2026-04-17T13:06:40`
 
 ### spawn_base_url
 ```
-http://127.0.0.1:52555
+http://127.0.0.1:57749
 ```
 
 ### spawn_is_running
@@ -227,12 +227,12 @@ True
 
 ### get_task_base_url
 ```
-http://127.0.0.1:52555
+http://127.0.0.1:57749
 ```
 
 ---
 ## CP9: duplicate_dispatch_409
-`timestamp: 2026-04-16T12:28:42`
+`timestamp: 2026-04-17T13:06:52`
 
 ### first_dispatch_status
 ```

@@ -265,6 +265,64 @@ class Context:
         },
     )
 
+    # --- V4: Knowledge Tree ---
+    enable_knowledge_tree: bool = field(
+        default=False,
+        metadata={"description": "Enable the V4 Knowledge Tree module."},
+    )
+    knowledge_tree_root: str = field(
+        default="workspace/knowledge_tree",
+        metadata={"description": "Root directory for Knowledge Tree Markdown files."},
+    )
+    knowledge_tree_db_path: str = field(
+        default="workspace/knowledge_tree/.kuzu",
+        metadata={"description": "Path to Kuzu database file for Knowledge Tree."},
+    )
+    kt_tree_nav_confidence: float = field(
+        default=0.7,
+        metadata={"description": "Confidence threshold for LLM tree navigation."},
+    )
+    kt_rag_similarity_threshold: float = field(
+        default=0.85,
+        metadata={"description": "Similarity threshold for RAG fallback retrieval."},
+    )
+    kt_optimization_window: int = field(
+        default=3600,
+        metadata={"description": "Time window in seconds for optimization frequency cap."},
+    )
+    kt_max_optimizations_per_window: int = field(
+        default=10,
+        metadata={"description": "Maximum optimization actions per time window."},
+    )
+    kt_nav_failure_threshold: int = field(
+        default=5,
+        metadata={"description": "Navigation failure count threshold per node per window."},
+    )
+    kt_rag_false_positive_threshold: int = field(
+        default=3,
+        metadata={"description": "RAG false positive count threshold per window."},
+    )
+    kt_total_failure_threshold: int = field(
+        default=3,
+        metadata={"description": "Total retrieval failure count threshold per query pattern."},
+    )
+    kt_content_insufficient_threshold: int = field(
+        default=5,
+        metadata={"description": "Content insufficiency count threshold per node."},
+    )
+    kt_embedding_model: str = field(
+        default="BAAI/bge-small-zh-v1.5",
+        metadata={"description": "Embedding model for Knowledge Tree vector index."},
+    )
+    kt_embedding_dimension: int = field(
+        default=512,
+        metadata={"description": "Embedding vector dimension."},
+    )
+    kt_max_tree_depth: int = field(
+        default=5,
+        metadata={"description": "Maximum tree depth for navigation."},
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os
