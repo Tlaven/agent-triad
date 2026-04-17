@@ -450,3 +450,314 @@ class PlannerOutput:
 Supervisor 提示词明确指导：当计划中有 `parallel_group` 时，将同组步骤拆为 Mode 2 子任务并行派发；无标注的步骤用 Mode 3 同步执行。
 
 **原因**：将并行性判断交给规划层（Planner 更理解步骤语义），而非让 Supervisor 从步骤文本中猜测依赖关系，减少误判。
+
+---
+
+## 决策 18：知识树三层分离存储架构
+
+知识树采用三层分离的存储架构，各层职责明确：
+
+| 层 | 载体 | 职责 |
+|----|------|------|
+| Layer 1 | Markdown 文件（Source of Truth） | Agent 直接读写、人类可审查、git 可版本化 |
+| Layer 2 | 图数据库（DAG 结构层） | 节点元数据 + 关系边、主父节点标记 + 关联边 |
+| Layer 3 | 向量索引（检索层，图数据库内置） | 语义相似度计算、模糊召回、受树结构约束排序 |
+
+同步规则：
+- **写入顺序**：Markdown 先写（SoT），再同步到图数据库和向量索引
+- **读取路径**：图数据库提供结构查询，向量索引提供语义检索，Markdown 供 Agent 直接编辑
+- **冲突解决**：Markdown 为准，图数据库和向量索引为派生物
+
+节点 Markdown 文件约定：
+- 文件名：`{node_id}.md`
+- YAML frontmatter 存储元数据（title、source、created_at、summary 等）
+- 正文存储 content
+
+```yaml
+---
+node_id: abc123
+title: "LangGraph 状态管理"
+source: "官方文档"
+created_at: "2026-04-17T10:00:00Z"
+summary: "LangGraph StateGraph 的状态传递模式"
+parent_ids:
+  - parent_node_id  # 第一个为主父节点
+---
+LangGraph 使用 TypedDict 定义状态模式...
+```
+
+**原因**：三层分离让每层可独立演进（存储格式 vs 查询引擎 vs 检索算法），同时 Markdown SoT 保证人类可审计和 git 可追溯。与决策 12（MCP 工具分层）类似，分层隔离关注点。
+
+---
+
+## 决策 19：P1 图数据库选型——Kùzu
+
+P1 原型阶段选用 **Kùzu v0.11.x** 作为嵌入式图数据库。
+
+选型考量：
+
+| 方案 | 优势 | 劣势 |
+|------|------|------|
+| **Kùzu**（选用） | Cypher 查询 + 内置 HNSW 向量索引 + 全文检索，嵌入式单进程 | 2025 年 10 月已归档，不再积极维护 |
+| DuckDB + 自定义图层 | 生态成熟、向量扩展活跃 | 图遍历需自研，原型速度慢 |
+| RyuGraph | Kùzu 继承者，理念匹配 | 社区待验证，API 不稳定 |
+
+迁移策略：
+- 存储层通过**抽象基类**（`BaseGraphStore`）隔离 Kùzu 具体实现
+- 长期首选 **DuckDB + 自定义图层**，积极备选 **RyuGraph**
+- 迁移成本可控：只需实现新的 `BaseGraphStore` 子类
+
+```python
+class BaseGraphStore(ABC):
+    @abstractmethod
+    def upsert_node(self, node: KnowledgeNode) -> None: ...
+    @abstractmethod
+    def get_children(self, parent_id: str) -> list[KnowledgeNode]: ...
+    @abstractmethod
+    def similarity_search(self, query_vec: list[float], top_k: int, threshold: float) -> list[tuple[KnowledgeNode, float]]: ...
+
+class KuzuGraphStore(BaseGraphStore):
+    """P1 实现：基于 Kùzu v0.11.x"""
+    ...
+```
+
+**原因**：P1 目标是快速验证端到端闭环，Kùzu 的 Cypher + 向量一体化最大程度减少移动部件。归档风险通过抽象接口缓解，不影响原型验证。与决策 1 的"先用最简单方案验证"原则一致。
+
+---
+
+## 决策 20：DAG 结构与主路径遍历
+
+知识树物理存储为**有向无环图（DAG）**，允许节点有多个父节点（跨领域关联），但导航使用**主路径遍历**。
+
+### 1) 边类型
+
+```python
+@dataclass
+class KnowledgeEdge:
+    edge_id: str
+    parent_id: str
+    child_id: str
+    is_primary: bool       # True = 主父节点，用于遍历
+    edge_type: str         # "parent_child" | "association"
+```
+
+- 每个子节点有且仅有一个 `is_primary=True` 的父边——定义遍历主路径
+- 其余父边 `is_primary=False`，作为关联引用保留 DAG 语义
+
+### 2) 遍历策略分阶段
+
+| 阶段 | 策略 | 说明 |
+|------|------|------|
+| P1 | 主路径遍历 | 从根节点出发，每步沿 `is_primary=True` 的子节点前进 |
+| P2 | 多路径并行探索 | 允许沿多个父边探索，加深度/置信度剪枝防分支爆炸 |
+
+### 3) 主路径缓存
+
+- 首次遍历后缓存从根到每个节点的主路径（`node_id → [root, ..., node]`）
+- 节点编辑/移动时失效并重算
+- P2 多路径探索时，缓存的主路径作为优先探索路径
+
+**原因**：DAG 提供比严格树更灵活的关联表达能力（如"调试技巧"同时属于"Python"和"Agent 工作流"），但 P1 先用主路径遍历降低复杂度，积累失败案例作为 P2 多路径探索的数据基础。与决策 11（单线程先行）的渐进思路一致。
+
+---
+
+## 决策 21：检索策略——树优先，RAG 兜底
+
+知识树采用双路径检索机制：**LLM 路由树导航优先，高阈值向量检索兜底**。
+
+### 1) 检索流程
+
+```
+查询文本 → 向量化
+         → ② LLM 路由树导航（置信度 ≥ 0.7 继续下钻）
+         → ③ RAG 兜底（树导航失败时，相似度 ≥ 0.85）
+         → ④ 结果融合
+         → ⑤ Agent 反馈
+         → ⑥ 结构化检索日志
+```
+
+### 2) 树导航（主路径）
+
+从根节点开始，每层将子节点摘要列表与查询一起提交给 LLM，由 LLM 执行路由决策：
+- LLM 返回选中的子节点 ID 及决策置信度（0.0-1.0）
+- 置信度 ≥ 0.7：继续向深层导航
+- 置信度 < 0.7 或无合适子节点：树导航失败
+
+### 3) RAG 兜底
+
+仅在树导航失败时触发：
+- 使用查询向量在向量索引中执行相似度检索
+- 仅保留相似度 ≥ 0.85 的结果，返回 Top-K（K=5）
+
+### 4) 结果融合
+
+| 场景 | 来源标记 | 处理 |
+|------|---------|------|
+| 树导航成功且内容充分 | `tree` | 直接采纳 |
+| 树导航成功但内容不足 | `tree+rag` | 树结果 + RAG 结果合并，LLM 综合排序 |
+| 树导航失败，RAG 有结果 | `rag` | 采纳 RAG Top-1，记录导航失败信号 |
+| 两者均无结果 | `none` | 返回"未找到" |
+
+### 5) Agent 反馈与检索日志
+
+- Agent 反馈结构化字段：`{satisfaction: bool, reason: str}`
+- 每次查询自动记录结构化 JSON 日志：查询向量、导航路径、各层置信度、RAG 候选、最终结果、来源标记、Agent 反馈
+- 日志从 P1 起强制输出，为后续小模型路由器训练预留数据基础
+
+**原因**：树导航利用 LLM 的语义理解处理歧义查询（优于纯向量匹配），RAG 高阈值兜底保障召回底线。双路径互补而非竞争。结构化日志是闭环优化的数据燃料。
+
+---
+
+## 决策 22：Change Mapping P1——JSON Patch
+
+P1 阶段 Agent 编辑操作限定为**内容编辑 + merge/split**，使用 **JSON Patch (RFC 6902)** 作为 Delta 格式。
+
+### 1) P1 支持的操作
+
+| 操作 | 语义 | JSON Patch 映射 |
+|------|------|----------------|
+| `update_content` | 修改节点内容/摘要 | `[{op: "replace", path: "/content", value: "..."}]` |
+| `merge` | 合并多个节点为一个 | 创建新节点 + 删除旧节点 + 继承所有边 |
+| `split` | 拆分一个节点为多个 | 创建新子节点 + 更新父节点摘要 |
+
+### 2) 强约束防幻觉
+
+Agent 输出 Delta 时需双重约束：
+- **Prompt 模板**：明确指定输出格式和允许的操作类型
+- **解析校验**：系统解析 Agent 输出后验证 JSON Patch 格式合法性和操作范围
+
+```python
+# 解析校验示例
+ALLOWED_OPS = {"replace", "add", "remove"}
+ALLOWED_PATHS = {"/content", "/summary", "/title"}
+
+def validate_delta(patches: list[dict]) -> bool:
+    for p in patches:
+        if p["op"] not in ALLOWED_OPS:
+            return False
+        if not any(p["path"].startswith(prefix) for prefix in ALLOWED_PATHS):
+            return False
+    return True
+```
+
+### 3) 分阶段演进
+
+| 阶段 | Delta 格式 | 审计 |
+|------|-----------|------|
+| P1 | JSON Patch (RFC 6902) | 日志记录每次 Delta |
+| P2 | + 语义层（merge/split/move 操作映射到 JSON Patch） | + 语义 Delta 审计日志供人类/Supervisor 审查 |
+| P3 | 完整语义层（创建抽象层/跨层重组） | 通用 Delta 描述格式 |
+
+**原因**：JSON Patch 是标准、可验证、工具链丰富的格式。强约束防止 Agent 幻觉产生无效 Delta。渐进式引入语义层，P1 先验证流程可行性。
+
+---
+
+## 决策 23：异步优化闭环与防震荡
+
+知识树通过 4 种检索信号驱动异步批量优化，并设防震荡机制。
+
+### 1) 四种优化信号
+
+| 信号类型 | 触发条件 | 优化动作 | 优先级 |
+|----------|----------|----------|--------|
+| 整体失败 | 树 + RAG 均无结果，累积达阈值 | Agent 创建新节点，失败查询作为种子 | 1（最高） |
+| 导航失败 | 某父节点下频繁导航失败 | 标记"结构薄弱点"，Agent 分裂/重组/摘要重写 | 2 |
+| RAG 假阳性 | RAG 返回节点被标记为不相关 | 对比学习负样本，调整相似度权重 | 3 |
+| 内容不足 | 树导航成功但内容不充分 | Agent 更新节点内容/摘要 | 4（最低） |
+
+### 2) 防震荡：分层控制
+
+- **独立阈值**：每种信号类型独立配置触发条件（如导航失败 N 次/时间窗口）
+- **全局频率上限**：无论信号类型，总优化动作受全局限额约束（初期保守值如每小时最多 10 次），超出排队到下个窗口
+- **满意度反馈动态调整**：结合检索日志中的 Agent 满意度反馈，动态调整全局频率上限
+
+### 3) 执行模式
+
+所有优化动作**异步批量**执行，不阻塞检索路径。定期扫描检索日志提取信号，按优先级排序后在频率限额内执行。
+
+**原因**：4 种信号覆盖了检索失败的主要模式，每种都有明确的优化动作。防震荡机制防止过度优化导致树结构不稳定。异步批量执行与 AgentTriad 现有的异步模式（决策 1 的 `wait_for_result`）一致。
+
+---
+
+## 决策 24：P1 信息范围——领域知识
+
+P1 阶段知识树仅承载**领域知识**作为初始种子。
+
+### 1) 叶子节点模式
+
+```python
+@dataclass
+class KnowledgeNode:
+    node_id: str
+    title: str
+    content: str
+    source: str         # 来源标识（如"官方文档"、"代码注释"）
+    created_at: str     # ISO 格式时间戳
+    summary: str = ""   # 摘要，用于树导航路由
+    embedding: list[float] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+```
+
+### 2) 分阶段扩展
+
+| 阶段 | 信息类型 | 新增字段 |
+|------|---------|---------|
+| P1 | 领域知识 | 基础字段（上表） |
+| P2 | + Agent 记忆 | `decay_score`、`access_count`（指数衰减遗忘机制） |
+| P3 | + 技能/Skill + 参考资料 | 技能含可执行定义（可绑定 Supervisor 工具调用）；参考资料含外部链接 |
+
+**原因**：领域知识结构性强、边界清晰，最适合验证"Bootstrap 建树 → Agent 编辑 → 向量校准"闭环。碎片化记忆和可执行技能的引入需要树结构先稳定运行。
+
+---
+
+## 决策 25：知识树定位——Supervisor 内嵌模块
+
+知识树作为 **Supervisor 内嵌组件**，物理位于 `src/common/knowledge_tree/` 子包，通过工具注册暴露给 Supervisor。
+
+### 1) 模块定位
+
+- **不是独立 Agent**：不引入新的 LangGraph 子图，不改变现有三层架构
+- **不是独立服务**：不启动额外进程或 HTTP 端口
+- **是共享基础设施**：类似 `src/common/tools.py`（工作区工具）和 `src/common/mcp.py`（MCP 客户端）的定位
+
+### 2) 工具注册方式
+
+```python
+# src/supervisor_agent/tools.py
+async def get_tools(runtime_context: Context | None = None) -> List[Callable[..., Any]]:
+    tools = [
+        _build_call_planner_tool(runtime_context),
+        _build_call_executor_tool(runtime_context),
+        # ... 现有工具 ...
+    ]
+    # V4: 条件注册知识树工具
+    if runtime_context.enable_knowledge_tree:
+        from src.common.knowledge_tree import build_knowledge_tree_tools
+        tools.extend(build_knowledge_tree_tools(runtime_context))
+    return tools
+```
+
+知识树工具列表：
+- `knowledge_tree_retrieve(query: str) -> str` — 主检索工具
+- `knowledge_tree_edit(operation: str, params_json: str) -> str` — merge/split 编辑
+- `knowledge_tree_status() -> str` — 树健康/结构概览
+
+### 3) 配置集成
+
+通过 `src/common/context.py` 的 `Context` dataclass 添加配置字段，遵循现有的 env-var 覆盖模式（字段名大写化为环境变量名）。
+
+### 4) 包结构
+
+```
+src/common/knowledge_tree/
+    __init__.py              # 公共 API
+    config.py                # KnowledgeTreeConfig
+    bootstrap.py             # 建树
+    storage/                 # 三层存储
+    dag/                     # DAG 数据模型
+    retrieval/               # 检索逻辑
+    editing/                 # 编辑 + Change Mapping
+    optimization/            # 优化闭环
+```
+
+**原因**：内嵌模块定位最轻量，不改变现有架构拓扑（与决策 8 的三种模式兼容），工具注册方式与现有 Supervisor 工具一致（factory pattern）。条件注册通过 feature flag 控制，不影响 V3 及以前的功能。

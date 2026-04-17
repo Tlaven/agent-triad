@@ -261,5 +261,10 @@
 [V1] 单线程闭环 MVP           ✅
 [V2] V2-a → V2-b → V2-c      ✅
 [V3] 进程分离（Mailbox 等）    ✅
-[V4] 待定义
+[V4] P1 知识树最小闭环        🚧
+     - 涌现式知识树：三层存储（Markdown + Kùzu + 向量）+ DAG + 双路径检索 + 编辑闭环 + 异步优化
+     - 范围：领域知识、merge/split 编辑、JSON Patch Delta、Kùzu 原型
+     - 验收：端到端闭环可运行，检索日志完整输出，闭环信号→动作→效果可度量
+     - 设计文档：v4-knowledge-tree-concepts.md、v4-knowledge-tree-spec.md
+     - 架构决策：决策 18-25（architecture-decisions.md）
 ```
