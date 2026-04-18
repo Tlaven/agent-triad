@@ -37,6 +37,12 @@ class KnowledgeTreeConfig:
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     embedding_dimension: int = 512
 
+    # -- 摄入管道 --
+    ingest_enabled: bool = True
+    ingest_chunk_max_tokens: int = 512
+    dedup_threshold: float = 0.95
+    cluster_attach_threshold: float = 0.7
+
     @classmethod
     def from_context(cls, ctx: Context) -> KnowledgeTreeConfig:
         """从 Context 构造配置。"""
@@ -54,4 +60,8 @@ class KnowledgeTreeConfig:
             content_insufficient_threshold=ctx.kt_content_insufficient_threshold,
             embedding_model=ctx.kt_embedding_model,
             embedding_dimension=ctx.kt_embedding_dimension,
+            ingest_enabled=ctx.kt_ingest_enabled,
+            ingest_chunk_max_tokens=ctx.kt_ingest_chunk_max_tokens,
+            dedup_threshold=ctx.kt_dedup_threshold,
+            cluster_attach_threshold=ctx.kt_cluster_attach_threshold,
         )

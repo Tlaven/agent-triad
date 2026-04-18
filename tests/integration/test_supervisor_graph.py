@@ -15,6 +15,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.common.context import Context
+from src.planner_agent.graph import PlannerOutput
 from src.supervisor_agent.graph import graph
 
 # ---------------------------------------------------------------------------
@@ -271,11 +272,13 @@ async def test_supervisor_mode3_plan_then_execute() -> None:
     mock_v3_mgr, _ = _make_mock_v3_infra()
     mock_httpx = _make_mock_httpx_completed(fixed_plan_id)
 
+    mock_planner_output = PlannerOutput(plan_json=raw_plan, reasoning="test reasoning")
+
     with (
         patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm),
         patch("src.supervisor_agent.v3_lifecycle.v3_manager", mock_v3_mgr),
         patch("httpx.AsyncClient", return_value=mock_httpx),
-        patch("src.supervisor_agent.tools.run_planner", new_callable=AsyncMock, return_value=raw_plan),
+        patch("src.supervisor_agent.tools.run_planner", new_callable=AsyncMock, return_value=mock_planner_output),
         patch("src.supervisor_agent.tools._normalize_plan_json", return_value=plan_json),
     ):
         result = await graph.ainvoke(

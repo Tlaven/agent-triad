@@ -1009,10 +1009,4 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
         _build_list_executor_tasks_tool(runtime_context),
     ]
 
-    # V4: Knowledge Tree tools (conditional on feature flag)
-    if runtime_context.enable_knowledge_tree:
-        from src.common.knowledge_tree import build_knowledge_tree_tools
-
-        tools.extend(build_knowledge_tree_tools(runtime_context))
-
     return tools

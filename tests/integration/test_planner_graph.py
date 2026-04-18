@@ -41,7 +41,7 @@ async def test_run_planner_fresh_returns_valid_plan(mock_context) -> None:
     with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm):
         result = await run_planner("train a classifier", context=mock_context)
 
-    parsed = json.loads(result)
+    parsed = json.loads(result.plan_json)
     assert parsed["goal"] == "train a classifier"
     assert len(parsed["steps"]) >= 1
     assert isinstance(parsed["plan_id"], str)
@@ -54,7 +54,7 @@ async def test_run_planner_assigns_plan_id_starting_with_plan_v(mock_context) ->
     with patch("src.planner_agent.graph.load_chat_model", return_value=mock_llm):
         result = await run_planner("any task", context=mock_context)
 
-    assert json.loads(result)["plan_id"].startswith("plan_v")
+    assert json.loads(result.plan_json)["plan_id"].startswith("plan_v")
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ async def test_run_planner_replan_increments_version(mock_context) -> None:
             context=mock_context,
         )
 
-    parsed = json.loads(result)
+    parsed = json.loads(result.plan_json)
     assert parsed["plan_id"] == "plan_existing_abc"
     assert parsed["version"] == 2
 

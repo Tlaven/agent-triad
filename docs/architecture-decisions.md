@@ -761,3 +761,118 @@ src/common/knowledge_tree/
 ```
 
 **原因**：内嵌模块定位最轻量，不改变现有架构拓扑（与决策 8 的三种模式兼容），工具注册方式与现有 Supervisor 工具一致（factory pattern）。条件注册通过 feature flag 控制，不影响 V3 及以前的功能。
+
+---
+
+## 决策 26：知识摄入管道——Agent 运行时新知识入树
+
+### 核心问题
+
+Bootstrap 从种子文件建树，但 Agent 日常执行中产生的**新知识没有自然流入通道**。Executor 执行中发现模式、Supervisor 做出决策、用户说"记住这个"——这些涌现知识需自动进入知识树，否则树会过时失效。
+
+### 管道设计
+
+```
+事件触发 → 原子切分 → 轻量过滤 → 向量去重 → ingest_nodes() → 现有闭环
+```
+
+#### 1. 事件触发（P1：事件驱动）
+
+| 触发源 | 时机 | 候选内容 |
+|--------|------|---------|
+| 任务完成 | `ExecutorResult.status == "completed"` | summary + observations |
+| 用户显式指令 | 用户说"记住/记下来" | 用户指定的内容片段 |
+| 任务失败（P2） | `ExecutorResult.status == "failed"` | failure_reason（失败经验同样有价值） |
+
+P1 仅实现前两种。P2 考虑暴露 `knowledge_tree_ingest` 工具让 LLM 自主决定（更 agentic），但 P1 事件驱动更可控、可审计。
+
+#### 2. 原子切分（Chunking）
+
+- 粒度：**< 512 tokens**（中文约 300-400 字）
+- P1 策略：按 `\n\n` + 对话轮边界切分
+- P2 升级：SemanticChunker 语义边界切分
+- 每段生成临时 `KnowledgeNode`（title = 自动摘要，content = 原始文本）
+
+#### 3. 轻量过滤
+
+规则判断"是否值得记忆"，**低阈值**（宁多勿漏）：
+
+- 含决策/结论关键词（"决定"、"结论"、"规则"、"发现"…）
+- 含数字或专有名词
+- 用户显式说 "记住/记下来"
+- 任务成功完成的 summary
+
+过滤后的节点进入下一步。
+
+#### 4. 向量去重
+
+复用 `vector_store.search(top-1)` 检查已有知识的相似度：
+- similarity > `kt_dedup_threshold`（默认 0.95）→ 跳过（或生成轻量 ChangeDelta 供后续 merge）
+- 否则 → 进入 ingest
+
+2026 RAG 实践表明 cosine 0.93-0.96 是甜点区。过高放走近似重复，过低误杀有差异的知识。
+
+#### 5. `ingest_nodes()` — 增量嫁接
+
+```
+for each candidate node:
+    embed(node) → 向量
+    vector_store.search(top-1) → 找最匹配的现有 group
+    if similarity > kt_cluster_attach_threshold (0.7):
+        嫁接为该 group 的子节点
+    else:
+        创建新 group → root 下
+    sync 三层存储
+```
+
+本质上是 `bootstrap_from_seed_files()` 的增量版本——不重建整棵树，而是把新节点嫁接进去。
+
+#### 6. 来源元数据
+
+每个节点的 `source` 和 `metadata` 携带追溯信息：
+
+```python
+source="agent:supervisor",        # 哪个 Agent 产出的
+metadata={
+    "plan_id": "xxx",             # 来自哪个任务
+    "trigger": "task_complete",   # 触发类型
+    "filter_confidence": 0.8,    # 过滤时的置信度
+}
+```
+
+后续优化器可据此加权（例如 `task_complete` 触发的节点优先级更高）。
+
+### 模块结构
+
+```
+src/common/knowledge_tree/ingestion/
+    __init__.py
+    chunker.py        # 原子切分
+    filter.py         # 轻量规则过滤
+    ingest.py         # ingest_nodes() 核心逻辑
+```
+
+### 新增配置字段
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `kt_ingest_chunk_max_tokens` | 512 | 切分粒度上限 |
+| `kt_dedup_threshold` | 0.95 | 去重相似度阈值 |
+| `kt_cluster_attach_threshold` | 0.7 | 嫁接到现有 group 的相似度阈值 |
+| `kt_ingest_enabled` | True | 摄入管道开关 |
+
+### 集成方式
+
+P1：Supervisor 内部在特定时机（任务完成 / 用户指令）直接调用 `ingest_nodes()`，不暴露新工具。保持 ReAct 循环干净。
+
+P2：暴露 `knowledge_tree_ingest` 工具，让 Agent 自主判断"这个值得记"。
+
+### 完整闭环
+
+```
+Agent 执行任务 → 产生新知识 → 切分 → 过滤 → 去重 → ingest → 知识树
+     ↑                                                            │
+     └────── 检索时命中新知识 ←── edit/optimize ←── Agent 自主整理 ←─┘
+```
+
+**原因**：知识树若无新内容入口，初始 bootstrap 后即成死树。摄入管道是"涌现"的核心——Agent 执行中产生的知识自动回流到树中，再经 Agent 的 edit/optimize 自主整理，形成真正的自进化闭环。P1 用事件驱动保证可控性，P2 升级为 agentic 自主摄入。切分粒度、去重阈值、聚类阈值均为可配参数，便于调优。

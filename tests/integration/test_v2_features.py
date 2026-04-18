@@ -69,8 +69,14 @@ def test_v2_features_do_not_interfere():
 
     # Planner tools still return the expected readonly set
     tools = get_planner_tools(ctx)
-    assert len(tools) == 2
-    assert {t.name for t in tools} == {"read_workspace_text_file", "list_workspace_entries"}
+    assert len(tools) == 5
+    assert {t.name for t in tools} == {
+        "read_workspace_text_file",
+        "list_workspace_entries",
+        "search_files",
+        "grep_content",
+        "read_file_structure",
+    }
 
     # reflection routing
     state = ExecutorState(

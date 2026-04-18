@@ -1548,7 +1548,7 @@ wheels = [
 
 [[package]]
 name = "langgraph-api"
-version = "0.7.101"
+version = "0.7.103"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -1582,9 +1582,9 @@ dependencies = [
     { name = "watchfiles" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/82/15/4e067fe0d5c9165ebe2cdf8c2398b9910d778fe83ba5863087b21dbf95a9/langgraph_api-0.7.101.tar.gz", hash = "sha256:139b56d0d0374c02a1424aaa649c5cad7e3394fe435156c71ce1868391a441d1", size = 661692, upload-time = "2026-04-14T17:41:15.685Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/34/3c/5b81bcdf2d48bff3f0326329b3af83be0d6e5011bdf9ea729289c06cae19/langgraph_api-0.7.103.tar.gz", hash = "sha256:0da504bea16f138ca098eccb2faf888b0b787914f1e2fa76826d749ea05aba0e", size = 665243, upload-time = "2026-04-15T20:03:01.034Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/04/d9/280f6332365d0dd6dd25e2eb858cbf938cbbbd083e96a98273fd6224fc14/langgraph_api-0.7.101-py3-none-any.whl", hash = "sha256:dbee0e3da8d5932abc29e0a17b2c26d5316ece60a6005a0f7e539d55e5c36a8a", size = 546760, upload-time = "2026-04-14T17:41:13.913Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/fa/85/c57fec5abcb42d20ff4d688d6658ed7d4d51ba83cd1125504180140496d1/langgraph_api-0.7.103-py3-none-any.whl", hash = "sha256:5e7e86ec0cfe393f7a681db510729d6682237a74db4ccb8aec409cc7475aac9b", size = 550605, upload-time = "2026-04-15T20:02:59.852Z" },
 ]
 
 [[package]]
@@ -1602,17 +1602,18 @@ wheels = [
 
 [[package]]
 name = "langgraph-cli"
-version = "0.4.19"
+version = "0.4.22"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 dependencies = [
     { name = "click" },
     { name = "httpx" },
     { name = "langgraph-sdk" },
+    { name = "pathspec" },
     { name = "python-dotenv" },
 ]
-sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/7d/4e/4c2dbc23e63ffbbe4cb5e5df3196bc65fc2f01bf645f09b2e4fbbbc30d94/langgraph_cli-0.4.19.tar.gz", hash = "sha256:99b79568a8fe829c296ed0aaa4a4570dc16e1d328cb2f3c629c9415edd6020b5", size = 879498, upload-time = "2026-03-20T22:12:20.304Z" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/9c/b6/d3de115f4529bf42e4f4c4888093621a3c835bdc4e35a7c42ac9bf15c699/langgraph_cli-0.4.22.tar.gz", hash = "sha256:f25720795f39e97e0c553cf21ae6312772faf2d3eab909d146de163367fe3d33", size = 1018739, upload-time = "2026-04-16T18:43:42.898Z" }
 wheels = [
-    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/9a/e1/5b06b1f9f49d5d9e4568e3cc4f27f7268f1c89051dacb2f157c2433df7d0/langgraph_cli-0.4.19-py3-none-any.whl", hash = "sha256:ed3df28460dcf0bba12728be23c17a62a9df6fbfeb7a6940936fd5f180695310", size = 56297, upload-time = "2026-03-20T22:12:18.796Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/49/84/7e90e5f3c070ff73644ff0e73d2dfe02de4b88a05d13745ed4d23077c918/langgraph_cli-0.4.22-py3-none-any.whl", hash = "sha256:70dcad74facb2ac06fc677644ddc27ebdb0bd7e25a3a0294b33c2f279d5e448b", size = 73681, upload-time = "2026-04-16T18:43:41.858Z" },
 ]
 
 [package.optional-dependencies]

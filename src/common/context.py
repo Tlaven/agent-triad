@@ -323,6 +323,24 @@ class Context:
         metadata={"description": "Maximum tree depth for navigation."},
     )
 
+    # --- V4: Knowledge Tree — Ingestion Pipeline ---
+    kt_ingest_enabled: bool = field(
+        default=True,
+        metadata={"description": "Enable the knowledge ingestion pipeline."},
+    )
+    kt_ingest_chunk_max_tokens: int = field(
+        default=512,
+        metadata={"description": "Max token count per chunk for ingestion."},
+    )
+    kt_dedup_threshold: float = field(
+        default=0.95,
+        metadata={"description": "Cosine similarity threshold for deduplication (skip if above)."},
+    )
+    kt_cluster_attach_threshold: float = field(
+        default=0.7,
+        metadata={"description": "Similarity threshold to attach to existing group vs create new."},
+    )
+
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
         import os

@@ -22,6 +22,9 @@ from src.common.knowledge_tree.editing.change_map import (
 )
 from src.common.knowledge_tree.editing.merge_split import merge_nodes, split_node
 from src.common.knowledge_tree.editing.re_embed import re_embed_nodes
+from src.common.knowledge_tree.ingestion.chunker import chunk_conversation, chunk_text
+from src.common.knowledge_tree.ingestion.filter import FilterResult, should_remember
+from src.common.knowledge_tree.ingestion.ingest import IngestReport, ingest_nodes
 from src.common.knowledge_tree.optimization.anti_oscillation import OptimizationHistory
 from src.common.knowledge_tree.optimization.optimizer import (
     OptimizationReport,
@@ -199,6 +202,71 @@ class KnowledgeTree:
                 log.agent_satisfaction = satisfaction
                 log.agent_feedback = feedback
                 break
+
+    def ingest(
+        self,
+        text: str,
+        trigger: str = "",
+        source: str = "agent:supervisor",
+        metadata: dict[str, Any] | None = None,
+    ) -> IngestReport:
+        """知识摄入管道入口（决策 26）。
+
+        完整流程：切分 → 过滤 → 去重 → ingest_nodes。
+
+        Args:
+            text: 待摄入的原始文本。
+            trigger: 触发类型（"task_complete"、"user_explicit" 等）。
+            source: 来源标识。
+            metadata: 来源元数据（plan_id 等）。
+
+        Returns:
+            IngestReport 统计信息。
+        """
+        if not self.config.ingest_enabled:
+            return IngestReport()
+
+        report = IngestReport()
+
+        # 1. 切分
+        chunks = chunk_text(text, max_tokens=self.config.ingest_chunk_max_tokens)
+        if not chunks:
+            return report
+
+        # 2. 过滤
+        candidates: list[KnowledgeNode] = []
+        for chunk in chunks:
+            result = should_remember(chunk, trigger=trigger)
+            if result.passed:
+                meta = dict(metadata) if metadata else {}
+                meta["trigger"] = trigger
+                meta["filter_confidence"] = result.confidence
+                node = KnowledgeNode.create(
+                    title=chunk[:50],
+                    content=chunk,
+                    source=source,
+                    metadata=meta,
+                )
+                candidates.append(node)
+            else:
+                report.nodes_filtered += 1
+
+        # 3. 增量摄入
+        ingest_report = ingest_nodes(
+            candidates,
+            self.graph_store,
+            self.vector_store,
+            self.md_store,
+            self.embedder,
+            dedup_threshold=self.config.dedup_threshold,
+            cluster_attach_threshold=self.config.cluster_attach_threshold,
+        )
+
+        # 合并报告
+        report.nodes_ingested = ingest_report.nodes_ingested
+        report.nodes_deduplicated = ingest_report.nodes_deduplicated
+        report.errors = ingest_report.errors
+        return report
 
 
 def _default_embedder(dimension: int) -> Callable[[str], list[float]]:

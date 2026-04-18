@@ -16,11 +16,16 @@ from src.common.knowledge_tree.storage.vector_store import InMemoryVectorStore
 
 
 def _mock_embedder(dim: int = 16):
-    """确定性 embedder，让相似标题产生相似向量。"""
+    """确定性 embedder，用字符位置加权产生差异化向量。"""
     def embed(text: str) -> list[float]:
-        # 简单哈希映射，相同文本产生相同向量
-        base = sum(ord(c) for c in text) / 1000.0
-        return [base + i * 0.001 for i in range(dim)]
+        vec = [0.0] * dim
+        for i, c in enumerate(text):
+            idx = (ord(c) + i) % dim
+            vec[idx] += 1.0
+        mag = sum(x * x for x in vec) ** 0.5
+        if mag > 0:
+            vec = [x / mag for x in vec]
+        return vec
     return embed
 
 
@@ -141,3 +146,101 @@ class TestClosedLoop:
         # 由于 embedder 是确定性的，相似度可能超过阈值，所以信号类型不确定
         # 但至少优化流程应正常运行
         assert opt_report.signals_detected >= 0
+
+
+class TestIngestionPipeline:
+    """知识摄入管道集成测试。"""
+
+    def test_ingest_after_bootstrap(self, seed_dir: Path, kt: KnowledgeTree):
+        """Bootstrap → Ingest 新内容 → 验证入树。"""
+        # 1. Bootstrap
+        bootstrap_from_seed_files(
+            seed_dir, kt.md_store, kt.graph_store, kt.vector_store, kt.embedder, kt.config,
+        )
+        initial_nodes = kt.status()["total_nodes"]
+
+        # 2. Ingest 任务完成的 summary
+        report = kt.ingest(
+            "发现了一个重要的规则：系统架构应该遵循模块化设计原则。"
+            "这个经验教训值得记录下来。",
+            trigger="task_complete",
+            source="agent:supervisor",
+            metadata={"plan_id": "plan_001"},
+        )
+        assert report.nodes_ingested >= 1
+        assert report.errors == []
+
+        # 3. 验证节点数增加
+        final_nodes = kt.status()["total_nodes"]
+        assert final_nodes > initial_nodes
+
+    def test_ingest_user_explicit(self, seed_dir: Path, kt: KnowledgeTree):
+        """用户显式指令触发 ingest。"""
+        bootstrap_from_seed_files(
+            seed_dir, kt.md_store, kt.graph_store, kt.vector_store, kt.embedder, kt.config,
+        )
+
+        report = kt.ingest(
+            "记住：Supervisor 应该在每次任务失败后进行反思总结。",
+            trigger="user_explicit",
+        )
+        assert report.nodes_ingested >= 1
+        assert report.nodes_filtered == 0  # user_explicit 不被过滤
+
+    def test_ingest_filtered_short_content(self, seed_dir: Path, kt: KnowledgeTree):
+        """过短内容被过滤，不入树。"""
+        bootstrap_from_seed_files(
+            seed_dir, kt.md_store, kt.graph_store, kt.vector_store, kt.embedder, kt.config,
+        )
+
+        report = kt.ingest("ok", trigger="")
+        assert report.nodes_filtered >= 1
+        assert report.nodes_ingested == 0
+
+    def test_ingest_disabled(self, seed_dir: Path, tmp_path: Path):
+        """ingest_enabled=False 时不执行摄入。"""
+        config = KnowledgeTreeConfig(
+            markdown_root=tmp_path / "md",
+            db_path=tmp_path / "db",
+            ingest_enabled=False,
+        )
+        kt = KnowledgeTree(config, embedder=_mock_embedder())
+        bootstrap_from_seed_files(
+            seed_dir, kt.md_store, kt.graph_store, kt.vector_store, kt.embedder, kt.config,
+        )
+
+        report = kt.ingest("这是一个重要的发现：系统需要重构。", trigger="task_complete")
+        assert report.nodes_ingested == 0
+        assert report.nodes_deduplicated == 0
+
+    def test_full_closed_loop_with_ingest(self, seed_dir: Path, kt: KnowledgeTree):
+        """完整闭环：Bootstrap → Ingest → Retrieve → Edit → Optimize。"""
+        # 1. Bootstrap
+        bootstrap_from_seed_files(
+            seed_dir, kt.md_store, kt.graph_store, kt.vector_store, kt.embedder, kt.config,
+        )
+
+        # 2. Ingest 新知识
+        kt.ingest(
+            "发现一个重要规则：向量搜索需要设置合适的相似度阈值。"
+            "阈值过高会导致漏检，过低会引入噪声。最佳实践是0.85。",
+            trigger="task_complete",
+            metadata={"plan_id": "p002"},
+        )
+
+        # 3. Retrieve（用 mock LLM）
+        kt.llm = _mock_llm_returning(child_index=0, confidence=0.9)
+        result, log = kt.retrieve("查询阈值设置")
+        assert log.query_id
+
+        # 4. Record feedback
+        kt.record_feedback(log.query_id, satisfaction=True)
+
+        # 5. Optimize
+        opt_report = kt.optimize()
+        assert opt_report.signals_detected >= 0
+
+        # 6. Status
+        status = kt.status()
+        assert status["ok"] is True
+        assert status["total_nodes"] > 5  # bootstrap nodes + ingested nodes
