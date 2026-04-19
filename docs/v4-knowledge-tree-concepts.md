@@ -1,6 +1,6 @@
 # V4 涌现式知识树 — 概念对齐文档
 
-> 状态：概念对齐 v2（2026-04-16）
+> 状态：概念对齐 v3（2026-04-19）
 > 范围：AgentTriad 内部，Supervisor 内嵌组件
 > 目标：Agent 信息的自组织存储、高效检索、持续进化
 
@@ -131,7 +131,51 @@
 
 ---
 
-## 6. 聚类触发
+## 6. Bootstrap 聚类算法
+
+### 6.1 双策略设计
+
+Bootstrap 支持两种聚类策略，通过 `cluster_method` 配置选择：
+
+| 策略 | 触发条件 | 深度 | 依赖 |
+|------|---------|------|------|
+| **GMM+UMAP** | `cluster_method="gmm"` 或 `="auto"` + sklearn 可用 + 节点数 ≥ `cluster_size` | 自动多层 | scikit-learn, umap-learn（可选） |
+| **简单余弦 BFS** | `cluster_method="simple"` 或自动回退 | 固定 3 层 | 无 |
+
+配置项（`KnowledgeTreeConfig`）：
+- `cluster_method: str = "auto"` — `"auto"` | `"gmm"` | `"simple"`
+- `cluster_size: int = 20` — GMM 目标每簇节点数
+
+依赖安装：`pip install ".[knowledge-tree]"` 或 `uv pip install scikit-learn umap-learn`
+
+### 6.2 GMM+UMAP 算法流程（借鉴 LeanRAG）
+
+```
+叶子节点嵌入矩阵
+  → UMAP 降维到 2D（可选，sklearn 可用时自动启用）
+  → BIC 准则选择最优簇数 k
+  → GMM 聚类 → k 个簇
+  → 每簇创建摘要中间节点（启发式标题，不调用 LLM）
+  → 中间节点嵌入作为下一层输入
+  → 递归直到簇数 ≤ 1 或节点数不足
+  → 创建根节点连接所有顶层节点
+```
+
+关键参数：
+- **BIC 选 k**：遍历 `[2, max_k]`，选 BIC 最低的 k；`max_k = n / cluster_size`
+- **UMAP 降维**：`n_neighbors=min(15, n-1)`，`metric=cosine`，`random_state=42`
+- **P1 摘要**：启发式（子节点标题公共前缀），不调 LLM
+- **P2 摘要**：LLM 生成摘要描述（与 LeanRAG 的 `aggregate_entities` prompt 类似）
+
+### 6.3 简单余弦 BFS（零依赖回退）
+
+```
+叶子节点 → 余弦相似度邻接矩阵（threshold=0.6）
+  → BFS 找连通分量 → 每个分量一个 group
+  → root → group → leaf（固定 3 层）
+```
+
+### 6.4 聚类触发
 
 - **常规**：批量式（定期/阈值触发）
 - **特殊**：Agent 主动修改文件系统时即时捕获 → 优化 Change Mapping，但需防噪声（批量 + 阈值结合过滤）
@@ -152,7 +196,7 @@
 跑通以下端到端流程，用小规模领域知识测试：
 
 ```
-Bootstrap 建树（领域知识种子）
+Bootstrap 建树（领域知识种子，GMM+UMAP 多层聚类）
   → LLM 路由检索（全量 LLM，完整日志）
   → Agent merge/split 编辑
   → Markdown → 图数据库同步

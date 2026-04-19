@@ -18,7 +18,13 @@ class MarkdownStore:
 
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
+        self._initialized = False
+
+    def _ensure_root(self) -> None:
+        """延迟创建根目录，避免在 __init__ 中触发 blocking 调用。"""
+        if not self._initialized:
+            self.root.mkdir(parents=True, exist_ok=True)
+            self._initialized = True
 
     def _node_path(self, node_id: str) -> Path:
         """节点文件路径。"""
@@ -26,6 +32,7 @@ class MarkdownStore:
 
     def write_node(self, node: KnowledgeNode) -> Path:
         """写入节点到 Markdown 文件。返回文件路径。"""
+        self._ensure_root()
         path = self._node_path(node.node_id)
         path.write_text(node.to_frontmatter_md(), encoding="utf-8")
         logger.debug("Wrote node %s to %s", node.node_id, path)
@@ -33,6 +40,7 @@ class MarkdownStore:
 
     def read_node(self, node_id: str) -> KnowledgeNode | None:
         """读取节点。不存在返回 None。"""
+        self._ensure_root()
         path = self._node_path(node_id)
         if not path.exists():
             return None
@@ -41,6 +49,7 @@ class MarkdownStore:
 
     def delete_node(self, node_id: str) -> bool:
         """删除节点文件。返回是否成功删除。"""
+        self._ensure_root()
         path = self._node_path(node_id)
         if path.exists():
             path.unlink()
@@ -50,6 +59,7 @@ class MarkdownStore:
 
     def list_node_ids(self) -> list[str]:
         """列出所有节点 ID。"""
+        self._ensure_root()
         return [p.stem for p in self.root.glob("*.md")]
 
     def list_nodes(self) -> list[KnowledgeNode]:

@@ -37,6 +37,10 @@ class KnowledgeTreeConfig:
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     embedding_dimension: int = 512
 
+    # -- 聚类 --
+    cluster_method: str = "auto"  # "auto" | "gmm" | "simple"
+    cluster_size: int = 20  # GMM 目标每簇节点数
+
     # -- 摄入管道 --
     ingest_enabled: bool = True
     ingest_chunk_max_tokens: int = 512

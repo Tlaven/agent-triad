@@ -1009,4 +1009,11 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
         _build_list_executor_tasks_tool(runtime_context),
     ]
 
+    # V4 知识树工具（条件注册）
+    if runtime_context.enable_knowledge_tree:
+        from src.common.knowledge_tree import build_knowledge_tree_tools
+        kt_tools = build_knowledge_tree_tools(runtime_context)
+        tools.extend(kt_tools)
+        logger.info("Knowledge tree tools registered (%d tools)", len(kt_tools))
+
     return tools

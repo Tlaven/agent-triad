@@ -54,6 +54,9 @@ class TestMarkdownStore:
     def test_create_root_directory(self, tmp_path: Path):
         nested = tmp_path / "a" / "b" / "c"
         store = MarkdownStore(nested)
+        # 目录延迟创建：__init__ 不创建，首次 I/O 时创建
+        assert not nested.exists()
+        store._ensure_root()
         assert nested.exists()
 
     def test_overwrite_existing(self, md_store: MarkdownStore, sample_node: KnowledgeNode):

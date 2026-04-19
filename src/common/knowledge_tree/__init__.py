@@ -27,6 +27,7 @@ from src.common.knowledge_tree.ingestion.filter import FilterResult, should_reme
 from src.common.knowledge_tree.ingestion.ingest import IngestReport, ingest_nodes
 from src.common.knowledge_tree.optimization.anti_oscillation import OptimizationHistory
 from src.common.knowledge_tree.optimization.optimizer import (
+    OptimizationContext,
     OptimizationReport,
     run_optimization_cycle,
 )
@@ -184,15 +185,27 @@ class KnowledgeTree:
             "retrieval_logs_count": len(self._retrieval_logs),
         }
 
-    def optimize(self) -> OptimizationReport:
-        """执行一轮优化。"""
+    def optimize(self, dry_run: bool = False) -> OptimizationReport:
+        """执行一轮优化（含实际树结构修改）。
+
+        Args:
+            dry_run: 仅规划不执行（用于调试）。
+        """
+        ctx = OptimizationContext(
+            graph_store=self.graph_store,
+            vector_store=self.vector_store,
+            md_store=self.md_store,
+            embedder=self.embedder,
+        )
         return run_optimization_cycle(
             logs=self._retrieval_logs,
             history=self.optimization_history,
+            ctx=ctx,
             nav_failure_threshold=self.config.nav_failure_threshold,
             rag_false_positive_threshold=self.config.rag_false_positive_threshold,
             total_failure_threshold=self.config.total_failure_threshold,
             content_insufficient_threshold=self.config.content_insufficient_threshold,
+            dry_run=dry_run,
         )
 
     def record_feedback(self, query_id: str, satisfaction: bool, feedback: str = "") -> None:
@@ -270,34 +283,67 @@ class KnowledgeTree:
 
 
 def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
-    """默认确定性 embedder（不依赖外部模型）。"""
+    """默认 n-gram 哈希 embedder（零外部依赖）。
+
+    用 2-gram 和 3-gram 分片哈希映射到向量维度，使：
+    - 相似文本产生相似向量
+    - 不同文本产生不同向量
+    - 确定性输出（同文本同向量）
+    """
     def embed(text: str) -> list[float]:
-        base = sum(ord(c) for c in text) % 100 / 100.0
-        return [base + i * 0.001 for i in range(dimension)]
+        vec = [0.0] * dimension
+        if not text:
+            return vec
+
+        # 2-gram 和 3-gram 分片
+        for n in (2, 3):
+            for i in range(len(text) - n + 1):
+                gram = text[i:i + n]
+                idx = hash(gram) % dimension
+                vec[idx] += 1.0
+
+        # 单字符（1-gram）补充
+        for c in text:
+            idx = ord(c) % dimension
+            vec[idx] += 0.5
+
+        # L2 归一化
+        mag = sum(x * x for x in vec) ** 0.5
+        if mag > 0:
+            vec = [x / mag for x in vec]
+        return vec
     return embed
 
 
 def build_knowledge_tree_tools(runtime_context: Any) -> list:
-    """构建知识树 Supervisor 工具列表。"""
+    """构建知识树 Supervisor 工具列表。
+
+    采用惰性初始化：KnowledgeTree 实例在首次工具调用时才创建，
+    避免 get_tools() 阶段触发文件系统 blocking 调用。
+    所有工具共享同一个实例（闭包捕获 _kt_holder）。
+
+    每个工具的 sync 逻辑通过 asyncio.to_thread() 卸载到线程池，
+    避免在 ASGI 事件循环中触发 BlockingError。
+    """
+    import asyncio
+
     from langchain_core.tools import tool as lc_tool
 
     config = KnowledgeTreeConfig.from_context(runtime_context)
-    kt = KnowledgeTree(config)
+    _kt_holder: list[KnowledgeTree | None] = [None]
 
-    @lc_tool
-    async def knowledge_tree_retrieve(query: str) -> str:
-        """Search the knowledge tree for relevant information.
+    def _kt() -> KnowledgeTree:
+        """惰性获取 KnowledgeTree 单例。"""
+        if _kt_holder[0] is None:
+            _kt_holder[0] = KnowledgeTree(config)
+        return _kt_holder[0]
 
-        Uses LLM-guided tree navigation first, falls back to vector similarity search.
+    # -- sync 业务逻辑（纯同步，方便测试直接调用） --
 
-        Args:
-            query: The search query text.
-        """
-        result, log = kt.retrieve(query)
+    def _sync_retrieve(query: str) -> str:
+        result, log = _kt().retrieve(query)
         if not result.nodes:
             return json.dumps({"ok": False, "message": "No results found"})
-
-        # 返回最相关的节点
         top_node = result.nodes[0]
         return json.dumps({
             "ok": True,
@@ -310,32 +356,113 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "additional_results": len(result.nodes) - 1,
         }, ensure_ascii=False)
 
-    @lc_tool
-    async def knowledge_tree_edit(operation: str, params_json: str) -> str:
-        """Edit the knowledge tree (merge, split, or update content).
-
-        Args:
-            operation: One of "merge", "split", "update_content".
-            params_json: JSON string with operation parameters.
-        """
+    def _sync_edit(operation: str, params_json: str) -> str:
         try:
             params = json.loads(params_json)
         except json.JSONDecodeError as e:
             return json.dumps({"ok": False, "error": f"Invalid JSON: {e}"})
-
-        delta = kt.edit(operation, params)
+        delta = _kt().edit(operation, params)
         if delta is None:
             return json.dumps({"ok": False, "error": "Edit failed"})
-
         return json.dumps({
             "ok": True,
             "operation": delta.operation,
             "affected_nodes": delta.affected_node_ids,
         }, ensure_ascii=False)
 
+    def _sync_status() -> str:
+        return json.dumps(_kt().status(), ensure_ascii=False)
+
+    def _sync_ingest(text: str, trigger: str, source: str) -> str:
+        report = _kt().ingest(text, trigger=trigger, source=source)
+        return json.dumps({
+            "ok": True,
+            "nodes_ingested": report.nodes_ingested,
+            "nodes_deduplicated": report.nodes_deduplicated,
+            "nodes_filtered": report.nodes_filtered,
+            "errors": report.errors,
+        }, ensure_ascii=False)
+
+    def _sync_optimize(dry_run: bool) -> str:
+        report = _kt().optimize(dry_run=dry_run)
+        return json.dumps({
+            "ok": True,
+            "signals_detected": report.signals_detected,
+            "signals_filtered": report.signals_filtered,
+            "actions_planned": report.actions_planned,
+            "actions_executed": report.actions_executed,
+            "actions": report.actions,
+        }, ensure_ascii=False)
+
+    # -- async 工具（通过 to_thread 卸载 sync 逻辑） --
+
+    @lc_tool
+    async def knowledge_tree_retrieve(query: str) -> str:
+        """Search the knowledge tree for relevant information.
+
+        Uses LLM-guided tree navigation first, falls back to vector similarity search.
+        Returns matching nodes with their content and a query_id for feedback.
+
+        Args:
+            query: The search query text.
+        """
+        return await asyncio.to_thread(_sync_retrieve, query)
+
+    @lc_tool
+    async def knowledge_tree_edit(operation: str, params_json: str) -> str:
+        """Edit the knowledge tree structure (merge, split, or update content).
+
+        Args:
+            operation: One of "merge", "split", "update_content".
+                - merge: combine multiple nodes. params_json: {"node_ids": [...], "title"?: "..."}
+                - split: divide one node into sub-nodes. params_json: {"node_id": "...", "splits": [{"title": "...", "content": "..."}]}
+                - update_content: apply JSON patches. params_json: {"node_id": "...", "patches": [...]}
+            params_json: JSON string with operation parameters.
+        """
+        return await asyncio.to_thread(_sync_edit, operation, params_json)
+
     @lc_tool
     async def knowledge_tree_status() -> str:
-        """Get the current status and health of the knowledge tree."""
-        return json.dumps(kt.status(), ensure_ascii=False)
+        """Get the current status and health of the knowledge tree.
 
-    return [knowledge_tree_retrieve, knowledge_tree_edit, knowledge_tree_status]
+        Returns node count, edge count, and retrieval log statistics.
+        """
+        return await asyncio.to_thread(_sync_status)
+
+    @lc_tool
+    async def knowledge_tree_ingest(
+        text: str,
+        trigger: str = "agent:supervisor",
+        source: str = "agent:supervisor",
+    ) -> str:
+        """Ingest new knowledge into the tree from text.
+
+        The text is automatically chunked, filtered for relevance, deduplicated,
+        and attached to the most matching group in the tree.
+
+        Args:
+            text: The text content to ingest.
+            trigger: Trigger type, e.g. "task_complete", "user_explicit", "agent:supervisor".
+            source: Source identifier for provenance tracking.
+        """
+        return await asyncio.to_thread(_sync_ingest, text, trigger, source)
+
+    @lc_tool
+    async def knowledge_tree_optimize(dry_run: bool = False) -> str:
+        """Run one optimization cycle on the knowledge tree.
+
+        Analyzes retrieval logs for failure patterns and automatically
+        restructures the tree (merge, split, create seed nodes, re-embed).
+
+        Args:
+            dry_run: If true, only plan actions without executing them.
+        """
+        return await asyncio.to_thread(_sync_optimize, dry_run)
+
+    return [
+        knowledge_tree_retrieve,
+        knowledge_tree_edit,
+        knowledge_tree_status,
+        knowledge_tree_ingest,
+        knowledge_tree_optimize,
+    ]
