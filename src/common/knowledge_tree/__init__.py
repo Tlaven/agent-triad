@@ -216,6 +216,81 @@ class KnowledgeTree:
                 log.agent_feedback = feedback
                 break
 
+    def bootstrap_from_wiki(self) -> dict[str, Any]:
+        """从 workspace/knowledge_tree/ wiki 种子目录建树。
+
+        使用 WikiFolderAdapter 解析 wiki 格式 Markdown（YAML frontmatter +
+        [[wiki-links]]），生成嵌入，然后通过聚类算法构建 DAG 树结构。
+
+        仅在树为空时执行；已有数据则跳过。
+
+        Returns:
+            报告字典，含 nodes_created / edges_created / errors 等。
+        """
+        from src.common.knowledge_tree.ingestion.wiki_adapter import parse_wiki_folder
+
+        # 如果树已有根节点，跳过
+        if self.graph_store.get_root_id() is not None:
+            return {"ok": True, "message": "Tree already initialized", "skipped": True}
+
+        wiki_root = self.config.markdown_root
+        if not wiki_root.is_dir():
+            return {"ok": False, "errors": [f"Wiki directory not found: {wiki_root}"]}
+
+        # 1. 解析 wiki 目录
+        nodes, hints, report = parse_wiki_folder(wiki_root)
+        if report.errors:
+            return {"ok": False, "errors": report.errors}
+        if not nodes:
+            return {"ok": False, "errors": ["No parseable nodes found in wiki directory"]}
+
+        # 2. 生成嵌入
+        for node in nodes:
+            if node.embedding is None:
+                node.embedding = self.embedder(node.content or node.title)
+
+        # 3. 聚类建树
+        from src.common.knowledge_tree.bootstrap import _build_tree
+        tree = _build_tree(nodes, self.embedder, self.config)
+
+        # 4. 写入三层存储
+        self.graph_store.initialize()
+
+        # 根节点
+        sync_node_to_stores(tree.root, self.md_store, self.graph_store, self.vector_store)
+
+        # 中间节点
+        for node in tree.intermediate_nodes:
+            sync_node_to_stores(node, self.md_store, self.graph_store, self.vector_store)
+
+        # 叶子节点
+        for node in nodes:
+            sync_node_to_stores(node, self.md_store, self.graph_store, self.vector_store)
+
+        # 边
+        for parent_id, child_id in tree.edges:
+            from src.common.knowledge_tree.dag.edge import KnowledgeEdge
+            self.graph_store.upsert_edge(KnowledgeEdge.create(
+                parent_id=parent_id,
+                child_id=child_id,
+                is_primary=True,
+            ))
+
+        # P2: 利用 RelationHint 辅助边构建（当前作为 metadata 记录）
+        for hint in hints:
+            logger.debug("Relation hint: %s -> %s (deferred to P2)", hint.source_title, hint.target_title)
+
+        return {
+            "ok": True,
+            "nodes_created": 1 + len(tree.intermediate_nodes) + len(nodes),
+            "edges_created": len(tree.edges),
+            "wiki_nodes_parsed": report.nodes_created,
+            "wiki_meta_skipped": report.meta_skipped,
+            "relation_hints": len(hints),
+            "max_depth": tree.max_depth,
+            "cluster_method": tree.root.metadata.get("cluster_method", "unknown"),
+        }
+
     def ingest(
         self,
         text: str,
@@ -333,6 +408,19 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
     _kt_holder: list[KnowledgeTree | None] = [None]
 
     def _kt() -> KnowledgeTree:
+        """惰性获取 KnowledgeTree 单例，首次调用时自动从 wiki 种子 bootstrap。"""
+        if _kt_holder[0] is None:
+            kt = KnowledgeTree(config)
+            _kt_holder[0] = kt
+            # 自动从 wiki 种子 bootstrap（如果目录存在且树为空）
+            if config.markdown_root.is_dir():
+                try:
+                    result = kt.bootstrap_from_wiki()
+                    if result.get("ok") and not result.get("skipped"):
+                        logger.info("Auto-bootstrapped knowledge tree from wiki: %s", result)
+                except Exception as e:
+                    logger.warning("Auto-bootstrap failed (tree starts empty): %s", e)
+        return _kt_holder[0]
         """惰性获取 KnowledgeTree 单例。"""
         if _kt_holder[0] is None:
             _kt_holder[0] = KnowledgeTree(config)
@@ -356,9 +444,12 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "additional_results": len(result.nodes) - 1,
         }, ensure_ascii=False)
 
-    def _sync_edit(operation: str, params_json: str) -> str:
+    def _sync_edit(operation: str, params_json: str | dict) -> str:
         try:
-            params = json.loads(params_json)
+            if isinstance(params_json, dict):
+                params = params_json
+            else:
+                params = json.loads(params_json)
         except json.JSONDecodeError as e:
             return json.dumps({"ok": False, "error": f"Invalid JSON: {e}"})
         delta = _kt().edit(operation, params)
@@ -394,6 +485,10 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "actions": report.actions,
         }, ensure_ascii=False)
 
+    def _sync_bootstrap() -> str:
+        result = _kt().bootstrap_from_wiki()
+        return json.dumps(result, ensure_ascii=False)
+
     # -- async 工具（通过 to_thread 卸载 sync 逻辑） --
 
     @lc_tool
@@ -417,7 +512,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                 - merge: combine multiple nodes. params_json: {"node_ids": [...], "title"?: "..."}
                 - split: divide one node into sub-nodes. params_json: {"node_id": "...", "splits": [{"title": "...", "content": "..."}]}
                 - update_content: apply JSON patches. params_json: {"node_id": "...", "patches": [...]}
-            params_json: JSON string with operation parameters.
+            params_json: JSON string (or dict) with operation parameters.
         """
         return await asyncio.to_thread(_sync_edit, operation, params_json)
 
@@ -459,10 +554,23 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_optimize, dry_run)
 
+    @lc_tool
+    async def knowledge_tree_bootstrap() -> str:
+        """Bootstrap the knowledge tree from the wiki seed directory.
+
+        Parses workspace/knowledge_tree/ Markdown files (with YAML frontmatter
+        and [[wiki-links]]), generates embeddings, clusters them with GMM+UMAP
+        or simple cosine BFS, and builds the initial DAG tree structure.
+
+        Safe to call multiple times — skips if tree already has data.
+        """
+        return await asyncio.to_thread(_sync_bootstrap)
+
     return [
         knowledge_tree_retrieve,
         knowledge_tree_edit,
         knowledge_tree_status,
         knowledge_tree_ingest,
         knowledge_tree_optimize,
+        knowledge_tree_bootstrap,
     ]
