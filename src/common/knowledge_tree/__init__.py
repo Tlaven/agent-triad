@@ -84,7 +84,7 @@ class KnowledgeTree:
         # ① 向量化
         log.query_vector = self.embedder(query)
 
-        # ② 树导航
+        # ② 树导航（需要 LLM）
         nav_result: NavigationResult | None = None
         if self.llm is not None:
             nav_result = navigate_tree(
@@ -97,13 +97,19 @@ class KnowledgeTree:
             log.tree_success = nav_result.success
 
         # ③ RAG 兜底
+        # 无 LLM 时树导航不可用，RAG 是唯一路径，使用较低阈值（0.6）
+        # 有 LLM 时 RAG 是兜底，保持配置的高阈值（默认 0.85）
         rag_results: list[tuple[KnowledgeNode, float]] = []
         if nav_result is None or not nav_result.success:
+            rag_threshold = (
+                0.6 if self.llm is None
+                else self.config.rag_similarity_threshold
+            )
             rag_results = rag_search(
                 log.query_vector,
                 self.graph_store,
                 self.vector_store,
-                threshold=self.config.rag_similarity_threshold,
+                threshold=rag_threshold,
             )
             log.rag_triggered = len(rag_results) > 0
             log.rag_results = [(n.node_id, s) for n, s in rag_results]
@@ -223,6 +229,8 @@ class KnowledgeTree:
         [[wiki-links]]），生成嵌入，然后通过聚类算法构建 DAG 树结构。
 
         仅在树为空时执行；已有数据则跳过。
+        注意：bootstrap 节点只写入 graph_store 和 vector_store，
+        不写回 Markdown 种子目录，避免递归污染。
 
         Returns:
             报告字典，含 nodes_created / edges_created / errors 等。
@@ -244,28 +252,34 @@ class KnowledgeTree:
         if not nodes:
             return {"ok": False, "errors": ["No parseable nodes found in wiki directory"]}
 
-        # 2. 生成嵌入
+        # 2. 生成嵌入（用 title 而非 content，确保与查询嵌入可比）
         for node in nodes:
             if node.embedding is None:
-                node.embedding = self.embedder(node.content or node.title)
+                node.embedding = self.embedder(node.title)
 
         # 3. 聚类建树
         from src.common.knowledge_tree.bootstrap import _build_tree
         tree = _build_tree(nodes, self.embedder, self.config)
 
-        # 4. 写入三层存储
+        # 4. 写入存储（只写 graph + vector，不写 Markdown 种子目录）
         self.graph_store.initialize()
 
+        def _sync_to_runtime(node: KnowledgeNode) -> None:
+            """只写入运行时存储，不写回 Markdown。"""
+            self.graph_store.upsert_node(node)
+            if node.embedding is not None:
+                self.vector_store.upsert_embedding(node.node_id, node.embedding)
+
         # 根节点
-        sync_node_to_stores(tree.root, self.md_store, self.graph_store, self.vector_store)
+        _sync_to_runtime(tree.root)
 
         # 中间节点
         for node in tree.intermediate_nodes:
-            sync_node_to_stores(node, self.md_store, self.graph_store, self.vector_store)
+            _sync_to_runtime(node)
 
         # 叶子节点
         for node in nodes:
-            sync_node_to_stores(node, self.md_store, self.graph_store, self.vector_store)
+            _sync_to_runtime(node)
 
         # 边
         for parent_id, child_id in tree.edges:
