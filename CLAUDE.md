@@ -144,6 +144,8 @@ class ExecutorResult:
 
 | `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
 
+| `src/common/knowledge_tree/ingestion/wiki_adapter.py` | Wiki 种子目录解析器：`parse_wiki_folder()` 将 `workspace/knowledge_tree/` 的 Markdown（frontmatter + `[[wiki-links]]`）转为 `list[KnowledgeNode]` + `list[RelationHint]` |
+
 各层 `prompts.py` / `tools.py` 见同包。
 
 ---

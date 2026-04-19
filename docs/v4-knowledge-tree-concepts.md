@@ -212,3 +212,76 @@ Bootstrap 建树（领域知识种子，GMM+UMAP 多层聚类）
 3. 向量重嵌入后检索结果有可观测的改善（**核心度量指标**）
 4. 闭环优化信号链完整（日志 → 信号 → 动作 → 效果可度量）
 5. 全链路结构化 JSON 日志完整输出（检索 + 反馈 + Delta + 优化效果）
+
+---
+
+## 9. Wiki 种子格式
+
+P1 使用 `workspace/knowledge_tree/` 作为种子输入目录，采用 claude-obsidian 风格的 wiki 格式。
+
+### 9.1 目录结构
+
+```
+workspace/knowledge_tree/
+  index.md                    ← 导航中心（type: meta）
+  overview.md                 ← 系统概述
+  concepts/
+    _index.md                 ← 分类索引（type: meta）
+    Three-Agent Architecture.md
+    Plan JSON.md
+    Execution Modes.md
+    ...
+  entities/
+    _index.md
+    Supervisor Agent.md
+    Planner Agent.md
+    Executor Agent.md
+  sources/
+    _index.md
+    architecture-decisions.md
+  questions/
+    ...
+  comparisons/
+    ...
+  _templates/
+    concept.md / entity.md / source.md / question.md / comparison.md
+```
+
+### 9.2 Frontmatter 规范
+
+每个 Markdown 文件使用 YAML frontmatter：
+
+```yaml
+type: concept | entity | source | question | comparison | meta
+title: "Page Title"
+tags: [tag1, tag2]
+status: seed | developing | mature | evergreen
+related:
+  - "[[Other Page]]"          # wiki-link 关系提示
+aliases: ["Alternative Name"]
+domain: "domain-name"
+complexity: intermediate | advanced
+```
+
+### 9.3 解析管线
+
+`WikiFolderAdapter`（`src/common/knowledge_tree/ingestion/wiki_adapter.py`）负责：
+
+1. **扫描** `workspace/knowledge_tree/` 下所有 `.md` 文件（排除 `_templates/`）
+2. **解析** YAML frontmatter → 节点元数据（`page_type`, `tags`, `status` 等）
+3. **提取** `[[wiki-links]]` → `RelationHint`（关系边提示）
+4. **输出** `list[KnowledgeNode]` + `list[RelationHint]`
+5. `type=meta` 页面跳过节点创建，但仍提取其 `[[wiki-links]]` 关系
+
+### 9.4 与 Bootstrap 集成
+
+```
+workspace/knowledge_tree/ (Markdown 种子)
+  → WikiFolderAdapter.parse_wiki_folder()
+  → list[KnowledgeNode] + list[RelationHint]
+  → embedder(node.content) 生成嵌入
+  → Bootstrap 聚类（GMM+UMAP 或 简单余弦 BFS）
+  → 写回 Markdown（Layer 1）+ Kùzu（Layer 2）+ Vector（Layer 3）
+```
+
+RelationHint 可在 P2 阶段用于辅助 DAG 边的构建（优先使用语义聚类边，wiki-link 作为辅助参考）。
