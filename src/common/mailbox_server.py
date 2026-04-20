@@ -28,11 +28,18 @@ logger = logging.getLogger(__name__)
 MAILBOX_PORT_FILE = Path("logs/mailbox.port")
 
 
+class _MailboxHTTPServer(HTTPServer):
+    """HTTPServer subclass that carries a mailbox reference for per-request handlers."""
+
+    mailbox: Mailbox
+
+
 class _InboxHandler(BaseHTTPRequestHandler):
     """Handles POST /inbox from Executor processes."""
 
-    # Shared via server instance
-    mailbox: Mailbox
+    def _get_mailbox(self) -> Mailbox:
+        """Retrieve mailbox from the server instance (not class-level)."""
+        return self.server.mailbox  # type: ignore[attr-defined]
 
     def do_POST(self) -> None:
         if self.path != "/inbox":
@@ -67,7 +74,7 @@ class _InboxHandler(BaseHTTPRequestHandler):
             return
 
         item = MailboxItem(item_type=item_type, payload=payload)
-        self.mailbox._post_sync(plan_id, item)
+        self._get_mailbox()._post_sync(plan_id, item)
 
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -136,11 +143,9 @@ class MailboxHTTPServer(threading.Thread):
         MAILBOX_PORT_FILE.write_text(str(actual_port))
 
         # Create HTTPServer with the pre-bound socket
-        self._server = HTTPServer((self._host, actual_port), _InboxHandler)
+        self._server = _MailboxHTTPServer((self._host, actual_port), _InboxHandler)
         self._server.socket = sock  # replace the server's socket with our bound one
-
-        # Share mailbox reference with handler
-        _InboxHandler.mailbox = self.mailbox
+        self._server.mailbox = self.mailbox  # instance-level, not class-level
 
         # Set a short timeout so we can check _stop_event periodically
         self._server.timeout = 0.5

@@ -49,6 +49,7 @@ async def test_reflection_node_non_continue_suggestion(suggestion, confidence):
     runtime.context.executor_model = "test:model"
     runtime.context.get_agent_llm_kwargs = MagicMock(return_value={})
     runtime.context.enable_llm_streaming = False
+    runtime.context.executor_call_model_timeout = 0
 
     mock_model = MagicMock()
     with patch("src.executor_agent.graph.load_chat_model", return_value=mock_model):
@@ -80,6 +81,7 @@ async def test_reflection_node_bad_llm_output_returns_message(bad_content):
     runtime.context.executor_model = "test:model"
     runtime.context.get_agent_llm_kwargs = MagicMock(return_value={})
     runtime.context.enable_llm_streaming = False
+    runtime.context.executor_call_model_timeout = 0
 
     mock_model = MagicMock()
     with patch("src.executor_agent.graph.load_chat_model", return_value=mock_model):

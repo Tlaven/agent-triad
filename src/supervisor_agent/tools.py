@@ -633,10 +633,20 @@ async def _wait_for_executor_result(
                 break
             await asyncio.sleep(1.0)
     except asyncio.CancelledError:
-        return (
-            f"等待 Executor 结果时被中断（用户可能发送了新消息或断开连接）。\n"
-            f"任务 plan_id={pid} 仍在后台运行。可再次调用 get_executor_result(plan_id) 获取结果。"
+        error_detail = (
+            f"等待 Executor 结果时被中断（用户可能发送了新消息或断开连接）。"
+            f"plan_id={pid}"
         )
+        updated_plan_json = _mark_plan_steps_failed(plan_json_cached, error_detail)
+        meta = {
+            "status": "failed",
+            "error_detail": error_detail,
+            "updated_plan_json": updated_plan_json,
+            "snapshot_json": "",
+            "plan_id": pid,
+        }
+        meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
+        return f"Executor 执行被中断：{error_detail}\n\n{meta_line}"
 
     if result_data is None:
         # 超时 → 标记失败并终止卡住的 executor 进程
@@ -864,7 +874,6 @@ def _build_list_executor_tasks_tool(runtime_context: Context):
         可查询的任务可用 get_executor_result(plan_id) 取结果；步骤级正文在任务已结束后使用 detail="full"。
         不可查询的任务需要重新规划。
         """
-        from src.supervisor_agent.state import ExecutorTaskRecord
 
         history = state.executor_task_history
         if not history:

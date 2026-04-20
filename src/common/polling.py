@@ -17,7 +17,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.common.mailbox import Mailbox
 
 if TYPE_CHECKING:
     from src.common.mailbox import Mailbox
@@ -25,6 +30,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "stopped"})
+
+
+@dataclass
+class _Registration:
+    """Per-plan tracking state for the poller."""
+
+    plan_json: str
+    base_url: str
+    registered_at: float  # time.monotonic()
+    consecutive_failures: int = 0
 
 
 class ExecutorPoller:
@@ -35,6 +50,8 @@ class ExecutorPoller:
     - asyncio.Semaphore limits concurrent in-flight requests.
     - force_poll_once() lets callers request an immediate sweep.
     - plan_json cache stores the original plan for _mark_plan_steps_failed fallback.
+    - Staleness detection: auto-unregisters plans that exceed max age or
+      consecutive failure threshold, posting a synthetic failure to Mailbox.
     """
 
     def __init__(
@@ -42,26 +59,27 @@ class ExecutorPoller:
         mailbox: "Mailbox",
         interval: float = 1.5,
         max_concurrent: int = 5,
+        max_staleness: float = 300.0,
+        max_consecutive_failures: int = 10,
     ) -> None:
         self._mailbox = mailbox
         self._interval = interval
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._max_staleness = max_staleness
+        self._max_consecutive_failures = max_consecutive_failures
 
-        # Active tracking: plan_id -> plan_json (may be "")
-        self._active: dict[str, str] = {}
+        # Active tracking: plan_id -> _Registration
+        self._active: dict[str, _Registration] = {}
         self._active_lock = asyncio.Lock()
 
         # base_url is set when the Executor process is ready (fallback for register)
         self._base_url: str = ""
 
-        # plan_id -> Executor HTTP base when multiple subprocesses are active
-        self._executor_base_urls: dict[str, str] = {}
-
         self._task: asyncio.Task | None = None
         # Event to trigger an immediate extra sweep
         self._force_event = asyncio.Event()
         # Shared client for sweeps (created lazily)
-        self._sweep_client: "httpx.AsyncClient | None" = None
+        self._sweep_client: httpx.AsyncClient | None = None  # noqa: F821
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -106,21 +124,23 @@ class ExecutorPoller:
         executor_base_url: str | None = None,
     ) -> None:
         """Start tracking a plan_id. Stores plan_json for fallback use."""
-        self._active[plan_id] = plan_json
         url = (executor_base_url or "").strip() or self._base_url
-        if url:
-            self._executor_base_urls[plan_id] = url
+        self._active[plan_id] = _Registration(
+            plan_json=plan_json,
+            base_url=url,
+            registered_at=time.monotonic(),
+        )
         logger.debug("ExecutorPoller: registered plan_id=%s", plan_id)
 
     def unregister(self, plan_id: str) -> None:
         """Stop tracking a plan_id (call after terminal state is processed)."""
         self._active.pop(plan_id, None)
-        self._executor_base_urls.pop(plan_id, None)
         logger.debug("ExecutorPoller: unregistered plan_id=%s", plan_id)
 
     def get_plan_json(self, plan_id: str) -> str:
         """Return the cached plan_json for a plan_id (empty string if unknown)."""
-        return self._active.get(plan_id, "")
+        reg = self._active.get(plan_id)
+        return reg.plan_json if reg else ""
 
     # ------------------------------------------------------------------
     # On-demand sweep
@@ -132,7 +152,7 @@ class ExecutorPoller:
             return False
         if self._base_url:
             return True
-        return any(self._executor_base_urls.get(pid) for pid in self._active)
+        return any(reg.base_url for reg in self._active.values())
 
     async def force_poll_once(self) -> None:
         """Trigger an immediate extra sweep and wait for it to complete.
@@ -187,7 +207,11 @@ class ExecutorPoller:
         await asyncio.gather(*coros, return_exceptions=True)
 
     async def _poll_one(self, client, plan_id: str) -> None:
-        """Poll /result/{plan_id} once; write to Mailbox on terminal status."""
+        """Poll /result/{plan_id} once; write to Mailbox on terminal status.
+
+        Also detects stale registrations (Executor unreachable for too long)
+        and auto-unregisters with a synthetic failure.
+        """
         from src.common.mailbox import MailboxItem
 
         # Skip if Mailbox already has a completion
@@ -195,13 +219,43 @@ class ExecutorPoller:
             self.unregister(plan_id)
             return
 
-        base = self._executor_base_urls.get(plan_id) or self._base_url
+        reg = self._active.get(plan_id)
+        if reg is None:
+            return
+
+        base = reg.base_url or self._base_url
         if not base:
+            return
+
+        # Staleness check: registration older than max_staleness
+        age = time.monotonic() - reg.registered_at
+        if age > self._max_staleness:
+            logger.warning(
+                "ExecutorPoller: plan_id=%s registration stale (%.0fs > %.0fs), "
+                "auto-unregistering with synthetic failure",
+                plan_id, age, self._max_staleness,
+            )
+            await self._post_synthetic_failure(
+                plan_id, "Executor registration timed out (stale)"
+            )
+            self.unregister(plan_id)
+            return
+
+        # Consecutive failure check
+        if reg.consecutive_failures >= self._max_consecutive_failures:
+            logger.warning(
+                "ExecutorPoller: plan_id=%s exceeded %d consecutive failures, "
+                "auto-unregistering with synthetic failure",
+                plan_id, reg.consecutive_failures,
+            )
+            await self._post_synthetic_failure(
+                plan_id, "Executor unreachable (consecutive poll failures)"
+            )
+            self.unregister(plan_id)
             return
 
         async with self._semaphore:
             try:
-                import httpx
                 r = await client.get(f"{base}/result/{plan_id}")
                 if r.status_code == 200:
                     data = r.json()
@@ -218,7 +272,56 @@ class ExecutorPoller:
                             status,
                         )
                         self.unregister(plan_id)
+                    else:
+                        # Task still running, reset failure counter
+                        reg.consecutive_failures = 0
+                elif r.status_code == 404:
+                    # Task not found yet (might still be starting)
+                    reg.consecutive_failures = 0
+                else:
+                    # Unexpected status, count as failure
+                    reg.consecutive_failures += 1
             except Exception as exc:
+                reg.consecutive_failures += 1
                 logger.debug(
-                    "ExecutorPoller: poll failed plan_id=%s: %s", plan_id, exc
+                    "ExecutorPoller: poll failed plan_id=%s (%d/%d): %s",
+                    plan_id,
+                    reg.consecutive_failures,
+                    self._max_consecutive_failures,
+                    exc,
                 )
+
+    async def _post_synthetic_failure(
+        self, plan_id: str, reason: str,
+    ) -> None:
+        """Post synthetic failure to Mailbox for stale or unreachable plan."""
+        from src.common.mailbox import MailboxItem
+
+        reg = self._active.get(plan_id)
+        plan_json = reg.plan_json if reg else ""
+
+        updated_plan_json = ""
+        if plan_json:
+            try:
+                from src.supervisor_agent.tools import _mark_plan_steps_failed
+
+                updated_plan_json = _mark_plan_steps_failed(plan_json, reason)
+            except Exception:
+                pass
+
+        payload = {
+            "status": "failed",
+            "summary": f"Executor task failed: {reason}",
+            "updated_plan_json": updated_plan_json,
+            "snapshot_json": "",
+            "plan_id": plan_id,
+            "error_detail": reason,
+        }
+        await self._mailbox.post(
+            plan_id,
+            MailboxItem(item_type="completion", payload=payload),
+        )
+        logger.info(
+            "ExecutorPoller: synthetic failure posted for plan_id=%s: %s",
+            plan_id, reason,
+        )

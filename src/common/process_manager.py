@@ -15,7 +15,7 @@ import logging
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -254,9 +254,14 @@ class ExecutorProcessManager:
 
         base_url = f"http://{ctx.executor_host}:{discovered_port}"
 
-        # Poll /health
+        # Poll /health with a guaranteed minimum budget
+        _HEALTH_CHECK_BUDGET = 10.0  # minimum seconds guaranteed for health check
+        now = asyncio.get_event_loop().time()
+        remaining = deadline - now
+        health_deadline = now + max(remaining, _HEALTH_CHECK_BUDGET)
+
         client = httpx.AsyncClient(base_url=base_url, timeout=5.0)
-        while asyncio.get_event_loop().time() < deadline:
+        while asyncio.get_event_loop().time() < health_deadline:
             try:
                 resp = await client.get("/health")
                 if resp.status_code == 200:
