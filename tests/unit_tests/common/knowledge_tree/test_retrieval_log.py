@@ -9,18 +9,16 @@ class TestRetrievalLog:
         assert log.query_text == "测试查询"
         assert len(log.query_id) == 12
         assert log.timestamp
-        assert log.fusion_mode == "none"
-        assert log.tree_success is False
+        assert log.rag_results == []
+        assert log.agent_satisfaction is None
 
     def test_to_dict(self):
         log = RetrievalLog.create("q")
-        log.tree_path = ["root", "n1"]
-        log.fusion_mode = "tree"
+        log.rag_results = [("dev/a.md", 0.85)]
         log.agent_satisfaction = True
         d = log.to_dict()
         assert d["query_text"] == "q"
-        assert d["tree_path"] == ["root", "n1"]
-        assert d["fusion_mode"] == "tree"
+        assert d["rag_results"] == [("dev/a.md", 0.85)]
         assert d["agent_satisfaction"] is True
         # query_vector 默认不包含
         assert "query_vector" not in d

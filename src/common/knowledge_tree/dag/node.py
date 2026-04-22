@@ -1,45 +1,55 @@
-"""知识树节点数据模型。"""
+"""知识树节点数据模型。
+
+V4: node_id 为文件相对路径（如 "development/debugging.md"），
+文件系统目录层级即树结构，不再使用 UUID。
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
-from uuid import uuid4
 
 import yaml
 
 
 @dataclass
 class KnowledgeNode:
-    """知识树叶子/中间节点。
+    """知识树节点——对应文件系统中的一个 Markdown 文件。
 
-    序列化为带 YAML frontmatter 的 Markdown 文件（Layer 1 SoT）。
+    node_id = 文件相对于 markdown_root 的路径（如 "development/debugging.md"）。
+    目录层级天然表达父子关系，无需额外 Graph 层。
     """
 
-    node_id: str
+    node_id: str  # 文件相对路径
     title: str
     content: str
     source: str
     created_at: str  # ISO 8601
     summary: str = ""
-    embedding: list[float] | None = None
+    embedding: list[float] | None = None  # content_embedding（纯内容语义，永不变）
+    stored_vector: list[float] | None = None  # P2: α·content + β·structural
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    # -- 目录锚点相关（P2）--
+    directory: str = ""  # 所属目录路径
+    anchor: list[float] | None = None  # 所属目录的锚点向量
 
     # -- 工厂方法 --
 
     @classmethod
     def create(
         cls,
+        node_id: str,
         title: str,
         content: str,
         source: str = "",
         summary: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> KnowledgeNode:
-        """创建新节点（自动生成 node_id 和时间戳）。"""
+        """创建新节点。node_id 为文件相对路径。"""
         return cls(
-            node_id=uuid4().hex[:12],
+            node_id=node_id,
             title=title,
             content=content,
             source=source,
@@ -48,52 +58,63 @@ class KnowledgeNode:
             metadata=metadata or {},
         )
 
-    # -- Markdown 序列化（Layer 1: Source of Truth）--
+    # -- Markdown 序列化（文件系统 SoT）--
 
     def to_frontmatter_md(self) -> str:
         """序列化为带 YAML frontmatter 的 Markdown 字符串。"""
         fm: dict[str, Any] = {
-            "node_id": self.node_id,
             "title": self.title,
             "source": self.source,
             "created_at": self.created_at,
-            "summary": self.summary,
         }
+        if self.summary:
+            fm["summary"] = self.summary
         if self.metadata:
             fm["metadata"] = self.metadata
-        # embedding 不写入 Markdown（由 Layer 3 管理）
+        # node_id / embedding / stored_vector / directory / anchor 不写入 Markdown
+        # node_id 由文件路径推导，向量由 Vector 层管理
         return f"---\n{yaml.dump(fm, allow_unicode=True, default_flow_style=False).strip()}\n---\n\n{self.content}"
 
     @classmethod
-    def from_frontmatter_md(cls, text: str) -> KnowledgeNode:
+    def from_frontmatter_md(
+        cls,
+        text: str,
+        node_id: str,
+    ) -> KnowledgeNode:
         """从带 YAML frontmatter 的 Markdown 反序列化。
+
+        Args:
+            text: Markdown 文本（含 frontmatter）。
+            node_id: 文件相对路径（从文件位置推导，不存于 frontmatter）。
 
         Raises:
             ValueError: frontmatter 格式错误或缺少必要字段。
         """
         if not text.startswith("---"):
-            raise ValueError("Missing YAML frontmatter delimiter '---'")
+            # 无 frontmatter——整个文本就是 content
+            return cls(
+                node_id=node_id,
+                title=node_id.rsplit("/", 1)[-1].removesuffix(".md"),
+                content=text.strip(),
+                source="",
+                created_at="",
+            )
 
         parts = text.split("---", 2)
         if len(parts) < 3:
             raise ValueError("Invalid frontmatter: expected opening and closing '---'")
 
         fm = yaml.safe_load(parts[1])
-        if not isinstance(fm, dict):
+        if fm is not None and not isinstance(fm, dict):
             raise ValueError("Frontmatter must be a YAML mapping")
+        if fm is None:
+            fm = {}
 
-        required = {"node_id", "title", "content"}
-        # content is the body after frontmatter
         content = parts[2].strip()
-        fm["content"] = content
-
-        missing = required - set(fm.keys())
-        if missing:
-            raise ValueError(f"Missing required fields: {missing}")
 
         return cls(
-            node_id=fm["node_id"],
-            title=fm["title"],
+            node_id=node_id,
+            title=fm.get("title", node_id.rsplit("/", 1)[-1].removesuffix(".md")),
             content=content,
             source=fm.get("source", ""),
             created_at=fm.get("created_at", ""),
@@ -113,9 +134,13 @@ class KnowledgeNode:
             "created_at": self.created_at,
             "summary": self.summary,
             "metadata": self.metadata,
+            "directory": self.directory,
         }
-        if include_embedding and self.embedding is not None:
-            d["embedding"] = self.embedding
+        if include_embedding:
+            if self.embedding is not None:
+                d["embedding"] = self.embedding
+            if self.stored_vector is not None:
+                d["stored_vector"] = self.stored_vector
         return d
 
     @classmethod
@@ -129,5 +154,8 @@ class KnowledgeNode:
             created_at=d.get("created_at", ""),
             summary=d.get("summary", ""),
             embedding=d.get("embedding"),
+            stored_vector=d.get("stored_vector"),
             metadata=d.get("metadata", {}),
+            directory=d.get("directory", ""),
+            anchor=d.get("anchor"),
         )

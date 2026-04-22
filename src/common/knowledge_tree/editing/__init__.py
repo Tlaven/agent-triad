@@ -1,1 +1,1 @@
-"""编辑操作：merge/split + JSON Patch Change Mapping + 重嵌入。"""
+"""编辑操作：P1 保留 re_embed（局部重嵌入）。"""

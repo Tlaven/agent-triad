@@ -1,17 +1,37 @@
-"""Layer 3: 向量索引操作（抽象接口）。
+"""向量索引操作（Layer 2）+ 目录锚点管理。
 
-P1 使用 Kùzu 内置向量索引或内存回退。
-实际向量计算由调用方负责，此模块仅管理存储和检索。
+V4: 向量是文件系统的派生物。
+content_embedding — 纯内容语义，永不变。
+stored_vector — P2: α·content + β·structural（目录锚点）。
+目录锚点 = 目录内所有文件 content_embedding 的质心。
 """
 
 from __future__ import annotations
 
 import logging
+import math
 from abc import ABC, abstractmethod
-
-from src.common.knowledge_tree.dag.node import KnowledgeNode
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DirectoryAnchor:
+    """目录锚点——目录内所有文件 content_embedding 的质心。"""
+
+    directory: str  # 目录相对路径
+    anchor_vector: list[float]
+    file_count: int
+    last_updated: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "directory": self.directory,
+            "anchor_vector": self.anchor_vector,
+            "file_count": self.file_count,
+            "last_updated": self.last_updated,
+        }
 
 
 class BaseVectorStore(ABC):
@@ -19,18 +39,18 @@ class BaseVectorStore(ABC):
 
     @abstractmethod
     def upsert_embedding(self, node_id: str, embedding: list[float]) -> None:
-        """插入或更新节点的向量嵌入。"""
+        """插入或更新节点的 content_embedding。"""
 
     @abstractmethod
     def get_embedding(self, node_id: str) -> list[float] | None:
-        """获取节点的向量嵌入。"""
+        """获取节点的 content_embedding。"""
 
     @abstractmethod
     def similarity_search(
         self,
         query_embedding: list[float],
         top_k: int = 5,
-        threshold: float = 0.85,
+        threshold: float = 0.7,
     ) -> list[tuple[str, float]]:
         """向量相似度检索。
 
@@ -47,6 +67,32 @@ class BaseVectorStore(ABC):
     def delete_embedding(self, node_id: str) -> bool:
         """删除节点的向量嵌入。"""
 
+    # -- 目录锚点 --
+
+    @abstractmethod
+    def upsert_anchor(self, anchor: DirectoryAnchor) -> None:
+        """插入或更新目录锚点。"""
+
+    @abstractmethod
+    def get_anchor(self, directory: str) -> DirectoryAnchor | None:
+        """获取目录锚点。"""
+
+    @abstractmethod
+    def get_all_anchors(self) -> list[DirectoryAnchor]:
+        """获取所有目录锚点。"""
+
+    @abstractmethod
+    def delete_anchor(self, directory: str) -> bool:
+        """删除目录锚点。"""
+
+    @abstractmethod
+    def find_nearest_anchor(
+        self,
+        query_embedding: list[float],
+        threshold: float = 0.5,
+    ) -> DirectoryAnchor | None:
+        """找到与查询向量最相似的目录锚点。"""
+
     @abstractmethod
     def close(self) -> None:
         """清理资源。"""
@@ -55,12 +101,15 @@ class BaseVectorStore(ABC):
 class InMemoryVectorStore(BaseVectorStore):
     """内存向量存储（测试和回退用）。
 
-    使用余弦相似度计算。向量存储在内存中，不持久化。
+    使用余弦相似度。不持久化。
     """
 
     def __init__(self, dimension: int = 512) -> None:
         self._embeddings: dict[str, list[float]] = {}
+        self._anchors: dict[str, DirectoryAnchor] = {}
         self._dimension = dimension
+
+    # -- 节点向量 --
 
     def upsert_embedding(self, node_id: str, embedding: list[float]) -> None:
         self._embeddings[node_id] = embedding
@@ -72,7 +121,7 @@ class InMemoryVectorStore(BaseVectorStore):
         self,
         query_embedding: list[float],
         top_k: int = 5,
-        threshold: float = 0.85,
+        threshold: float = 0.7,
     ) -> list[tuple[str, float]]:
         if not self._embeddings:
             return []
@@ -92,15 +141,75 @@ class InMemoryVectorStore(BaseVectorStore):
             return True
         return False
 
+    # -- 目录锚点 --
+
+    def upsert_anchor(self, anchor: DirectoryAnchor) -> None:
+        self._anchors[anchor.directory] = anchor
+
+    def get_anchor(self, directory: str) -> DirectoryAnchor | None:
+        return self._anchors.get(directory)
+
+    def get_all_anchors(self) -> list[DirectoryAnchor]:
+        return list(self._anchors.values())
+
+    def delete_anchor(self, directory: str) -> bool:
+        if directory in self._anchors:
+            del self._anchors[directory]
+            return True
+        return False
+
+    def find_nearest_anchor(
+        self,
+        query_embedding: list[float],
+        threshold: float = 0.5,
+    ) -> DirectoryAnchor | None:
+        """找到与查询向量最相似的目录锚点。"""
+        best: tuple[DirectoryAnchor, float] | None = None
+        for anchor in self._anchors.values():
+            score = _cosine_similarity(query_embedding, anchor.anchor_vector)
+            if score >= threshold and (best is None or score > best[1]):
+                best = (anchor, score)
+        return best[0] if best is not None else None
+
     def close(self) -> None:
         self._embeddings.clear()
+        self._anchors.clear()
+
+    # -- 辅助 --
+
+    def get_embeddings_in_directory(self, directory: str) -> dict[str, list[float]]:
+        """获取指定目录下所有文件的 embedding。"""
+        prefix = directory.rstrip("/") + "/"
+        return {
+            nid: emb
+            for nid, emb in self._embeddings.items()
+            if nid.startswith(prefix)
+        }
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """计算余弦相似度。"""
     dot = sum(x * y for x, y in zip(a, b))
-    norm_a = sum(x * x for x in a) ** 0.5
-    norm_b = sum(x * x for x in b) ** 0.5
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def compute_anchor_vector(embeddings: list[list[float]]) -> list[float]:
+    """计算目录锚点向量 = 归一化的 embedding 均值。"""
+    if not embeddings:
+        return []
+    dim = len(embeddings[0])
+    mean = [0.0] * dim
+    for emb in embeddings:
+        for i in range(dim):
+            mean[i] += emb[i]
+    for i in range(dim):
+        mean[i] /= len(embeddings)
+    # 归一化
+    norm = math.sqrt(sum(x * x for x in mean))
+    if norm == 0.0:
+        return mean
+    return [x / norm for x in mean]

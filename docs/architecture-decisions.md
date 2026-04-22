@@ -453,314 +453,267 @@ Supervisor 提示词明确指导：当计划中有 `parallel_group` 时，将同
 
 ---
 
-## 决策 18：知识树三层分离存储架构
 
-知识树采用三层分离的存储架构，各层职责明确：
+## 决策 18：知识树两层存储 + Overlay 架构
+
+知识树采用**两层存储 + 轻量 Overlay**架构，以文件系统为核心：
 
 | 层 | 载体 | 职责 |
 |----|------|------|
-| Layer 1 | Markdown 文件（Source of Truth） | Agent 直接读写、人类可审查、git 可版本化 |
-| Layer 2 | 图数据库（DAG 结构层） | 节点元数据 + 关系边、主父节点标记 + 关联边 |
-| Layer 3 | 向量索引（检索层，图数据库内置） | 语义相似度计算、模糊召回、受树结构约束排序 |
+| Layer 1 | 文件系统（Source of Truth + 结构） | 目录层级 = 父子关系；Markdown 文件 = 知识节点；人类可读写、git 可版本化 |
+| Layer 2 | 向量索引（内存） | stored_vector = α·content_embedding + β·structural_vector；同目录文件聚簇 |
+| Overlay | 轻量 JSON 文件 | 跨目录关联边（is_primary=False），表达多领域归属 |
 
-同步规则：
-- **写入顺序**：Markdown 先写（SoT），再同步到图数据库和向量索引
-- **读取路径**：图数据库提供结构查询，向量索引提供语义检索，Markdown 供 Agent 直接编辑
-- **冲突解决**：Markdown 为准，图数据库和向量索引为派生物
+**与旧方案（三层分离）的关键区别**：
+- 旧方案：独立 Graph 数据库存 DAG 边 + Markdown 存内容 + 向量索引，三层需同步
+- 新方案：文件系统目录层级 = primary 父子关系，干掉独立 Graph 层，消除同步负担
+- 向量不再是纯内容嵌入，而是 content + structural 混合向量
+- 结构变更只需移动文件 + 重算向量，不需要维护 Graph ↔ Markdown 一致性
 
-节点 Markdown 文件约定：
-- 文件名：`{node_id}.md`
-- YAML frontmatter 存储元数据（title、source、created_at、summary 等）
-- 正文存储 content
+**原因**：三层分离引入了不必要的同步复杂度。文件系统天然支持层级结构和持久化，直接用目录作为树结构消除了 Graph 层与 Markdown 层不一致的风险。Overlay JSON 仅处理少量跨目录关联，不承担主结构职责。
 
-```yaml
 ---
-node_id: abc123
-title: "LangGraph 状态管理"
-source: "官方文档"
-created_at: "2026-04-17T10:00:00Z"
-summary: "LangGraph StateGraph 的状态传递模式"
-parent_ids:
-  - parent_node_id  # 第一个为主父节点
+
+## 决策 19：（废弃）P1 图数据库选型——Kùzu
+
+> 已废弃。文件系统替代 Graph 层，不再需要独立图数据库。
+> `BaseGraphStore` / `InMemoryGraphStore` / `KuzuGraphStore` 相关代码可删除。
+> 未来如需图查询能力（P3+），可基于 Overlay JSON 扩展或引入 DuckDB。
+
 ---
-LangGraph 使用 TypedDict 定义状态模式...
+
+## 决策 20：文件系统即树结构——主路径与目录层级
+
+知识树的**主结构**直接由文件系统目录层级表达，无需独立 DAG。
+
+### 1) 目录 = primary 父子关系
+
+```
+knowledge_tree/              ← 根节点
+  development/               ← 中间节点（目录）
+    debugging.md             ← 叶子节点（文件）
+    async_pattern.md
+  skills/
+    code_review.md
+    scripts/
+      review.sh              ← 可执行代码（被 .md 引用）
 ```
 
-**原因**：三层分离让每层可独立演进（存储格式 vs 查询引擎 vs 检索算法），同时 Markdown SoT 保证人类可审计和 git 可追溯。与决策 12（MCP 工具分层）类似，分层隔离关注点。
+- 目录包含关系 = `is_primary=True` 的父子边
+- 每个文件/目录有且仅有一个父目录 = 单亲树
+
+### 2) 跨目录关联 = Overlay JSON
+
+一个知识点可能属于多个领域（如"调试技巧"同时属于"Python"和"Agent 工作流"）。
+这类 `is_primary=False` 的关联边存储在轻量 Overlay JSON 中。
+
+### 3) node_id = 文件相对路径
+
+节点 ID 直接使用文件相对于知识树根目录的路径（如 `development/debugging.md`），
+天然唯一且包含结构信息，不需要 UUID。
+
+**原因**：文件系统的目录包含关系天然就是有向无环树。用目录层级替代 Graph 层的 primary edges，消除了"两份数据必须保持一致"的工程负担。node_id 用路径则不需要额外的 ID↔路径映射。
 
 ---
 
-## 决策 19：P1 图数据库选型——Kùzu
+## 决策 21：检索策略——RAG 优先，手动搜索兜底
 
-P1 原型阶段选用 **Kùzu v0.11.x** 作为嵌入式图数据库。
-
-选型考量：
-
-| 方案 | 优势 | 劣势 |
-|------|------|------|
-| **Kùzu**（选用） | Cypher 查询 + 内置 HNSW 向量索引 + 全文检索，嵌入式单进程 | 2025 年 10 月已归档，不再积极维护 |
-| DuckDB + 自定义图层 | 生态成熟、向量扩展活跃 | 图遍历需自研，原型速度慢 |
-| RyuGraph | Kùzu 继承者，理念匹配 | 社区待验证，API 不稳定 |
-
-迁移策略：
-- 存储层通过**抽象基类**（`BaseGraphStore`）隔离 Kùzu 具体实现
-- 长期首选 **DuckDB + 自定义图层**，积极备选 **RyuGraph**
-- 迁移成本可控：只需实现新的 `BaseGraphStore` 子类
-
-```python
-class BaseGraphStore(ABC):
-    @abstractmethod
-    def upsert_node(self, node: KnowledgeNode) -> None: ...
-    @abstractmethod
-    def get_children(self, parent_id: str) -> list[KnowledgeNode]: ...
-    @abstractmethod
-    def similarity_search(self, query_vec: list[float], top_k: int, threshold: float) -> list[tuple[KnowledgeNode, float]]: ...
-
-class KuzuGraphStore(BaseGraphStore):
-    """P1 实现：基于 Kùzu v0.11.x"""
-    ...
-```
-
-**原因**：P1 目标是快速验证端到端闭环，Kùzu 的 Cypher + 向量一体化最大程度减少移动部件。归档风险通过抽象接口缓解，不影响原型验证。与决策 1 的"先用最简单方案验证"原则一致。
-
----
-
-## 决策 20：DAG 结构与主路径遍历
-
-知识树物理存储为**有向无环图（DAG）**，允许节点有多个父节点（跨领域关联），但导航使用**主路径遍历**。
-
-### 1) 边类型
-
-```python
-@dataclass
-class KnowledgeEdge:
-    edge_id: str
-    parent_id: str
-    child_id: str
-    is_primary: bool       # True = 主父节点，用于遍历
-    edge_type: str         # "parent_child" | "association"
-```
-
-- 每个子节点有且仅有一个 `is_primary=True` 的父边——定义遍历主路径
-- 其余父边 `is_primary=False`，作为关联引用保留 DAG 语义
-
-### 2) 遍历策略分阶段
-
-| 阶段 | 策略 | 说明 |
-|------|------|------|
-| P1 | 主路径遍历 | 从根节点出发，每步沿 `is_primary=True` 的子节点前进 |
-| P2 | 多路径并行探索 | 允许沿多个父边探索，加深度/置信度剪枝防分支爆炸 |
-
-### 3) 主路径缓存
-
-- 首次遍历后缓存从根到每个节点的主路径（`node_id → [root, ..., node]`）
-- 节点编辑/移动时失效并重算
-- P2 多路径探索时，缓存的主路径作为优先探索路径
-
-**原因**：DAG 提供比严格树更灵活的关联表达能力（如"调试技巧"同时属于"Python"和"Agent 工作流"），但 P1 先用主路径遍历降低复杂度，积累失败案例作为 P2 多路径探索的数据基础。与决策 11（单线程先行）的渐进思路一致。
-
----
-
-## 决策 21：检索策略——树优先，RAG 兜底
-
-知识树采用双路径检索机制：**LLM 路由树导航优先，高阈值向量检索兜底**。
+知识树采用**RAG 快速检索优先，Agent 手动搜索文件系统兜底**的双阶段检索。
 
 ### 1) 检索流程
 
 ```
-查询文本 → 向量化
-         → ② LLM 路由树导航（置信度 ≥ 0.7 继续下钻）
-         → ③ RAG 兜底（树导航失败时，相似度 ≥ 0.85）
-         → ④ 结果融合
-         → ⑤ Agent 反馈
-         → ⑥ 结构化检索日志
+Agent 需要知识
+  → ① RAG 向量检索（stored_vector 相似度）
+  → ② 满意？拿走结束
+  → ③ 不满意？Agent 手动搜索文件系统
 ```
 
-### 2) 树导航（主路径）
+### 2) RAG 检索
 
-从根节点开始，每层将子节点摘要列表与查询一起提交给 LLM，由 LLM 执行路由决策：
-- LLM 返回选中的子节点 ID 及决策置信度（0.0-1.0）
-- 置信度 ≥ 0.7：继续向深层导航
-- 置信度 < 0.7 或无合适子节点：树导航失败
+- 查询文本 → content_embedding（P1）/ stored_vector（P2）
+- 与所有文件的向量计算余弦相似度
+- 超过阈值（默认 0.7）返回 Top-K 结果
+- P2 的 stored_vector 含 structural 信息，同目录文件更容易被一起召回
 
-### 3) RAG 兜底
+### 3) Agent 手动搜索
 
-仅在树导航失败时触发：
-- 使用查询向量在向量索引中执行相似度检索
-- 仅保留相似度 ≥ 0.85 的结果，返回 Top-K（K=5）
+RAG 不满意时，Agent 使用现有工作区工具直接搜索文件系统：
+- `list_workspace_entries` — 列目录结构
+- `read_workspace_text_file` — 读文件内容
+- `search_files` — glob 模式搜索
+- `grep_content` — 正则内容搜索
 
-### 4) 结果融合
+Agent 根据每一步观察自主决策下一步，不是盲目遍历。
+如果 README.md 存在，Agent 可先读摘要快速定位；不存在也不影响搜索。
 
-| 场景 | 来源标记 | 处理 |
-|------|---------|------|
-| 树导航成功且内容充分 | `tree` | 直接采纳 |
-| 树导航成功但内容不足 | `tree+rag` | 树结果 + RAG 结果合并，LLM 综合排序 |
-| 树导航失败，RAG 有结果 | `rag` | 采纳 RAG Top-1，记录导航失败信号 |
-| 两者均无结果 | `none` | 返回"未找到" |
+### 4) 检索日志
 
-### 5) Agent 反馈与检索日志
+每次检索记录结构化日志：查询、结果、Agent 满意度、是否触发了手动搜索。
+日志是优化闭环的数据燃料。
 
-- Agent 反馈结构化字段：`{satisfaction: bool, reason: str}`
-- 每次查询自动记录结构化 JSON 日志：查询向量、导航路径、各层置信度、RAG 候选、最终结果、来源标记、Agent 反馈
-- 日志从 P1 起强制输出，为后续小模型路由器训练预留数据基础
-
-**原因**：树导航利用 LLM 的语义理解处理歧义查询（优于纯向量匹配），RAG 高阈值兜底保障召回底线。双路径互补而非竞争。结构化日志是闭环优化的数据燃料。
+**原因**：RAG 提供快速语义匹配，手动搜索提供精确结构导航。两者互补而非竞争。不再需要 LLM 路由树导航（旧方案的 router.py），因为文件系统的目录结构对 Agent 来说是直接可读的。
 
 ---
 
-## 决策 22：Change Mapping P1——JSON Patch
+## 决策 22：（重定义）编辑 → Agent 主动重组
 
-P1 阶段 Agent 编辑操作限定为**内容编辑 + merge/split**，使用 **JSON Patch (RFC 6902)** 作为 Delta 格式。
+> 旧决策 22（Change Mapping / JSON Patch）已不适用于新架构。
+> 编辑操作改为 Agent 通过编号树重组表达结构意图，系统自动执行。
 
-### 1) P1 支持的操作
+### 1) P2 重组机制
 
-| 操作 | 语义 | JSON Patch 映射 |
-|------|------|----------------|
-| `update_content` | 修改节点内容/摘要 | `[{op: "replace", path: "/content", value: "..."}]` |
-| `merge` | 合并多个节点为一个 | 创建新节点 + 删除旧节点 + 继承所有边 |
-| `split` | 拆分一个节点为多个 | 创建新子节点 + 更新父节点摘要 |
+**Step 1**：系统展示带编号的当前目录树
 
-### 2) 强约束防幻觉
-
-Agent 输出 Delta 时需双重约束：
-- **Prompt 模板**：明确指定输出格式和允许的操作类型
-- **解析校验**：系统解析 Agent 输出后验证 JSON Patch 格式合法性和操作范围
-
-```python
-# 解析校验示例
-ALLOWED_OPS = {"replace", "add", "remove"}
-ALLOWED_PATHS = {"/content", "/summary", "/title"}
-
-def validate_delta(patches: list[dict]) -> bool:
-    for p in patches:
-        if p["op"] not in ALLOWED_OPS:
-            return False
-        if not any(p["path"].startswith(prefix) for prefix in ALLOWED_PATHS):
-            return False
-    return True
+```
+01 development/
+    01 debugging.md
+    02 async_pattern.md
+02 skills/
+    01 code_review.md
+03 domain/
+    01 architecture.md
+    02 design_decisions.md
 ```
 
-### 3) 分阶段演进
+**Step 2**：Agent 输出重组后的带编号目录树
 
-| 阶段 | Delta 格式 | 审计 |
-|------|-----------|------|
-| P1 | JSON Patch (RFC 6902) | 日志记录每次 Delta |
-| P2 | + 语义层（merge/split/move 操作映射到 JSON Patch） | + 语义 Delta 审计日志供人类/Supervisor 审查 |
-| P3 | 完整语义层（创建抽象层/跨层重组） | 通用 Delta 描述格式 |
+Agent 按自己的理解输出新结构。编号体现 Agent 认为的关联性。
 
-**原因**：JSON Patch 是标准、可验证、工具链丰富的格式。强约束防止 Agent 幻觉产生无效 Delta。渐进式引入语义层，P1 先验证流程可行性。
+**Step 3**：系统自动执行
+
+1. 解析新旧结构差异（文件移动、目录合并/拆分/创建）
+2. Python 程序在文件系统中实际执行移动、创建、删除
+3. 从位置变化提取关系信号：
+   - 被放到同一目录 → 强关联
+   - 保持在一起 → 确认关联
+   - 被分开 → 弱化关联
+4. 重算受影响目录的锚点
+5. 更新被移动文件的 structural_vector 和 stored_vector
+
+### 2) 向量调整
+
+重组后向量自动跟随结构更新：
+- 目录锚点从 content_embedding 推导（不变量）
+- structural_vector 更新为新目录锚点
+- stored_vector 重算 = α·content + β·new_structural
+
+### 3) P1 限制
+
+P1 不含重组工具。Agent 只能通过直接操作工作区文件来手动调整（与 Executor 配合）。
+P2 引入 `knowledge_tree_reorganize` + `knowledge_tree_apply_reorganization` 工具。
+
+**原因**：Agent 不直接写文件系统命令，而是表达结构意图（新的编号树）。系统解析差异后自动执行，保证文件操作的正确性和原子性。从位置变化提取的关联信号反馈到向量空间，实现"结构变更 → 向量调整"的闭环。
 
 ---
 
 ## 决策 23：异步优化闭环与防震荡
 
-知识树通过 4 种检索信号驱动异步批量优化，并设防震荡机制。
+知识树通过检索信号驱动优化，并设防震荡机制。
 
-### 1) 四种优化信号
+### 1) 优化信号
 
 | 信号类型 | 触发条件 | 优化动作 | 优先级 |
 |----------|----------|----------|--------|
-| 整体失败 | 树 + RAG 均无结果，累积达阈值 | Agent 创建新节点，失败查询作为种子 | 1（最高） |
-| 导航失败 | 某父节点下频繁导航失败 | 标记"结构薄弱点"，Agent 分裂/重组/摘要重写 | 2 |
-| RAG 假阳性 | RAG 返回节点被标记为不相关 | 对比学习负样本，调整相似度权重 | 3 |
-| 内容不足 | 树导航成功但内容不充分 | Agent 更新节点内容/摘要 | 4（最低） |
+| 整体失败 | RAG + 手动搜索均无结果，累积达阈值 | Agent 创建新节点/目录 | 1（最高） |
+| 检索不满意 | RAG 返回结果但 Agent 标记不满意 | 记录信号，供重组参考 | 2 |
+| 目录内方差过高 | 同目录文件 content_embedding 差异过大 | Agent 考虑拆分目录 | 3 |
+| 内容不足 | 找到文件但内容不充分 | Agent 更新文件内容 | 4（最低） |
 
-### 2) 防震荡：分层控制
+### 2) 防震荡
 
-- **独立阈值**：每种信号类型独立配置触发条件（如导航失败 N 次/时间窗口）
-- **全局频率上限**：无论信号类型，总优化动作受全局限额约束（初期保守值如每小时最多 10 次），超出排队到下个窗口
-- **满意度反馈动态调整**：结合检索日志中的 Agent 满意度反馈，动态调整全局频率上限
+- 每种信号独立阈值
+- 全局频率上限（总优化动作限额）
+- 优先级排序
 
-### 3) 执行模式
+所有优化动作异步批量执行，不阻塞检索路径。
 
-所有优化动作**异步批量**执行，不阻塞检索路径。定期扫描检索日志提取信号，按优先级排序后在频率限额内执行。
-
-**原因**：4 种信号覆盖了检索失败的主要模式，每种都有明确的优化动作。防震荡机制防止过度优化导致树结构不稳定。异步批量执行与 AgentTriad 现有的异步模式（决策 1 的 `wait_for_result`）一致。
+**原因**：4 种信号覆盖检索失败的主要模式。防震荡防止过度优化导致树结构不稳定。
 
 ---
 
 ## 决策 24：P1 信息范围——领域知识
 
-P1 阶段知识树仅承载**领域知识**作为初始种子。
+P1 阶段知识树仅承载**领域知识**。
 
-### 1) 叶子节点模式
+### 1) 叶子节点
 
-```python
-@dataclass
-class KnowledgeNode:
-    node_id: str
-    title: str
-    content: str
-    source: str         # 来源标识（如"官方文档"、"代码注释"）
-    created_at: str     # ISO 格式时间戳
-    summary: str = ""   # 摘要，用于树导航路由
-    embedding: list[float] | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-```
+对应文件系统中的一个 Markdown 文件：
+- `node_id`：文件相对路径
+- `title`：文件标题
+- `content`：文件正文
+- `source`：来源标识
+- `created_at`：创建时间
 
 ### 2) 分阶段扩展
 
-| 阶段 | 信息类型 | 新增字段 |
+| 阶段 | 信息类型 | 新增能力 |
 |------|---------|---------|
-| P1 | 领域知识 | 基础字段（上表） |
-| P2 | + Agent 记忆 | `decay_score`、`access_count`（指数衰减遗忘机制） |
-| P3 | + 技能/Skill + 参考资料 | 技能含可执行定义（可绑定 Supervisor 工具调用）；参考资料含外部链接 |
+| P1 | 领域知识 | 基础 Markdown 文件 |
+| P2 | Agent 记忆 | 衰减分数、访问计数 |
+| P3 | 技能/Skill + 参考资料 | 可执行脚本绑定、外部链接 |
 
-**原因**：领域知识结构性强、边界清晰，最适合验证"Bootstrap 建树 → Agent 编辑 → 向量校准"闭环。碎片化记忆和可执行技能的引入需要树结构先稳定运行。
+### 3) 可执行代码
+
+叶节点目录下可包含可执行脚本，被同目录 Markdown 引用和解释。
+Agent 检索到该知识时可直接使用脚本，无需自己编写。
+
+**原因**：领域知识结构性强、边界清晰。碎片化记忆和技能的引入需要树结构先稳定运行。
 
 ---
 
 ## 决策 25：知识树定位——Supervisor 内嵌模块
 
-知识树作为 **Supervisor 内嵌组件**，物理位于 `src/common/knowledge_tree/` 子包，通过工具注册暴露给 Supervisor。
+知识树作为 Supervisor 内嵌组件，物理位于 `src/common/knowledge_tree/`，通过工具注册暴露。
 
 ### 1) 模块定位
 
-- **不是独立 Agent**：不引入新的 LangGraph 子图，不改变现有三层架构
-- **不是独立服务**：不启动额外进程或 HTTP 端口
-- **是共享基础设施**：类似 `src/common/tools.py`（工作区工具）和 `src/common/mcp.py`（MCP 客户端）的定位
+- 不是独立 Agent，不引入新子图
+- 不是独立服务，不启动额外进程
+- 是共享基础设施，类似 `src/common/tools.py` 的定位
 
-### 2) 工具注册方式
+### 2) 工具注册
 
 ```python
 # src/supervisor_agent/tools.py
-async def get_tools(runtime_context: Context | None = None) -> List[Callable[..., Any]]:
-    tools = [
-        _build_call_planner_tool(runtime_context),
-        _build_call_executor_tool(runtime_context),
-        # ... 现有工具 ...
-    ]
-    # V4: 条件注册知识树工具
-    if runtime_context.enable_knowledge_tree:
-        from src.common.knowledge_tree import build_knowledge_tree_tools
-        tools.extend(build_knowledge_tree_tools(runtime_context))
-    return tools
+if runtime_context.enable_knowledge_tree:
+    from src.common.knowledge_tree import build_knowledge_tree_tools
+    tools.extend(build_knowledge_tree_tools(runtime_context))
 ```
 
-知识树工具列表：
-- `knowledge_tree_retrieve(query: str) -> str` — 主检索工具
-- `knowledge_tree_edit(operation: str, params_json: str) -> str` — merge/split 编辑
-- `knowledge_tree_status() -> str` — 树健康/结构概览
+P1 工具：`knowledge_tree_retrieve`、`knowledge_tree_ingest`、`knowledge_tree_status`
+P2 新增：`knowledge_tree_reorganize`、`knowledge_tree_apply_reorganization`
 
-### 3) 配置集成
+### 3) 配置
 
-通过 `src/common/context.py` 的 `Context` dataclass 添加配置字段，遵循现有的 env-var 覆盖模式（字段名大写化为环境变量名）。
+通过 `Context` dataclass 添加字段，遵循现有 env-var 覆盖模式。
 
 ### 4) 包结构
 
 ```
 src/common/knowledge_tree/
-    __init__.py              # 公共 API
-    config.py                # KnowledgeTreeConfig
-    bootstrap.py             # 建树
-    storage/                 # 三层存储
-    dag/                     # DAG 数据模型
-    retrieval/               # 检索逻辑
-    editing/                 # 编辑 + Change Mapping
-    optimization/            # 优化闭环
+    __init__.py          # KnowledgeTree 门面类
+    config.py            # KnowledgeTreeConfig
+    bootstrap.py         # 种子目录建树
+    storage/
+        markdown_store.py  # 文件系统读写
+        vector_store.py    # 向量索引 + 目录锚点
+        overlay.py         # Overlay JSON 关联边
+        sync.py            # 文件系统 → 向量派生
+    dag/
+        node.py            # KnowledgeNode
+    retrieval/
+        rag_search.py      # RAG 检索
+        log.py             # 检索日志
+    ingestion/
+        chunker.py, filter.py, ingest.py
+    editing/
+        re_embed.py        # 重嵌入
+    optimization/
+        signals.py         # 信号检测（P3）
 ```
 
-**原因**：内嵌模块定位最轻量，不改变现有架构拓扑（与决策 8 的三种模式兼容），工具注册方式与现有 Supervisor 工具一致（factory pattern）。条件注册通过 feature flag 控制，不影响 V3 及以前的功能。
+**原因**：内嵌模块定位最轻量，不改变现有架构拓扑。条件注册通过 feature flag 控制。
 
 ---
 
@@ -768,111 +721,88 @@ src/common/knowledge_tree/
 
 ### 核心问题
 
-Bootstrap 从种子文件建树，但 Agent 日常执行中产生的**新知识没有自然流入通道**。Executor 执行中发现模式、Supervisor 做出决策、用户说"记住这个"——这些涌现知识需自动进入知识树，否则树会过时失效。
+Agent 执行中产生的新知识需要自动回流到知识树，否则树会过时失效。
 
 ### 管道设计
 
 ```
-事件触发 → 原子切分 → 轻量过滤 → 向量去重 → ingest_nodes() → 现有闭环
+事件触发 → 原子切分 → 轻量过滤 → 向量去重 → 增量嫁接 → 目录锚点更新
 ```
 
-#### 1. 事件触发（P1：事件驱动）
+#### 1. 事件触发
 
-| 触发源 | 时机 | 候选内容 |
-|--------|------|---------|
+| 触发源 | 时机 | 内容 |
+|--------|------|------|
 | 任务完成 | `ExecutorResult.status == "completed"` | summary + observations |
-| 用户显式指令 | 用户说"记住/记下来" | 用户指定的内容片段 |
-| 任务失败（P2） | `ExecutorResult.status == "failed"` | failure_reason（失败经验同样有价值） |
+| 用户显式指令 | 用户说"记住/记下来" | 指定内容 |
+| 任务失败（P2） | `ExecutorResult.status == "failed"` | failure_reason |
 
-P1 仅实现前两种。P2 考虑暴露 `knowledge_tree_ingest` 工具让 LLM 自主决定（更 agentic），但 P1 事件驱动更可控、可审计。
+#### 2. 原子切分
 
-#### 2. 原子切分（Chunking）
-
-- 粒度：**< 512 tokens**（中文约 300-400 字）
-- P1 策略：按 `\n\n` + 对话轮边界切分
-- P2 升级：SemanticChunker 语义边界切分
-- 每段生成临时 `KnowledgeNode`（title = 自动摘要，content = 原始文本）
+- 粒度 < 512 tokens
+- P1：按 `\n\n` + 对话轮边界
+- P2：SemanticChunker
 
 #### 3. 轻量过滤
 
-规则判断"是否值得记忆"，**低阈值**（宁多勿漏）：
-
-- 含决策/结论关键词（"决定"、"结论"、"规则"、"发现"…）
+规则判断"是否值得记忆"，低阈值（宁多勿漏）：
+- 含决策/结论关键词
 - 含数字或专有名词
-- 用户显式说 "记住/记下来"
-- 任务成功完成的 summary
-
-过滤后的节点进入下一步。
+- 用户显式指令 / 任务完成 summary
 
 #### 4. 向量去重
 
-复用 `vector_store.search(top-1)` 检查已有知识的相似度：
-- similarity > `kt_dedup_threshold`（默认 0.95）→ 跳过（或生成轻量 ChangeDelta 供后续 merge）
-- 否则 → 进入 ingest
+`vector_store.search(top-1)` 检查相似度：
+- > 0.95 → 跳过
+- 否则 → 进入摄入
 
-2026 RAG 实践表明 cosine 0.93-0.96 是甜点区。过高放走近似重复，过低误杀有差异的知识。
-
-#### 5. `ingest_nodes()` — 增量嫁接
+#### 5. 增量嫁接
 
 ```
-for each candidate node:
-    embed(node) → 向量
-    vector_store.search(top-1) → 找最匹配的现有 group
-    if similarity > kt_cluster_attach_threshold (0.7):
-        嫁接为该 group 的子节点
+for each candidate:
+    embed → content_embedding
+    search → 找最相似的目录锚点
+    if similarity > threshold:
+        放入该目录，局部更新锚点
     else:
-        创建新 group → root 下
-    sync 三层存储
+        创建新目录，挂到语义最近的父目录下
+    更新向量索引
 ```
-
-本质上是 `bootstrap_from_seed_files()` 的增量版本——不重建整棵树，而是把新节点嫁接进去。
 
 #### 6. 来源元数据
 
-每个节点的 `source` 和 `metadata` 携带追溯信息：
-
 ```python
-source="agent:supervisor",        # 哪个 Agent 产出的
-metadata={
-    "plan_id": "xxx",             # 来自哪个任务
-    "trigger": "task_complete",   # 触发类型
-    "filter_confidence": 0.8,    # 过滤时的置信度
-}
-```
-
-后续优化器可据此加权（例如 `task_complete` 触发的节点优先级更高）。
-
-### 模块结构
-
-```
-src/common/knowledge_tree/ingestion/
-    __init__.py
-    chunker.py        # 原子切分
-    filter.py         # 轻量规则过滤
-    ingest.py         # ingest_nodes() 核心逻辑
+source="agent:supervisor"
+metadata={"plan_id": "xxx", "trigger": "task_complete", "filter_confidence": 0.8}
 ```
 
 ### 新增配置字段
 
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
-| `kt_ingest_chunk_max_tokens` | 512 | 切分粒度上限 |
-| `kt_dedup_threshold` | 0.95 | 去重相似度阈值 |
-| `kt_cluster_attach_threshold` | 0.7 | 嫁接到现有 group 的相似度阈值 |
-| `kt_ingest_enabled` | True | 摄入管道开关 |
+| `kt_ingest_chunk_max_tokens` | 512 | 切分粒度 |
+| `kt_dedup_threshold` | 0.95 | 去重阈值 |
+| `kt_ingest_enabled` | True | 管道开关 |
 
 ### 集成方式
 
-P1：Supervisor 内部在特定时机（任务完成 / 用户指令）直接调用 `ingest_nodes()`，不暴露新工具。保持 ReAct 循环干净。
-
-P2：暴露 `knowledge_tree_ingest` 工具，让 Agent 自主判断"这个值得记"。
+P1：Supervisor 在 `call_executor` 结果处理中内部调用。
+P2：暴露 `knowledge_tree_ingest` 工具让 Agent 自主判断。
 
 ### 完整闭环
 
 ```
-Agent 执行任务 → 产生新知识 → 切分 → 过滤 → 去重 → ingest → 知识树
-     ↑                                                            │
-     └────── 检索时命中新知识 ←── edit/optimize ←── Agent 自主整理 ←─┘
+Agent 执行任务 → 产出新知识
+      ↓
+摄入管道（切分 → 过滤 → 去重 → 嫁接）
+      ↓
+知识树增长 → 检索日志积累
+      ↓
+优化信号 → Agent 重组树结构
+      ↓
+文件移动 → 向量调整 → 检索质量提升
+      ↓
+检索时命中新知识 ←── Agent 自主整理 ←── 优化闭环
 ```
 
-**原因**：知识树若无新内容入口，初始 bootstrap 后即成死树。摄入管道是"涌现"的核心——Agent 执行中产生的知识自动回流到树中，再经 Agent 的 edit/optimize 自主整理，形成真正的自进化闭环。P1 用事件驱动保证可控性，P2 升级为 agentic 自主摄入。切分粒度、去重阈值、聚类阈值均为可配参数，便于调优。
+**原因**：知识树若无新内容入口，初始 bootstrap 后即成死树。摄入管道是"涌现"的核心——Agent 执行中产生的知识自动回流，再经重组工具自主整理，形成自进化闭环。

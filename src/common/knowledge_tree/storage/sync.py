@@ -1,22 +1,21 @@
-"""跨层同步：Markdown ↔ 图数据库 ↔ 向量索引。
+"""文件系统 → 向量索引单向派生同步。
 
-Markdown 是 Source of Truth：
-- 写入顺序：Markdown 先写 → 图数据库 → 向量索引
-- 全量同步：从 Markdown 重建图数据库和向量索引
-- 单节点同步：编辑后同步单个节点
+V4: 文件系统是 Source of Truth，向量是派生物。
+sync 从 markdown 文件重新生成向量索引和目录锚点。
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import Callable
 
-from src.common.knowledge_tree.dag.edge import KnowledgeEdge
-from src.common.knowledge_tree.dag.node import KnowledgeNode
-from src.common.knowledge_tree.storage.graph_store import BaseGraphStore
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
-from src.common.knowledge_tree.storage.vector_store import BaseVectorStore
+from src.common.knowledge_tree.storage.vector_store import (
+    BaseVectorStore,
+    DirectoryAnchor,
+    compute_anchor_vector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,82 +25,41 @@ class SyncReport:
     """同步结果报告。"""
 
     nodes_synced: int = 0
-    edges_synced: int = 0
     embeddings_updated: int = 0
+    anchors_computed: int = 0
     errors: list[str] = field(default_factory=list)
-
-
-def sync_markdown_to_graph(
-    md_store: MarkdownStore,
-    graph_store: BaseGraphStore,
-) -> SyncReport:
-    """全量同步：从 Markdown 文件重建图数据库中的节点。
-
-    注意：此函数只同步节点数据（内容/元数据），不同步边。
-    边由 bootstrap 或编辑操作单独管理。
-    """
-    report = SyncReport()
-    nodes = md_store.list_nodes()
-
-    graph_store.initialize()
-
-    for node in nodes:
-        try:
-            graph_store.upsert_node(node)
-            report.nodes_synced += 1
-        except Exception as e:
-            err = f"Failed to sync node {node.node_id}: {e}"
-            report.errors.append(err)
-            logger.error(err)
-
-    return report
-
-
-def sync_node_to_stores(
-    node: KnowledgeNode,
-    md_store: MarkdownStore,
-    graph_store: BaseGraphStore,
-    vector_store: BaseVectorStore | None = None,
-) -> None:
-    """单节点同步：Markdown + 图数据库 + 可选向量索引。"""
-    # 1. Markdown（SoT 先写）
-    md_store.write_node(node)
-
-    # 2. 图数据库
-    graph_store.upsert_node(node)
-
-    # 3. 向量索引（如果有嵌入）
-    if vector_store is not None and node.embedding is not None:
-        vector_store.upsert_embedding(node.node_id, node.embedding)
 
 
 def full_rebuild(
     md_store: MarkdownStore,
-    graph_store: BaseGraphStore,
     vector_store: BaseVectorStore,
-    embedder: object,
+    embedder: Callable[[str], list[float]],
 ) -> SyncReport:
-    """全量重建：从 Markdown 重新构建图数据库和向量索引。
+    """全量重建：从 Markdown 文件重建向量索引 + 目录锚点。
 
     Args:
-        embedder: 可调用对象 embedder(text: str) -> list[float]
+        md_store: 文件系统存储。
+        vector_store: 向量索引。
+        embedder: text → embedding 向量化函数。
     """
     report = SyncReport()
-    nodes = md_store.list_nodes()
 
-    graph_store.initialize()
+    nodes = md_store.list_nodes()
+    # directory → list[content_embedding]
+    dir_embeddings: dict[str, list[list[float]]] = {}
 
     for node in nodes:
         try:
-            # 生成嵌入（如果需要）
-            if node.embedding is None and callable(embedder):
-                node.embedding = embedder(node.content)  # type: ignore[operator]
+            # 生成 content_embedding
+            embedding = embedder(node.content)
+            node.embedding = embedding
+            vector_store.upsert_embedding(node.node_id, embedding)
+            report.embeddings_updated += 1
 
-            graph_store.upsert_node(node)
-
-            if node.embedding is not None:
-                vector_store.upsert_embedding(node.node_id, node.embedding)
-                report.embeddings_updated += 1
+            # 收集目录信息用于锚点计算
+            parts = node.node_id.rsplit("/", 1)
+            directory = parts[0] if len(parts) > 1 else ""
+            dir_embeddings.setdefault(directory, []).append(embedding)
 
             report.nodes_synced += 1
         except Exception as e:
@@ -109,4 +67,65 @@ def full_rebuild(
             report.errors.append(err)
             logger.error(err)
 
+    # 计算目录锚点
+    for directory, embeddings in dir_embeddings.items():
+        try:
+            anchor_vec = compute_anchor_vector(embeddings)
+            if anchor_vec:
+                anchor = DirectoryAnchor(
+                    directory=directory,
+                    anchor_vector=anchor_vec,
+                    file_count=len(embeddings),
+                )
+                vector_store.upsert_anchor(anchor)
+                report.anchors_computed += 1
+        except Exception as e:
+            err = f"Failed to compute anchor for {directory}: {e}"
+            report.errors.append(err)
+            logger.error(err)
+
     return report
+
+
+def sync_node(
+    node_id: str,
+    content: str,
+    md_store: MarkdownStore,
+    vector_store: BaseVectorStore,
+    embedder: Callable[[str], list[float]],
+) -> None:
+    """同步单个节点：写入文件 + 更新向量 + 刷新目录锚点。"""
+    embedding = embedder(content)
+    vector_store.upsert_embedding(node_id, embedding)
+
+    # 刷新目录锚点
+    parts = node_id.rsplit("/", 1)
+    directory = parts[0] if len(parts) > 1 else ""
+    if directory:
+        _refresh_anchor(directory, md_store, vector_store)
+
+
+def _refresh_anchor(
+    directory: str,
+    md_store: MarkdownStore,
+    vector_store: BaseVectorStore,
+) -> None:
+    """重新计算目录锚点。"""
+    embeddings: list[list[float]] = []
+    for nid in md_store.get_directory_files(directory):
+        emb = vector_store.get_embedding(nid)
+        if emb is not None:
+            embeddings.append(emb)
+
+    if embeddings:
+        anchor_vec = compute_anchor_vector(embeddings)
+        if anchor_vec:
+            anchor = DirectoryAnchor(
+                directory=directory,
+                anchor_vector=anchor_vec,
+                file_count=len(embeddings),
+            )
+            vector_store.upsert_anchor(anchor)
+    else:
+        # 目录空了，删除锚点
+        vector_store.delete_anchor(directory)

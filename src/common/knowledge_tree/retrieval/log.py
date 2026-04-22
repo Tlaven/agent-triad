@@ -1,4 +1,7 @@
-"""检索日志数据模型。"""
+"""检索日志数据模型。
+
+V4: 简化的 RetrievalLog，RAG 为主检索路径。
+"""
 
 from __future__ import annotations
 
@@ -10,20 +13,15 @@ from uuid import uuid4
 
 @dataclass
 class RetrievalLog:
-    """单次检索的结构化日志（决策 21）。"""
+    """单次检索的结构化日志。"""
 
     query_id: str
     query_text: str
     query_vector: list[float] | None = None
-    tree_path: list[str] = field(default_factory=list)
-    tree_confidence: float | None = None
-    tree_success: bool = False
-    rag_triggered: bool = False
-    rag_results: list[tuple[str, float]] = field(default_factory=list)
-    fusion_mode: str = "none"  # "tree" | "tree+rag" | "rag" | "none"
-    final_node_ids: list[str] = field(default_factory=list)
+    rag_results: list[tuple[str, float]] = field(default_factory=list)  # (path, similarity)
     agent_satisfaction: bool | None = None
     agent_feedback: str | None = None
+    manual_search_triggered: bool = False  # Agent 是否触发了手动搜索
     timestamp: str = ""
 
     @classmethod
@@ -38,14 +36,9 @@ class RetrievalLog:
         return {
             "query_id": self.query_id,
             "query_text": self.query_text,
-            "tree_path": self.tree_path,
-            "tree_confidence": self.tree_confidence,
-            "tree_success": self.tree_success,
-            "rag_triggered": self.rag_triggered,
             "rag_results": self.rag_results,
-            "fusion_mode": self.fusion_mode,
-            "final_node_ids": self.final_node_ids,
             "agent_satisfaction": self.agent_satisfaction,
             "agent_feedback": self.agent_feedback,
+            "manual_search_triggered": self.manual_search_triggered,
             "timestamp": self.timestamp,
         }

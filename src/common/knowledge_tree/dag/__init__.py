@@ -1,1 +1,1 @@
-"""DAG 数据模型（KnowledgeNode, KnowledgeEdge）。"""
+"""DAG 数据模型（KnowledgeNode）。"""

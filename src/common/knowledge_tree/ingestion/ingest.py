@@ -1,17 +1,26 @@
-"""增量摄入：将候选节点嫁接到知识树。"""
+"""增量摄入：将新知识嫁接到知识树。
+
+V4: 通过目录锚点定位放置目录。
+新知识 → content_embedding → 比较目录锚点 → 放入对应目录。
+"""
 
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
 
-from src.common.knowledge_tree.dag.edge import KnowledgeEdge
 from src.common.knowledge_tree.dag.node import KnowledgeNode
-from src.common.knowledge_tree.storage.graph_store import BaseGraphStore
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
-from src.common.knowledge_tree.storage.sync import sync_node_to_stores
-from src.common.knowledge_tree.storage.vector_store import BaseVectorStore
+from src.common.knowledge_tree.storage.overlay import OverlayStore
+from src.common.knowledge_tree.storage.vector_store import (
+    BaseVectorStore,
+    DirectoryAnchor,
+    compute_anchor_vector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,29 +37,30 @@ class IngestReport:
 
 def ingest_nodes(
     candidates: list[KnowledgeNode],
-    graph_store: BaseGraphStore,
     vector_store: BaseVectorStore,
     md_store: MarkdownStore,
+    overlay_store: OverlayStore,
     embedder: Callable[[str], list[float]],
     dedup_threshold: float = 0.95,
-    cluster_attach_threshold: float = 0.7,
+    attach_threshold: float = 0.7,
 ) -> IngestReport:
     """增量嫁接候选节点到知识树。
 
     对每个候选节点：
-    1. 生成嵌入向量
-    2. 向量去重检查（similarity > dedup_threshold → 跳过）
-    3. 找最匹配的现有 group → 嫁接或创建新 group
-    4. 同步三层存储
+    1. embed → content_embedding
+    2. vector_store.search(top-1) → 去重检查
+    3. 找最相似的目录锚点 → 确定放置目录
+    4. 写入 Markdown 文件到对应目录
+    5. 更新向量索引
 
     Args:
         candidates: 候选 KnowledgeNode 列表。
-        graph_store: 图数据库。
-        vector_store: 向量存储。
-        md_store: Markdown 存储。
-        embedder: 嵌入函数。
-        dedup_threshold: 去重相似度阈值（默认 0.95）。
-        cluster_attach_threshold: 嫁接到现有 group 的相似度阈值（默认 0.7）。
+        vector_store: 向量索引。
+        md_store: 文件系统存储。
+        overlay_store: Overlay 存储。
+        embedder: text → embedding 向量化函数。
+        dedup_threshold: 去重相似度阈值。
+        attach_threshold: 目录锚点相似度阈值。
 
     Returns:
         IngestReport 统计信息。
@@ -60,141 +70,121 @@ def ingest_nodes(
     if not candidates:
         return report
 
-    root_id = graph_store.get_root_id()
-    if root_id is None:
-        report.errors.append("No root node found — tree not initialized")
-        return report
-
     for node in candidates:
         try:
-            # 1. 生成嵌入
+            # 1. 生成 content_embedding
             if node.embedding is None:
                 node.embedding = embedder(node.content or node.title)
 
             # 2. 去重检查
-            existing = vector_store.similarity_search(node.embedding, top_k=1, threshold=0.0)
+            existing = vector_store.similarity_search(
+                node.embedding, top_k=1, threshold=dedup_threshold
+            )
             if existing:
                 _, similarity = existing[0]
-                if similarity > dedup_threshold:
-                    logger.info(
-                        "Dedup: skipping node %s (sim=%.3f with existing)",
-                        node.node_id[:8],
-                        similarity,
-                    )
-                    report.nodes_deduplicated += 1
-                    continue
-
-            # 3. 找最匹配的现有 group
-            best_group_id: str | None = None
-            best_sim: float = 0.0
-
-            root_children = graph_store.get_children(root_id)
-            for group in root_children:
-                group_embedding = vector_store.get_embedding(group.node_id)
-                if group_embedding is None:
-                    # 用 group 的 content 生成嵌入
-                    group_embedding = embedder(group.content or group.title)
-                    vector_store.upsert_embedding(group.node_id, group_embedding)
-
-                sim = _cosine_similarity(node.embedding, group_embedding)
-                if sim > best_sim:
-                    best_sim = sim
-                    best_group_id = group.node_id
-
-            # 4. 嫁接或创建新 group
-            if best_group_id and best_sim > cluster_attach_threshold:
-                # 嫁接到现有 group
-                _attach_to_group(
-                    node, best_group_id, graph_store, md_store, vector_store,
-                )
                 logger.info(
-                    "Attached node %s to group %s (sim=%.3f)",
-                    node.node_id[:8],
-                    best_group_id[:8],
-                    best_sim,
+                    "Dedup: skipping %s (sim=%.3f)",
+                    node.title[:20],
+                    similarity,
+                )
+                report.nodes_deduplicated += 1
+                continue
+
+            # 3. 找最相似的目录锚点
+            best_anchor = vector_store.find_nearest_anchor(
+                node.embedding, threshold=attach_threshold
+            )
+
+            if best_anchor is not None:
+                # 放入对应目录
+                directory = best_anchor.directory
+                filename = _sanitize_filename(node.title) + ".md"
+                node.node_id = f"{directory}/{filename}" if directory else filename
+                node.directory = directory
+
+                logger.info(
+                    "Ingest: placing %s in %s (anchor sim ok)",
+                    node.title[:20],
+                    directory,
                 )
             else:
-                # 创建新 group
-                _create_new_group(
-                    node, root_id, graph_store, md_store, vector_store, embedder,
+                # 创建新目录
+                dir_name = _sanitize_dirname(node.title)
+                md_store.ensure_directory(dir_name)
+                filename = _sanitize_filename(node.title) + ".md"
+                node.node_id = f"{dir_name}/{filename}"
+                node.directory = dir_name
+
+                # 新目录锚点 = 该文件的 content_embedding
+                anchor = DirectoryAnchor(
+                    directory=dir_name,
+                    anchor_vector=node.embedding,
+                    file_count=1,
+                    last_updated=datetime.now(timezone.utc).isoformat(),
                 )
+                vector_store.upsert_anchor(anchor)
+
                 logger.info(
-                    "Created new group for node %s (best_sim=%.3f < threshold=%.3f)",
-                    node.node_id[:8],
-                    best_sim,
-                    cluster_attach_threshold,
+                    "Ingest: created new directory %s for %s",
+                    dir_name,
+                    node.title[:20],
                 )
+
+            # 4. 写入 Markdown 文件
+            md_store.write_node(node)
+
+            # 5. 更新向量索引
+            vector_store.upsert_embedding(node.node_id, node.embedding)
+
+            # 6. 刷新目录锚点
+            _refresh_directory_anchor(node.directory, md_store, vector_store)
 
             report.nodes_ingested += 1
 
         except Exception as e:
-            report.errors.append(f"Ingest failed for {node.node_id}: {e}")
-            logger.warning("Ingest failed for %s: %s", node.node_id[:8], e)
+            report.errors.append(f"Ingest failed for {node.title[:20]}: {e}")
+            logger.warning("Ingest failed: %s", e)
 
     return report
 
 
-def _attach_to_group(
-    node: KnowledgeNode,
-    group_id: str,
-    graph_store: BaseGraphStore,
+def _refresh_directory_anchor(
+    directory: str,
     md_store: MarkdownStore,
     vector_store: BaseVectorStore,
 ) -> None:
-    """将节点嫁接到现有 group 下。"""
-    # group → leaf 边
-    graph_store.upsert_edge(KnowledgeEdge.create(
-        parent_id=group_id,
-        child_id=node.node_id,
-        is_primary=True,
-    ))
-    # 同步到三层存储
-    sync_node_to_stores(node, md_store, graph_store, vector_store)
+    """重新计算目录锚点。"""
+    if not directory:
+        return
+
+    embeddings: list[list[float]] = []
+    for nid in md_store.get_directory_files(directory):
+        emb = vector_store.get_embedding(nid)
+        if emb is not None:
+            embeddings.append(emb)
+
+    if embeddings:
+        anchor_vec = compute_anchor_vector(embeddings)
+        if anchor_vec:
+            anchor = DirectoryAnchor(
+                directory=directory,
+                anchor_vector=anchor_vec,
+                file_count=len(embeddings),
+                last_updated=datetime.now(timezone.utc).isoformat(),
+            )
+            vector_store.upsert_anchor(anchor)
 
 
-def _create_new_group(
-    node: KnowledgeNode,
-    root_id: str,
-    graph_store: BaseGraphStore,
-    md_store: MarkdownStore,
-    vector_store: BaseVectorStore,
-    embedder: Callable[[str], list[float]],
-) -> None:
-    """为节点创建新 group 并挂到 root 下。"""
-    # 新 group 节点
-    group_title = node.title[:20] if node.title else "Untitled Group"
-    group_node = KnowledgeNode.create(
-        title=group_title,
-        content=f"Category: {group_title}",
-        summary=f"Auto-created group: {group_title}",
-        source="ingestion",
-    )
-    group_node.embedding = embedder(group_node.content)
-
-    # root → group
-    graph_store.upsert_edge(KnowledgeEdge.create(
-        parent_id=root_id,
-        child_id=group_node.node_id,
-        is_primary=True,
-    ))
-    sync_node_to_stores(group_node, md_store, graph_store, vector_store)
-
-    # group → leaf
-    graph_store.upsert_edge(KnowledgeEdge.create(
-        parent_id=group_node.node_id,
-        child_id=node.node_id,
-        is_primary=True,
-    ))
-    sync_node_to_stores(node, md_store, graph_store, vector_store)
+def _sanitize_filename(title: str) -> str:
+    """从标题生成安全的文件名。"""
+    # 移除不安全字符
+    safe = "".join(c if c.isalnum() or c in ("_", "-", " ", ".") else "_" for c in title)
+    safe = safe.strip()[:40]  # 限制长度
+    return safe or "untitled"
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """计算余弦相似度。"""
-    if len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
-    mag_a = sum(x * x for x in a) ** 0.5
-    mag_b = sum(x * x for x in b) ** 0.5
-    if mag_a == 0 or mag_b == 0:
-        return 0.0
-    return dot / (mag_a * mag_b)
+def _sanitize_dirname(title: str) -> str:
+    """从标题生成安全的目录名。"""
+    safe = "".join(c if c.isalnum() or c in ("_", "-") else "_" for c in title)
+    safe = safe.strip()[:30]
+    return safe or "misc"

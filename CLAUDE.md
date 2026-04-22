@@ -144,7 +144,7 @@ class ExecutorResult:
 
 | `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
 
-| `src/common/knowledge_tree/ingestion/wiki_adapter.py` | Wiki 种子目录解析器：`parse_wiki_folder()` 将 `workspace/knowledge_tree/` 的 Markdown（frontmatter + `[[wiki-links]]`）转为 `list[KnowledgeNode]` + `list[RelationHint]` |
+| `src/common/knowledge_tree/` | V4 涌现式知识树：两层存储（文件系统 + 向量索引）+ Overlay JSON 跨目录关联。文件系统目录层级 = 树结构，向量通过目录锚点聚簇。详见 `docs/v4-knowledge-tree-concepts.md` |
 
 各层 `prompts.py` / `tools.py` 见同包。
 

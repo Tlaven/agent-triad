@@ -1,6 +1,7 @@
 # V4 涌现式知识树 — 概念对齐文档
 
-> 状态：概念对齐 v3（2026-04-19）
+> 状态：v4（2026-04-22）
+> 前置：架构决策 18-26（`architecture-decisions.md`）
 > 范围：AgentTriad 内部，Supervisor 内嵌组件
 > 目标：Agent 信息的自组织存储、高效检索、持续进化
 
@@ -8,280 +9,324 @@
 
 ## 1. 核心思想
 
-三层机制形成闭环：**信息片段 → 语义聚类 → DAG 结构 → Agent 编辑 → Change Mapping → 向量校准 → 结构重组**。
+**文件系统即树，向量服务于树，Agent 驱动演化。**
 
-不是"树结构 vs 向量搜索"二选一，而是双向塑造：
-- 树提供精确路径导航，向量提供模糊兜底
-- Agent 编辑通过 Change Mapping 提供可解释的信号校准向量空间
-- 向量统计特征引导树的重组方向
+不是"树结构 vs 向量搜索"二选一，而是 Agent 主导的双向闭环：
+
+- **文件系统**就是知识树——目录层级 = 父子关系，文件 = 知识节点
+- **向量**跟随树结构——同目录文件的向量聚成簇，结构变化驱动向量重组
+- **Agent** 是决策者——检索时决定用 RAG 还是手动搜索，主动重组树时表达结构意图
+
+```
+文件系统（主结构）
+  ↕ 双向
+向量索引（语义索引，簇与目录对齐）
+  ↕ 辅助
+轻量 Overlay（跨目录关联边，JSON）
+```
 
 ---
 
-## 2. 三层分离存储架构
+## 2. 两层存储 + Overlay 架构
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Layer 1: Markdown 文件（Source of Truth）        │
-│  - Agent 直接读写、人类可审查、git 可版本化       │
-├─────────────────────────────────────────────────┤
-│  Layer 2: 图数据库（结构层）                      │
-│  - DAG 结构：节点元数据 + 关系边                 │
-│  - 主父节点标记（用于遍历）+ 关联边（多父引用）   │
-│  - 内置/外挂向量索引（Layer 3）                  │
-├─────────────────────────────────────────────────┤
-│  Layer 3: 向量索引（检索层）                      │
-│  - 语义相似度计算、模糊召回                       │
-│  - 受树结构约束排序                               │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Layer 1: 文件系统（Source of Truth + 结构）          │
+│                                                     │
+│  目录层级 = 树的父子关系（primary edges）              │
+│  目录内的 Markdown 文件 = 叶子/中间节点               │
+│  README.md = 目录摘要（可选，Agent 维护，有则更好）    │
+│  叶子节点可包含可执行代码/脚本（被 Markdown 引用解释）  │
+│  人类可直接读写、git 可版本化                         │
+├─────────────────────────────────────────────────────┤
+│  Layer 2: 向量索引（语义检索层）                      │
+│                                                     │
+│  stored_vector = normalize(α · content_embedding     │
+│                          + β · structural_vector)    │
+│                                                     │
+│  content_embedding  — 纯内容语义，永不变              │
+│  structural_vector  — 来自目录锚点，跟随重组更新       │
+│  同一目录的文件共享锚点 → stored_vector 自然聚簇       │
+├─────────────────────────────────────────────────────┤
+│  Overlay: 轻量关联图（跨目录 is_primary=False 边）    │
+│                                                     │
+│  单个 JSON 文件，仅存跨目录关联关系                    │
+│  不替代文件系统的 primary 结构                         │
+└─────────────────────────────────────────────────────┘
 ```
 
-### 图数据库选型（2026-04-16 决策）
+### 与旧架构（三层分离）的关键区别
 
-| 角色 | 方案 | 说明 |
-|------|------|------|
-| **P1 原型** | **Kùzu v0.11.x** | 已归档但功能完整，嵌入+Cypher+向量一体，原型验证最快 |
-| **长期首选** | **DuckDB + 自定义图层** | 生态成熟、向量扩展活跃，图遍历自研但完全可控 |
-| **积极备选** | **RyuGraph** | Kùzu 直接继承者，理念匹配，需持续关注社区活跃度 |
-| **长期观察** | FalkorDBLite / Coffy | Python 原生方案，原型快速但生产成熟度待验证 |
-
-**关键**：保留抽象接口，Kùzu → DuckDB 迁移路径在设计时就考虑。
+| 对比维度 | 旧架构（三层） | 新架构（两层 + Overlay） |
+|---------|--------------|----------------------|
+| 结构存储 | 独立 Graph 数据库（Kùzu/内存） | 文件系统目录层级 |
+| 主父子关系 | `KnowledgeEdge.is_primary=True` | 目录包含关系 |
+| 向量生成 | 纯内容 embedding | content + structural 混合 |
+| 同步负担 | Markdown ↔ Graph ↔ Vector 三方同步 | 文件系统 → Vector 单向派生 |
+| 结构变更 | 修改 Graph 边 + sync | 移动文件 + 重算向量 |
 
 ---
 
-## 3. 检索流程（详细设计见 `用户意见.md`）
+## 3. 向量映射机制
+
+### 3.1 核心公式
 
 ```
-查询 → ① 向量化
-     → ② LLM 路由导航（主路径，置信度 ≥ 0.7 继续）
-     → ③ RAG 兜底（树导航失败时，相似度 ≥ 0.85）
-     → ④ 结果融合（tree / tree+rag / rag / none）
-     → ⑤ Agent 反馈（满意度标注）
-     → ⑥ 完整检索日志
+content_embedding  — 纯内容语义，文件创建时算一次，永不变
+structural_vector  — 来自所属目录的锚点
+stored_vector      — normalize(α · content_embedding + β · structural_vector)
 ```
 
-**关键决策：树优先，RAG 兜底**
+- `α` 控制内容语义的权重（主要因素）
+- `β` 控制结构位置的权重（辅助聚集）
+- 默认 α ≈ 0.8, β ≈ 0.2~0.3
 
-- 树导航使用 LLM 做路由决策（不是向量匹配），利用 LLM 语义理解处理歧义
-- RAG 仅在树导航失败时触发，高阈值过滤确保质量
-- 检索日志是闭环优化的数据燃料
-- Agent 反馈结构化字段：`{satisfaction: bool, reason: str}`，便于后续小模型路由和树质量评估
-- **检索日志从 P1 起输出结构化 JSON**，为后续小模型路由器训练预留数据基础
-- 全链路日志覆盖：检索路径 + Agent 反馈 + Change Mapping + 优化效果
+### 3.2 目录锚点（Directory Anchor）
+
+每个目录有一个锚点向量，代表该目录在语义空间中的位置：
+
+```
+anchor_D = normalize(mean(content_embedding(目录 D 下所有文件)))
+```
+
+锚点 = 目录内所有文件内容向量的质心。
+
+目录内每个文件的 `structural_vector = anchor_D`。
+
+**效果**：同一目录的文件共享锚点 → stored_vector 被拉向同一方向 → 自然聚成簇。但 α 权重保证内容匹配仍是主要检索因素。
+
+### 3.3 增量摄入时的向量生成
+
+新知识到达时：
+
+1. 计算新内容的 `content_embedding`
+2. 与所有目录锚点比较相似度
+3. 最相似的锚点 → 新知识放入该目录
+4. `structural_vector = 该目录的锚点`
+5. `stored_vector = α · content + β · structural`
+6. 如果锚点相似度都不够 → 创建新目录 → 锚点 = 该文件的 content_embedding
+
+### 3.4 Agent 重组后的向量更新
+
+1. 文件移动到新目录
+2. 新目录的锚点重新计算
+3. 被移动文件的 `structural_vector` 更新为新目录锚点
+4. `stored_vector` 重新计算
+5. 向量空间自动跟随文件结构调整
+
+**无循环依赖**：content_embedding 只算一次不动，锚点从 content_embedding 推导，stored_vector 是两者的合成。
 
 ---
 
-## 4. 异步优化闭环（4 种信号）
+## 4. 检索流程
+
+```
+Agent 需要知识
+  → ① RAG 快速查找（stored_vector 相似度检索）
+  → ② 满意？拿走结束
+  → ③ 不满意？Agent 手动搜索文件系统
+```
+
+### 4.1 RAG 检索
+
+- 查询向量化后与所有 `stored_vector` 计算相似度
+- 超过阈值则返回结果
+- 同目录的文件因锚点加分更容易被一起召回
+
+### 4.2 Agent 手动搜索文件系统
+
+RAG 不满意时，Agent 切换到**分层探索模式**：
+
+1. **概览**：获取目录树整体结构
+2. **逐级决策**：读当前目录内容（README.md 或直接列表），决定进入哪个子目录或读哪个文件
+3. **精确搜索**：在目录内用文本匹配（grep）、格式搜索等方式定位
+
+Agent 可用多种搜索方式：
+- 读目录列表（类似 `ls` / `tree`）
+- 读文件内容
+- 文本匹配（grep）
+- 格式结构搜索
+
+这不是盲目遍历，而是 Agent 根据每一步的观察自主决策下一步。
+
+---
+
+## 5. 三种变更模式
+
+### 5.1 Bootstrap（初始建树）
+
+从人工预组织的种子目录建树：
+
+```
+种子目录（人类组织的文件系统结构）
+  → 读取目录层级 = 树结构（primary edges）
+  → 解析每个 Markdown 文件 = 节点内容
+  → 生成 content_embedding
+  → 计算目录锚点（每目录内文件的 content 质心）
+  → 生成 structural_vector + stored_vector
+  → 写入向量索引
+  → Overlay 初始为空
+```
+
+**关键**：目录结构直接成为树结构，不需要聚类算法重新组织。种子目录里已有的 README.md 直接作为摘要使用。
+
+### 5.2 增量摄入
+
+新知识到达时的增量操作：
+
+```
+新知识 → 计算 content_embedding
+       → 与所有目录锚点比较
+       → 足够相似？
+           → 是：放入对应目录，局部更新锚点
+           → 否：创建新目录，挂载到语义最近的父目录下
+       → 生成 structural_vector + stored_vector
+       → 更新向量索引
+```
+
+不执行全局重聚类，仅局部更新。
+
+### 5.3 Agent 驱动的主动重构
+
+Agent 通过"编号树重组"表达结构意图：
+
+#### Step 1：系统展示当前树
+
+```
+01 development/
+    01 debugging.md
+    02 async_pattern.md
+02 skills/
+    01 code_review.md
+03 domain/
+    01 architecture.md
+    02 design_decisions.md
+```
+
+#### Step 2：Agent 输出重组后的树
+
+Agent 按自己的理解输出新的目录结构和编号。
+
+#### Step 3：系统自动执行
+
+1. **解析差异**：对比新旧编号结构，识别文件移动、目录合并/拆分
+2. **自动移动文件**：Python 程序在文件系统中实际执行移动/创建/删除
+3. **提取关系信号**：从位置变化中提取 Agent 认为的节点关联性
+   - 被放到同一目录的文件 → 强关联
+   - 保持在一起的文件 → 确认关联
+   - 被分开的文件 → 弱化关联
+4. **重算向量**：
+   - 更新受影响目录的锚点
+   - 更新被移动文件的 structural_vector 和 stored_vector
+   - 向量空间跟随结构调整
+
+#### 触发条件
+
+- Agent 主动执行（通过 reorganize 工具）
+- OptimizationSignal 触发（如目录内方差过高）
+- 仅在子图范围内执行，非全树重建
+
+---
+
+## 6. 异步优化闭环
+
+### 6.1 四种优化信号
 
 | 信号类型 | 触发条件 | 优化动作 |
 |----------|----------|----------|
-| 导航失败 | 某父节点下频繁导航失败 | 标记"结构薄弱点"，Agent 分裂/重组/摘要重写 |
-| RAG 假阳性 | RAG 返回节点被标记为不相关 | 对比学习负样本，调整相似度权重/微调嵌入 |
-| 整体失败 | 树 + RAG 均无结果，累积达阈值 | Agent 创建新节点，失败查询作为种子 |
-| 内容不足 | 树导航成功但内容不充分 | Agent 更新节点内容/摘要 |
+| 整体失败 | RAG + 手动搜索均无结果，累积达阈值 | Agent 创建新节点/目录，失败查询作为种子 |
+| 检索不满意 | RAG 返回结果但 Agent 标记不满意 | 记录信号，供 Agent 下次重组参考 |
+| 目录内方差过高 | 同目录文件 content_embedding 差异过大 | Agent 考虑拆分目录或调整归属 |
+| 内容不足 | 找到文件但内容不充分 | Agent 更新文件内容 |
 
-所有优化动作**异步批量**执行，不阻塞检索路径。
+### 6.2 防震荡机制
 
-### 防震荡机制：分层控制
+- **独立阈值**：每种信号类型独立配置触发条件
+- **全局频率上限**：总优化动作受全局限额约束，超出排队
+- **优先级排序**：整体失败 > 检索不满意 > 方差过高 > 内容不足
 
-- **独立阈值**：每种信号类型独立配置触发条件（如导航失败 N 次/时间窗口、假阳性 M 次等）
-- **全局频率上限**：无论信号类型，总优化动作受全局限额约束，超出排队到下个窗口。初期保守值（如每小时最多 N 次），后续结合检索日志满意度反馈动态调整
-- **优先级排序**：整体失败 > 导航失败 > RAG 假阳性 > 内容不足
-- 允许不同信号竞争有限优化资源，防止单一信号霸占
-
----
-
-## 5. 分阶段实现路线
-
-### 5.1 Change Mapping（编辑能力）
-
-| 阶段 | Agent 可执行操作 | Change Mapping 处理 | Delta 格式 |
-|------|-----------------|-------------------|-----------|
-| P1 原型验证 | 编辑内容 + merge/split | 重新嵌入受影响节点、路径重排 | JSON Patch (RFC 6902) |
-| P2 结构进化 | + move_subtree | + 子树路径 Delta | + 语义层（merge/split/move 映射到 JSON Patch） |
-| P3 完整实现 | + 创建抽象层/跨层重组 | 通用 Delta 描述格式 | 完整语义层 |
-
-**Delta 格式策略**：渐进式。P1 用标准 JSON Patch 验证流程；P2 引入领域语义操作层（merge/split/move），底层仍映射到 JSON Patch 执行。Agent 强制输出结构化操作数组，确保可追溯。
-
-**实现约束**：
-- Agent 输出 Delta 时需**强约束**（prompt 模板 + 解析校验），防止幻觉导致无效 Delta
-- P2 引入语义层后，同时维护**语义 Delta 日志**供人类/Supervisor 审计
-
-### 5.2 LLM 路由策略
-
-| 阶段 | 策略 | 依据 |
-|------|------|------|
-| P1 | 全量 LLM 路由，完整日志 | 端到端验证闭环 |
-| P2 | 日志分析：结构稳定度、导航明确度、性能基线 | 数据驱动 |
-| P3 | 高质量树 → 小模型路由；质量不足 → 优化树结构 | 数据决策 |
-
-### 5.3 DAG 遍历
-
-| 阶段 | 策略 | 关注点 |
-|------|------|--------|
-| P1 | 主路径遍历（每个节点标记一个主父节点） | 定义并缓存常见主路径 |
-| P2 | 多路径并行探索 | 深度/置信度剪枝防分支爆炸 + 常见路径缓存 |
-
-### 5.4 信息范围
-
-| 阶段 | 信息类型 | 叶子节点模式 |
-|------|---------|-------------|
-| P1 | 领域知识（结构性强，边界清晰） | `{title, content, source, created_at}` |
-| P2 | + Agent 记忆（碎片化、动态） | + `decay_score`, `access_count`（指数衰减：结合时间 + 重要性） |
-| P3 | + 技能/Skill + 参考资料 | 技能含可执行定义（可绑定 Supervisor 工具调用）；参考资料含外部链接 |
+所有优化动作异步批量执行，不阻塞检索路径。
 
 ---
 
-## 6. Bootstrap 聚类算法
+## 7. Overlay 关联图
 
-### 6.1 双策略设计
+### 7.1 定位
 
-Bootstrap 支持两种聚类策略，通过 `cluster_method` 配置选择：
+文件系统用目录层级表达 primary 父子关系（单亲）。但知识节点可能属于多个领域。Overlay 图用轻量 JSON 存储跨目录关联边（`is_primary=False`）。
 
-| 策略 | 触发条件 | 深度 | 依赖 |
-|------|---------|------|------|
-| **GMM+UMAP** | `cluster_method="gmm"` 或 `="auto"` + sklearn 可用 + 节点数 ≥ `cluster_size` | 自动多层 | scikit-learn, umap-learn（可选） |
-| **简单余弦 BFS** | `cluster_method="simple"` 或自动回退 | 固定 3 层 | 无 |
+### 7.2 存储格式
 
-配置项（`KnowledgeTreeConfig`）：
-- `cluster_method: str = "auto"` — `"auto"` | `"gmm"` | `"simple"`
-- `cluster_size: int = 20` — GMM 目标每簇节点数
+单个 JSON 文件（如 `knowledge_tree/.overlay.json`）：
 
-依赖安装：`pip install ".[knowledge-tree]"` 或 `uv pip install scikit-learn umap-learn`
-
-### 6.2 GMM+UMAP 算法流程（借鉴 LeanRAG）
-
-```
-叶子节点嵌入矩阵
-  → UMAP 降维到 2D（可选，sklearn 可用时自动启用）
-  → BIC 准则选择最优簇数 k
-  → GMM 聚类 → k 个簇
-  → 每簇创建摘要中间节点（启发式标题，不调用 LLM）
-  → 中间节点嵌入作为下一层输入
-  → 递归直到簇数 ≤ 1 或节点数不足
-  → 创建根节点连接所有顶层节点
+```json
+[
+  {
+    "source": "development/debugging.md",
+    "target": "skills/code_review.md",
+    "relation": "related",
+    "strength": 0.8,
+    "created_by": "agent",
+    "note": "调试技巧与代码审查经验相关"
+  }
+]
 ```
 
-关键参数：
-- **BIC 选 k**：遍历 `[2, max_k]`，选 BIC 最低的 k；`max_k = n / cluster_size`
-- **UMAP 降维**：`n_neighbors=min(15, n-1)`，`metric=cosine`，`random_state=42`
-- **P1 摘要**：启发式（子节点标题公共前缀），不调 LLM
-- **P2 摘要**：LLM 生成摘要描述（与 LeanRAG 的 `aggregate_entities` prompt 类似）
+### 7.3 关联边来源
 
-### 6.3 简单余弦 BFS（零依赖回退）
-
-```
-叶子节点 → 余弦相似度邻接矩阵（threshold=0.6）
-  → BFS 找连通分量 → 每个分量一个 group
-  → root → group → leaf（固定 3 层）
-```
-
-### 6.4 聚类触发
-
-- **常规**：批量式（定期/阈值触发）
-- **特殊**：Agent 主动修改文件系统时即时捕获 → 优化 Change Mapping，但需防噪声（批量 + 阈值结合过滤）
+- Markdown 文件内的 wiki-link 引用（`[[../other/file.md]]`）
+- Agent 在重组过程中发现但未放到同一目录的关联
+- RAG 检索日志中的共现模式
 
 ---
 
-## 7. 原则
+## 8. 叶子节点特殊能力
 
-1. **验证先行**：每个维度都用最简单的实现跑通端到端闭环
-2. **数据驱动**：先积累日志，再基于数据做优化决策
-3. **正确顺序**：先验证流程可行性（P1），再优化性能（P2-P3）
-4. **可解释性**：Agent 编辑 → Change Mapping → 向量校准，全链路可追溯，结构化 JSON 日志从 P1 起强制输出
+### 8.1 可执行代码/脚本
+
+叶节点目录下可包含可执行代码文件（`.py`、`.sh` 等），被同目录的 Markdown 引用和解释：
+
+```
+skills/
+  code_review.md          ← 引用 ./scripts/review_checklist.sh 并解释
+  scripts/
+    review_checklist.sh   ← 可执行脚本，Agent 可直接调用
+```
+
+Agent 检索到该知识时，读到脚本引用即可直接使用，无需自己编写。
 
 ---
 
-## 8. P1 最小闭环验证目标
+## 9. 分阶段实现路线
 
-跑通以下端到端流程，用小规模领域知识测试：
+### 9.1 P1：最小闭环
 
-```
-Bootstrap 建树（领域知识种子，GMM+UMAP 多层聚类）
-  → LLM 路由检索（全量 LLM，完整日志）
-  → Agent merge/split 编辑
-  → Markdown → 图数据库同步
-  → Change Mapping（JSON Patch）
-  → 向量局部重嵌入
-  → 检索日志积累
-  → 异步优化触发
-```
+- **存储**：文件系统 + 内存向量索引 + Overlay JSON
+- **Bootstrap**：从种子目录建树（目录结构 = 树结构）
+- **检索**：RAG 向量检索（content_embedding only，P1 先不加 structural）
+- **摄入**：增量嫁接（新知识 → RAG 定位 → 放入对应目录）
+- **验证**：端到端闭环跑通
 
-验证通过标准：
-1. 建树后 LLM 路由能正确导航到目标节点
-2. Agent 编辑后 Change Mapping 正确提取 Delta
-3. 向量重嵌入后检索结果有可观测的改善（**核心度量指标**）
-4. 闭环优化信号链完整（日志 → 信号 → 动作 → 效果可度量）
-5. 全链路结构化 JSON 日志完整输出（检索 + 反馈 + Delta + 优化效果）
+### 9.2 P2：混合向量 + 手动搜索
+
+- **向量映射**：content_embedding + structural_vector（目录锚点法）
+- **手动搜索**：Agent 文件系统探索工具（tree、read、grep）
+- **Agent 重组**：编号树展示 → Agent 输出新结构 → 自动移动 + 向量调整
+- **Overlay**：跨目录关联边管理
+
+### 9.3 P3：完整闭环
+
+- **优化信号**：全自动信号检测 + 防震荡
+- **高级摄入**：Leiden 全局聚类（Agent 读整本书场景）
+- **信息扩展**：Agent 记忆（衰减分数）、技能/Skill 绑定
+- **小模型路由**：基于 P1-P2 积累的日志训练
 
 ---
 
-## 9. Wiki 种子格式
+## 10. 原则
 
-P1 使用 `workspace/knowledge_tree/` 作为种子输入目录，采用 claude-obsidian 风格的 wiki 格式。
-
-### 9.1 目录结构
-
-```
-workspace/knowledge_tree/
-  index.md                    ← 导航中心（type: meta）
-  overview.md                 ← 系统概述
-  concepts/
-    _index.md                 ← 分类索引（type: meta）
-    Three-Agent Architecture.md
-    Plan JSON.md
-    Execution Modes.md
-    ...
-  entities/
-    _index.md
-    Supervisor Agent.md
-    Planner Agent.md
-    Executor Agent.md
-  sources/
-    _index.md
-    architecture-decisions.md
-  questions/
-    ...
-  comparisons/
-    ...
-  _templates/
-    concept.md / entity.md / source.md / question.md / comparison.md
-```
-
-### 9.2 Frontmatter 规范
-
-每个 Markdown 文件使用 YAML frontmatter：
-
-```yaml
-type: concept | entity | source | question | comparison | meta
-title: "Page Title"
-tags: [tag1, tag2]
-status: seed | developing | mature | evergreen
-related:
-  - "[[Other Page]]"          # wiki-link 关系提示
-aliases: ["Alternative Name"]
-domain: "domain-name"
-complexity: intermediate | advanced
-```
-
-### 9.3 解析管线
-
-`WikiFolderAdapter`（`src/common/knowledge_tree/ingestion/wiki_adapter.py`）负责：
-
-1. **扫描** `workspace/knowledge_tree/` 下所有 `.md` 文件（排除 `_templates/`）
-2. **解析** YAML frontmatter → 节点元数据（`page_type`, `tags`, `status` 等）
-3. **提取** `[[wiki-links]]` → `RelationHint`（关系边提示）
-4. **输出** `list[KnowledgeNode]` + `list[RelationHint]`
-5. `type=meta` 页面跳过节点创建，但仍提取其 `[[wiki-links]]` 关系
-
-### 9.4 与 Bootstrap 集成
-
-```
-workspace/knowledge_tree/ (Markdown 种子)
-  → WikiFolderAdapter.parse_wiki_folder()
-  → list[KnowledgeNode] + list[RelationHint]
-  → embedder(node.content) 生成嵌入
-  → Bootstrap 聚类（GMM+UMAP 或 简单余弦 BFS）
-  → 写回 Markdown（Layer 1）+ Kùzu（Layer 2）+ Vector（Layer 3）
-```
-
-RelationHint 可在 P2 阶段用于辅助 DAG 边的构建（优先使用语义聚类边，wiki-link 作为辅助参考）。
+1. **文件系统是 truth**：所有结构信息以文件系统为准，向量是派生物
+2. **Agent 是决策者**：Agent 决定何时重组、如何搜索、知识放哪
+3. **验证先行**：每个维度用最简单实现跑通端到端闭环
+4. **数据驱动**：先积累日志和反馈，再基于数据做优化决策
+5. **可解释性**：Agent 重组 → 文件移动 → 向量调整，全链路可追溯
