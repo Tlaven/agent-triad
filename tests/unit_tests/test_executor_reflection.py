@@ -121,6 +121,7 @@ def _make_runtime(streaming: bool = False):
         "extra_body": {"enable_thinking": True},
     })
     runtime.context.enable_llm_streaming = streaming
+    runtime.context.executor_call_model_timeout = 0  # disabled in tests
     return runtime
 
 

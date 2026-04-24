@@ -247,14 +247,29 @@ async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> di
         runtime.context.executor_model,
         **runtime.context.get_agent_llm_kwargs("executor"),
     )
-    response = cast(
-        AIMessage,
-        await invoke_chat_model(
-            model,
-            [{"role": "system", "content": prompt}, *state.messages],
-            enable_streaming=runtime.context.enable_llm_streaming,
-        ),
-    )
+    llm_timeout = runtime.context.executor_call_model_timeout
+    try:
+        if llm_timeout and llm_timeout > 0:
+            raw_response = await asyncio.wait_for(
+                invoke_chat_model(
+                    model,
+                    [{"role": "system", "content": prompt}, *state.messages],
+                    enable_streaming=runtime.context.enable_llm_streaming,
+                ),
+                timeout=llm_timeout,
+            )
+        else:
+            raw_response = await invoke_chat_model(
+                model,
+                [{"role": "system", "content": prompt}, *state.messages],
+                enable_streaming=runtime.context.enable_llm_streaming,
+            )
+        response = cast(AIMessage, raw_response)
+    except asyncio.TimeoutError:
+        logger.error("Reflection LLM call timed out (%.0fs), aborting", llm_timeout)
+        raise RuntimeError(
+            f"Reflection LLM 调用超时（{llm_timeout:.0f}秒），进程将被终止"
+        )
     return {"messages": [response]}
 
 

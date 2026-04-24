@@ -276,7 +276,7 @@ start_for_task(plan_id, ctx, mailbox_url)
   │      └─ 超时 → terminate() + 收集 stdout + 抛出 TimeoutError
   │
   ├─ [7] 健康检查循环（每 0.3s GET /health）
-  │      共享同一截止时间
+  │      独立截止时间 = now + max(remaining, _HEALTH_CHECK_BUDGET=10s)
   │      ├─ 200 OK → 创建 ProcessHandle，存入 dict，返回
   │      ├─ ConnectError/TimeoutException → 静默重试
   │      └─ 超时 → terminate() + 关闭 httpx + 抛出 TimeoutError
@@ -284,7 +284,7 @@ start_for_task(plan_id, ctx, mailbox_url)
   └─ 返回 ProcessHandle
 ```
 
-**潜在问题**：端口发现和健康检查**共享同一个 deadline**。如果端口发现消耗了大部分时间，健康检查可能只剩很少时间甚至已过期。
+**已修复**：健康检查使用独立 deadline，保证至少 10s（`_HEALTH_CHECK_BUDGET`），不再与端口发现共享截止时间。
 
 ### 5.1 子进程内部启动
 
@@ -387,8 +387,8 @@ _run_executor_task(plan_id, plan_json, ...)
   │
   ├─ finally:
   │   ├─ 清理 _running_tasks, _stop_events, _statuses
-  │   ├─ _cleanup_old_results（上限 50 条）
-  │   ├─ _push_result_to_mailbox（推送到 Mailbox）
+  │   ├─ _cleanup_old_results（上限 200 条，优先淘汰 accepted 占位）
+  │   ├─ _push_result_to_mailbox（asyncio.shield 保护 + 同步兜底）
   │   └─ per-task 模式：_schedule_self_shutdown（2s 后自毁）
   │
   └─ 结束
@@ -437,6 +437,8 @@ _push_result_to_mailbox(result, plan_id)
       └─ 3 次全失败 → 日志错误（结果仍在 _results 中，Pull 可兜底）
 ```
 
+**推送取消保护**：`_run_executor_task` 的 finally 块中，`_push_result_to_mailbox` 使用 `asyncio.shield()` 保护。若 shield 也被取消（Supervisor 退出），则调用 `_sync_push_result_to_mailbox`（urllib 同步兜底，3s 超时）确保结果至少有一次推送机会。
+
 ### 7.2 Pull 路径细节
 
 ```
@@ -449,19 +451,24 @@ ExecutorPoller._poll_loop（后台 asyncio Task）
       ├─ 遍历所有活跃 plan_id
       │   └─ _poll_one(client, plan_id)
       │       ├─ Mailbox 已有 completion → 注销，跳过
-      │       ├─ 解析 base_url（per-plan 或 fallback）
+      │       ├─ 过期检测（registered_at > max_staleness，默认 5min）
+      │       │   └─ 过期 → 合成失败写入 Mailbox + 注销
+      │       ├─ 连续失败检测（consecutive_failures >= 10）
+      │       │   └─ 超限 → 合成失败写入 Mailbox + 注销
+      │       ├─ 解析 base_url（_Registration.base_url 或 fallback）
       │       ├─ 获取信号量（最多 5 并发）
       │       ├─ GET {base}/result/{plan_id}
       │       │   ├─ 200 + 终态 → post Mailbox + 注销
-      │       │   ├─ 200 + 非终态 → 等下次
-      │       │   ├─ 非 200 → 静默
-      │       │   └─ 异常 → 静默
+      │       │   ├─ 200 + 非终态 → 重置 consecutive_failures
+      │       │   ├─ 404 → 重置 consecutive_failures（任务可能仍在启动）
+      │       │   ├─ 非 200 → consecutive_failures += 1
+      │       │   └─ 异常 → consecutive_failures += 1
       │       └─ 无 base_url → 跳过
       │
       └─ CancelledError → 退出循环
 ```
 
-**注意**：Poller 没有重试上限——瞬态错误会无限重试，直到 plan 被外部注销或达到终态。
+**过期与失败保护**：Poller 现在有双层保护——`max_staleness`（默认 300s）防止注册永久残留，`max_consecutive_failures`（默认 10）防止持续连接失败。超限后自动注销并写入合成失败到 Mailbox，确保异步模式下的 Executor 崩溃/OOM 能被检测和清理。
 
 ---
 
@@ -499,8 +506,8 @@ _wait_for_executor_result(plan_id, plan_json, ctx, timeout=120.0)
   │       ├─ completion 不为空 → 退出循环
   │       └─ await asyncio.sleep(1.0)
   │       │
-  │       └─ CancelledError → 返回"任务仍在运行"提示（无 [EXECUTOR_RESULT] 标记）
-  │           "任务 {plan_id} 仍在运行，稍后使用 get_executor_result 获取结果"
+  │       └─ CancelledError → 返回 [EXECUTOR_RESULT]{status:"failed"}（标记步骤失败）
+  │           "Executor 执行被中断：等待 Executor 结果时被中断..."
   │
   ├─ [Step 6] 超时处理
   │   └─ result_data is None（超时退出循环）
@@ -545,7 +552,7 @@ _probe_executor_task(plan_id, ctx)
 
 | 超时参数 | 默认值 | 位置 | 超时行为 |
 |---|---|---|---|
-| `executor_startup_timeout` | 30s | `ProcessManager.start_for_task` | 端口发现 + 健康检查共享 deadline；超时 → terminate + TimeoutError |
+| `executor_startup_timeout` | 30s | `ProcessManager.start_for_task` | 端口发现 deadline + 健康检查独立 deadline（至少 10s）；超时 → terminate + TimeoutError |
 | `_wait_for_executor_result.timeout` | 120s | `call_executor` 同步模式 | 轮询 Mailbox 超时 → 标记 failed + 杀进程 |
 | `_stop_handle` 等待 | 10s + 5s | 进程停止 | HTTP /shutdown → wait(10s) → terminate → wait(5s) → kill |
 | `sync_terminate` 等待 | 3s | atexit/信号处理 | terminate → wait(3s) → kill |
@@ -556,24 +563,27 @@ _probe_executor_task(plan_id, ctx)
 
 | 超时参数 | 默认值 | 位置 | 超时行为 |
 |---|---|---|---|
-| `executor_call_model_timeout` | 180s | `call_executor` 节点 | RuntimeError → 传播 → 失败结果 |
+| `executor_call_model_timeout` | 180s | `call_executor` + `reflection_node` | RuntimeError → 传播 → 失败结果 |
 | `executor_tool_timeout` | 300s | `tools_node` | **优雅降级**：合成超时 ToolMessage，LLM 可继续 |
 | `max_executor_iterations` | 20 | `run_executor` recursion_limit | GraphRecursionError → 失败结果 |
 | `run_with_interrupt_check.timeout` | 120s | interrupt.py | terminate → wait(5s) → kill → TimeoutExpired |
 | `_push_result_to_mailbox` 单次 | 5s | server.py | 重试（最多 3 次） |
-| `_push_result_to_mailbox` 总计 | ~15s | server.py | 3 次全失败 → 依赖 Poller 兜底 |
-| `_results` 上限 | 50 条 | server.py | LRU 淘汰最旧条目 |
+| `_push_result_to_mailbox` 总计 | ~15s | server.py | 3 次全失败 → 依赖 Poller 兜底；asyncio.shield 保护 + 同步 urllib 兜底 |
+| `_results` 上限 | 200 条 | server.py | 优先淘汰 accepted 占位，保护终态条目 |
 
 ### 9.3 基础设施层
 
 | 超时参数 | 默认值 | 位置 | 超时行为 |
 |---|---|---|---|
 | Poller 轮询间隔 | 1.5s | ExecutorPoller | 每 1.5s 扫描一次活跃任务 |
-| Poller HTTP 超时 | 3s | _poll_one | 静默跳过，下个周期重试 |
+| Poller HTTP 超时 | 3s | _poll_one | consecutive_failures +1；达上限（10）→ 合成失败 + 注销 |
+| Poller 过期阈值 | 300s | _Registration.max_staleness | 注册超过 5min → 合成失败 + 注销 |
+| Poller 连续失败上限 | 10 | _Registration.max_consecutive_failures | 连续 10 次 HTTP 失败 → 合成失败 + 注销 |
 | Poller 并发上限 | 5 | Semaphore | 最多 5 个并发 HTTP 请求 |
 | Mailbox push 重试 | 3 次 × 5s | server.py | 失败后依赖 Pull 兜底 |
 | Port 发现轮询间隔 | 0.3s | start_for_task | 每 0.3s 读端口文件 |
 | 健康检查轮询间隔 | 0.3s | start_for_task | 每 0.3s GET /health |
+| 健康检查最小保证 | 10s | `_HEALTH_CHECK_BUDGET` | 独立 deadline，至少保证 10s |
 | 健康检查 HTTP 超时 | 5s | start_for_task | ConnectError/Timeout 静默重试 |
 | `_collect_stdout` | 2s | start_for_task | 超时或异常返回空字符串 |
 
@@ -599,11 +609,14 @@ _probe_executor_task(plan_id, ctx)
 | 12 | 进程启动超时 | `start_for_task` TimeoutError | call_executor 返回 failed |
 | 13 | 端口文件写入失败 | `__main__.py` 异常传播 → 进程退出 | 同 #12（启动超时检测） |
 | 14 | `_wait_for_executor_result` 超时 | 轮询循环超时 | 标记 failed + 杀进程 |
-| 15 | `CancelledError` 在等待期间 | `_wait_for_executor_result` 捕获 | 返回"仍在运行"提示（**无** EXECUTOR_RESULT 标记） |
+| 15 | `CancelledError` 在等待期间 | `_wait_for_executor_result` 捕获 | 返回 `[EXECUTOR_RESULT]{status:"failed"}`（**已修复**：标记步骤失败，dynamic_tools_node 正常更新状态） |
 | 16 | 重规划耗尽（≥max_replan） | `call_model` 早返回 A | 合成失败消息 → __end__ |
 | 17 | Mode2→Mode3 升级触发 | `call_model` 早返回 B | 强制调用 call_planner |
 | 18 | Max step 强制终止 | `call_model` 早返回 C | 合成终止消息 → __end__ |
 | 19 | V3 基础设施启动失败 | `call_executor` Phase 2 | 标记步骤 failed + 返回失败结果 |
+| 20 | Reflection LLM 调用超时 | `reflection_node` → asyncio.TimeoutError → RuntimeError | `ExecutorResult(status="failed")` |
+| 21 | Poller 过期/连续失败 | `_poll_one` 检测 | 合成失败写入 Mailbox + 自动注销 |
+| 22 | Push 取消 + shield 取消 | `_run_executor_task` finally | urllib 同步兜底 `_sync_push_result_to_mailbox` |
 
 ### 10.2 失败后的处理决策树
 
@@ -645,7 +658,7 @@ ExecutorResult 返回 Supervisor
 
 - 正常 Mode 1/2/3 执行流程
 - Executor 进程启动失败（端口/健康检查超时）
-- LLM 调用超时（Executor 侧 180s）
+- LLM 调用超时（Executor 侧 180s，含 reflection_node）
 - 工具执行超时（Executor 侧 300s，优雅降级）
 - Supervisor 等待超时（120s）
 - Mailbox push 失败 → Poller pull 兜底
@@ -654,56 +667,62 @@ ExecutorResult 返回 Supervisor
 - Max step 强制终止
 - 软中断（stop event）
 - 子进程 OOM → 超时检测
-- CancelledError 传播
+- CancelledError 传播（返回 `[EXECUTOR_RESULT]{status:"failed"}`，状态正确更新）
 - 进程生命周期清理（atexit + 信号处理）
+- Poller 过期检测 + 连续失败自动注销（异步模式 Executor 崩溃可检测）
+- 健康检查独立 deadline（至少保证 10s）
+- Mailbox push 取消保护（asyncio.shield + urllib 同步兜底）
+- 结果 LRU 淘汰保护（上限 200，优先淘汰 accepted 占位）
 
-### 11.2 潜在遗漏或边界情况
+### 11.2 已修复的边界情况
 
-#### (A) CancelledError 返回路径不一致
+#### (A) ~~CancelledError 返回路径不一致~~ — **已修复**
 
-`_wait_for_executor_result` 捕获 `CancelledError` 时返回**不带** `[EXECUTOR_RESULT]` 标记的普通字符串：
+`_wait_for_executor_result` 捕获 `CancelledError` 时现在返回带 `[EXECUTOR_RESULT]{status:"failed"}` 标记的格式化字符串，包含 `updated_plan_json`（步骤标记失败）。`dynamic_tools_node` 走正常的 `_process_executor_completion` 路径，正确更新 `planner_session`、`replan_count` 和 `executor_task_history`。
 
-```
-"任务 {plan_id} 仍在运行，稍后使用 get_executor_result 获取结果"
-```
+**修复位置**：`src/supervisor_agent/tools.py` `_wait_for_executor_result` CancelledError 分支。
 
-在 `dynamic_tools_node` 中，这个消息走 **call_executor 的"两者都不含"分支**，被当作原始 ToolMessage 透传给 LLM。此时：
-- `active_executor_tasks` 中仍有 `status="dispatched"` 的记录
-- LLM 看到的是"任务仍在运行"的自然语言提示
-- **不会触发任何状态更新**
+#### (B) ~~Poller 无重试上限~~ — **已修复**
 
-如果 LLM 接下来不主动调用 `get_executor_result`，这个 dispatched 任务会一直留在 `active_executor_tasks` 中，直到：
-- LLM 自行决定调用 `get_executor_result`
-- LLM 调用 `list_executor_tasks` 发现它
-- 会话结束
+`ExecutorPoller._poll_one` 现在有双层保护：
+1. **过期检测**：每个注册记录 `registered_at`，超过 `max_staleness`（默认 300s）→ 自动注销 + 合成失败写入 Mailbox
+2. **连续失败计数**：每次 HTTP 异常 `consecutive_failures += 1`，成功（200/404）重置；达到 `max_consecutive_failures`（默认 10）→ 自动注销 + 合成失败写入 Mailbox
 
-#### (B) Poller 无重试上限
+异步模式下 Executor 崩溃/OOM 后，Poller 最多在 `10 × 1.5s = 15s` 内检测到连续失败并自动清理。
 
-`ExecutorPoller._poll_one` 对瞬态错误（网络超时、连接拒绝）没有重试计数器，每 1.5s 无限重试。在以下场景中可能成为问题：
-- Executor 已崩溃但 plan 未被注销
-- 网络分区导致持续连接失败
+**修复位置**：`src/common/polling.py` `_Registration` dataclass + `_poll_one` + `_post_synthetic_failure`。
 
-**缓解**：`_wait_for_executor_result` 有 120s 总超时；但 Poller 本身是后台任务，不直接受此限制。如果 `_wait_for_executor_result` 因超时返回失败，它应该会调用 `_cleanup_dead_executor` 杀进程。但如果在异步模式下（`wait_for_result=False`），没有对应的清理逻辑。
+#### (C) ~~start_for_task 端口/健康检查共享 deadline~~ — **已修复**
 
-#### (C) start_for_task 端口/健康检查共享 deadline
+健康检查现在使用独立 deadline：端口发现成功后，重新计算 `now + max(remaining, _HEALTH_CHECK_BUDGET=10s)`。保证健康检查至少有 10s 时间，不再被端口发现饿死。
 
-端口发现和健康检查使用**同一个** deadline（`executor_startup_timeout` 默认 30s）。如果端口发现花费了大部分时间（例如 28s），健康检查只剩 2s，可能在 Executor 服务尚未完全启动时就超时。
+**修复位置**：`src/common/process_manager.py` `start_for_task` 健康检查块。
 
-**影响**：Executor 子进程已被 spawn 且端口文件已写入，但因为健康检查超时被 terminate。这是保守策略（宁可重试），但在高负载系统上可能导致不必要的进程重启。
+#### (D) ~~MailboxHTTPServer 的类级别共享~~ — **已修复**
 
-#### (D) MailboxHTTPServer 的类级别共享
+`_InboxHandler` 不再使用类属性 `mailbox`。改为 `_MailboxHTTPServer(HTTPServer)` 子类携带实例属性，`_InboxHandler` 通过 `self.server.mailbox` 访问。
 
-`_InboxHandler.mailbox` 是**类属性**，不是实例属性。如果（理论上）创建多个 `MailboxHTTPServer` 实例，后创建的会覆盖前一个的 mailbox 引用。
+**修复位置**：`src/common/mailbox_server.py` `_MailboxHTTPServer` + `_InboxHandler._get_mailbox()`。
 
-**实际影响**：当前 `V3LifecycleManager` 使用懒加载单例模式，不会创建多个实例。但代码层面缺乏防护。
+#### (E) ~~异步模式下推送取消竞态~~ — **已修复**
 
-#### (E) 异步模式下 Executor 自毁后的清理时序
+`_run_executor_task` 的 finally 块中，`_push_result_to_mailbox` 使用 `asyncio.shield()` 保护。若 shield 也被取消，则调用 `_sync_push_result_to_mailbox`（urllib 同步兜底，3s 超时）。
 
-per-task 模式下，`_run_executor_task` 的 `finally` 块中会调用 `_schedule_self_shutdown`（2s 后 uvicorn 退出）。这发生在结果推送到 Mailbox **之后**。
+**修复位置**：`src/executor_agent/server.py` `_run_executor_task` finally 块 + `_sync_push_result_to_mailbox`。
 
-如果 Push 在 3 次重试中花费了约 15s，总延迟是 15s + 2s = 17s。在此期间：
-- Supervisor 可能已经通过 Poller 拿到了结果（Pull 兜底）
-- 如果 Supervisor 在 Push 成功前就拿到了结果，重复的结果不会造成问题（Mailbox 的 `has_completion` 标志幂等）
+#### (H) ~~reflection_node 无超时保护~~ — **已修复**
+
+`reflection_node` 现在用 `asyncio.wait_for(..., timeout=executor_call_model_timeout)` 包装 LLM 调用，超时抛 `RuntimeError`。与 `call_executor` 节点的超时模式一致。
+
+**修复位置**：`src/executor_agent/graph.py` `reflection_node`。
+
+#### ~~结果 LRU 淘汰可能丢失~~ — **已修复**
+
+`_MAX_STORED_RESULTS` 从 50 提升到 200；`_cleanup_old_results` 改为优先淘汰 `status=accepted`（预占位）条目，保护终态条目不被过早淘汰。
+
+**修复位置**：`src/executor_agent/server.py` `_MAX_STORED_RESULTS` + `_cleanup_old_results`。
+
+### 11.3 仍存在的边界情况
 
 #### (F) get_executor_result(detail="full") 的缓存窗口
 
@@ -715,11 +734,7 @@ per-task 模式下，`_run_executor_task` 的 `finally` 块中会调用 `_schedu
 
 `_trim_task_history` 限制在 50 条，但它只修剪 `executor_task_history`。`active_executor_tasks` 字典没有大小限制——如果有大量异步任务未被消费，可能持续增长。
 
-**缓解**：正常使用中 LLM 会主动查询和处理任务；异常情况下会话结束会清理所有状态。
-
-#### (H) reflection_node 无超时保护
-
-`reflection_node` 调用 LLM 时没有 `asyncio.wait_for` 包装。如果 LLM API 在反射调用时挂起，会一直阻塞。不过 `run_executor` 的整体执行受 `_wait_for_executor_result` 的 120s 超时保护（Supervisor 侧），所以不会无限期挂起。
+**缓解**：正常使用中 LLM 会主动查询和处理任务；异常情况下会话结束会清理所有状态。Poller 的过期检测现在也会清理长期无响应的注册。
 
 #### (I) Plan JSON 步骤失败标记后的 json.dumps 格式
 

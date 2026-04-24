@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -18,7 +19,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from src.common.context import Context
-from src.common.executor_protocol import ExecuteStatus, StopRequest
+from src.common.executor_protocol import ExecuteStatus
 from src.executor_agent.graph import ExecutorResult, run_executor
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ _results: dict[str, ExecutorResult] = {}
 _statuses: dict[str, ExecuteStatus] = {}
 
 # Maximum number of completed results to keep in memory
-_MAX_STORED_RESULTS = 50
+_MAX_STORED_RESULTS = 200
 
 
 class ExecuteRequestBody(BaseModel):
@@ -45,14 +46,30 @@ class StopRequestBody(BaseModel):
 
 
 def _cleanup_old_results() -> None:
-    """Evict oldest results when the dict exceeds the cap."""
+    """Evict results when the dict exceeds the cap.
+
+    Protects recently-completed entries (terminal status) from eviction
+    to prevent result loss when push failed and poller hasn't fetched yet.
+    Evicts ``accepted`` (pre-execution placeholder) entries first.
+    """
     if len(_results) <= _MAX_STORED_RESULTS:
         return
-    # Remove oldest entries (dict preserves insertion order in Python 3.7+)
     to_remove = len(_results) - _MAX_STORED_RESULTS
-    keys = list(_results.keys())[:to_remove]
+    keys = list(_results.keys())
+    removed = 0
+    # Phase 1: evict "accepted" (pre-execution) entries first
     for k in keys:
-        _results.pop(k, None)
+        if removed >= to_remove:
+            break
+        result = _results.get(k)
+        if result and result.status == "accepted":
+            _results.pop(k, None)
+            removed += 1
+    # Phase 2: if still over budget, evict oldest entries regardless
+    if removed < to_remove:
+        remaining_keys = list(_results.keys())
+        for k in remaining_keys[: to_remove - removed]:
+            _results.pop(k, None)
 
 
 async def _run_executor_task(
@@ -128,8 +145,18 @@ async def _run_executor_task(
         _statuses.pop(plan_id, None)
         _cleanup_old_results()
 
-        # Push result to Supervisor's mailbox and schedule self-shutdown
-        await _push_result_to_mailbox(plan_id)
+        # Push result to Supervisor's mailbox (resilient to cancellation)
+        try:
+            await asyncio.shield(_push_result_to_mailbox(plan_id))
+        except asyncio.CancelledError:
+            logger.warning(
+                "Push to mailbox shield-cancelled for %s, attempting sync fallback",
+                plan_id,
+            )
+            _sync_push_result_to_mailbox(plan_id)
+        except Exception as exc:
+            logger.warning("Push to mailbox failed for %s: %s", plan_id, exc)
+
         _schedule_self_shutdown()
 
 
@@ -201,6 +228,47 @@ async def _push_result_to_mailbox(plan_id: str) -> None:
     logger.error("All mailbox push attempts failed for %s — result available via /result", plan_id)
 
 
+def _sync_push_result_to_mailbox(plan_id: str) -> None:
+    """Best-effort synchronous push when async push is cancelled.
+
+    Uses urllib to avoid any async dependencies. Only fires once.
+    """
+    import urllib.error
+    import urllib.request
+
+    mailbox_url = os.environ.get("MAILBOX_URL", "")
+    if not mailbox_url:
+        return
+
+    result = _results.get(plan_id)
+    if result is None:
+        return
+
+    payload_str = json.dumps({
+        "plan_id": plan_id,
+        "item_type": "completion",
+        "payload": {
+            "plan_id": plan_id,
+            "status": result.status,
+            "updated_plan_json": result.updated_plan_json,
+            "summary": result.summary,
+            "snapshot_json": result.snapshot_json,
+        },
+    }).encode()
+
+    try:
+        req = urllib.request.Request(
+            f"{mailbox_url}/inbox",
+            data=payload_str,
+            headers={"Content-Type": "application/json"},
+        )
+        resp = urllib.request.urlopen(req, timeout=3.0)
+        if resp.status == 200:
+            logger.info("Sync fallback push succeeded for %s", plan_id)
+    except Exception as e:
+        logger.warning("Sync fallback push also failed for %s: %s", plan_id, e)
+
+
 def _schedule_self_shutdown() -> None:
     """Schedule graceful self-shutdown after result push (per-task lifecycle).
 
@@ -218,7 +286,6 @@ def _schedule_self_shutdown() -> None:
             task.cancel()
         _running_tasks.clear()
         # Stop the uvicorn server
-        import uvicorn
         for task in asyncio.all_tasks():
             if task is not asyncio.current_task():
                 task.cancel()
