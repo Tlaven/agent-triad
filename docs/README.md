@@ -16,9 +16,9 @@
 | **V3 进程分离：Mermaid 总览、执行序列、组件与旧架构对比** | [`v3-architecture-diagrams.md`](v3-architecture-diagrams.md) | §1 系统总览；§2 起为流程与专题图 |
 | **V4 知识树概念对齐：两层存储+Overlay、向量映射、Agent重组、分阶段路线** | [`v4-knowledge-tree-concepts.md`](v4-knowledge-tree-concepts.md) | 全文 |
 | **V4 知识树技术规格：P1 数据模型、接口契约、模块结构、测试策略** | [`v4-knowledge-tree-spec.md`](v4-knowledge-tree-spec.md) | 按模块分节 |
-| **V4 实验手册：成本分层、Mock 策略、确定性测试配方、诊断工具** | [`v4-experiment-handbook.md`](v4-experiment-handbook.md) | 按场景速查 |
+| **V4 实验手册：成本分层、Mock 策略、确定性测试配方、诊断工具、L4+ 实测记录** | [`v4-experiment-handbook.md`](v4-experiment-handbook.md) | 按场景速查；§8 为 L4+ Server 实测记录 |
 | **改代码后跑哪条命令、`make test_*` 含义** | [`../tests/README.md`](../tests/README.md) | 命令表与文档分工 |
-| **环境、代理、测试分层、E2E 前检查、FAQ** | [`../tests/TESTING.md`](../tests/TESTING.md) | 「命令一览」起至分层与约定 |
+| **环境、代理、测试分层、E2E Server 测试方法论、三级验证、已知 LLM 行为问题、FAQ** | [`../tests/TESTING.md`](../tests/TESTING.md) | E2E Server 测试 §3 起；已知问题 §4 |
 | **V2-a/b/c 专项测试文件与命令** | [`../tests/V2_TESTING.md`](../tests/V2_TESTING.md) | 各节按 V2-a / V2-b / V2-c 分块 |
 
 ---

@@ -69,10 +69,10 @@ def bootstrap_from_directory(
         report.errors.append(f"Seed directory not found: {seed_dir}")
         return report
 
-    # 清空旧数据
-    vector_store.close()
-    overlay_store._edges.clear()
-    overlay_store._save()
+    # 清空旧向量索引（锚点和 embedding），重建时重新生成
+    for anchor in vector_store.get_all_anchors():
+        vector_store.delete_anchor(anchor.directory)
+    # 注意：不清空 overlay 边——跨目录关联应跨 bootstrap 保留
 
     # 收集所有 .md 文件
     md_files = sorted(
@@ -104,6 +104,12 @@ def bootstrap_from_directory(
             # 写入向量索引
             vector_store.upsert_embedding(node.node_id, embedding)
             report.embeddings_generated += 1
+
+            # 同时索引 title embedding（用于短查询匹配）
+            if node.title:
+                title_embedding = embedder(node.title)
+                vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
+                report.embeddings_generated += 1
 
             # 收集目录信息
             directory = node.directory

@@ -86,6 +86,26 @@ class BaseVectorStore(ABC):
         """删除目录锚点。"""
 
     @abstractmethod
+    def similarity_search_with_prefix(
+        self,
+        prefix: str,
+        query_embedding: list[float],
+        top_k: int = 5,
+        threshold: float = 0.15,
+    ) -> list[tuple[str, float]]:
+        """在具有指定前缀的 embedding 中搜索。
+
+        Args:
+            prefix: node_id 前缀（如 "title:"）。
+            query_embedding: 查询向量。
+            top_k: 返回最多 K 个结果。
+            threshold: 相似度阈值。
+
+        Returns:
+            (node_id, similarity_score) 列表。
+        """
+
+    @abstractmethod
     def find_nearest_anchor(
         self,
         query_embedding: list[float],
@@ -128,6 +148,9 @@ class InMemoryVectorStore(BaseVectorStore):
 
         results: list[tuple[str, float]] = []
         for node_id, emb in self._embeddings.items():
+            # 跳过 title: 前缀的条目（它们是辅助索引）
+            if node_id.startswith("title:"):
+                continue
             score = _cosine_similarity(query_embedding, emb)
             if score >= threshold:
                 results.append((node_id, score))
@@ -170,6 +193,24 @@ class InMemoryVectorStore(BaseVectorStore):
             if score >= threshold and (best is None or score > best[1]):
                 best = (anchor, score)
         return best[0] if best is not None else None
+
+    def similarity_search_with_prefix(
+        self,
+        prefix: str,
+        query_embedding: list[float],
+        top_k: int = 5,
+        threshold: float = 0.15,
+    ) -> list[tuple[str, float]]:
+        """在具有指定前缀的 embedding 中搜索。"""
+        results: list[tuple[str, float]] = []
+        for node_id, emb in self._embeddings.items():
+            if not node_id.startswith(prefix):
+                continue
+            score = _cosine_similarity(query_embedding, emb)
+            if score >= threshold:
+                results.append((node_id, score))
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
 
     def close(self) -> None:
         self._embeddings.clear()

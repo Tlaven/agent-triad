@@ -136,6 +136,11 @@ def ingest_nodes(
             # 5. 更新向量索引
             vector_store.upsert_embedding(node.node_id, node.embedding)
 
+            # 5b. 同时索引 title embedding
+            if node.title:
+                title_embedding = embedder(node.title)
+                vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
+
             # 6. 刷新目录锚点
             _refresh_directory_anchor(node.directory, md_store, vector_store)
 
@@ -184,7 +189,28 @@ def _sanitize_filename(title: str) -> str:
 
 
 def _sanitize_dirname(title: str) -> str:
-    """从标题生成安全的目录名。"""
-    safe = "".join(c if c.isalnum() or c in ("_", "-") else "_" for c in title)
-    safe = safe.strip()[:30]
-    return safe or "misc"
+    """从标题生成安全的目录名。优先使用 ASCII，避免超长中文路径。"""
+    # 只保留 ASCII 字母数字、下划线和连字符
+    ascii_parts = []
+    has_alpha = False
+    for c in title:
+        if c.isascii() and c.isalpha():
+            ascii_parts.append(c.lower())
+            has_alpha = True
+        elif c.isascii() and c.isdigit():
+            ascii_parts.append(c)
+        elif c == " " or c == "_":
+            ascii_parts.append("_")
+        elif c == "-":
+            ascii_parts.append("-")
+        else:
+            ascii_parts.append("_")
+    safe = "".join(ascii_parts)
+    # 合并连续下划线
+    while "__" in safe:
+        safe = safe.replace("__", "_")
+    safe = safe.strip("_")[:25]
+    # 如果结果太短或全是数字，回退
+    if not safe or not has_alpha:
+        return "misc"
+    return safe

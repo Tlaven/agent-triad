@@ -171,7 +171,9 @@ class RetrievalLog:
 ```python
 def bootstrap_from_directory(
     seed_dir: Path,               # 种子目录（如 workspace/knowledge_tree/）
+    md_store: MarkdownStore,      # 文件系统存储
     vector_store: BaseVectorStore,
+    overlay_store: OverlayStore,  # Overlay 存储（bootstrap 时保留已有边）
     embedder: Callable[[str], list[float]],
 ) -> BootstrapReport:
     """
@@ -180,11 +182,10 @@ def bootstrap_from_directory(
     流程：
     1. 递归扫描 seed_dir，读取目录层级 = 树结构
     2. 解析每个 .md 文件 → KnowledgeNode（node_id = 相对路径）
-    3. 为每个文件生成 content_embedding
+    3. 为每个文件生成 content_embedding + title_embedding
     4. 计算每个目录的锚点 = 目录内文件 content_embedding 的质心
-    5. P2: 生成 stored_vector = α·content + β·anchor
-    6. 写入向量索引
-
+    5. 写入向量索引
+    注意：不清空 overlay 边，保留已有跨目录关联。
     返回 BootstrapReport：节点数、目录数、锚点数、深度等。
     """
 ```
@@ -195,14 +196,19 @@ def bootstrap_from_directory(
 def rag_search(
     query_vector: list[float],
     vector_store: BaseVectorStore,
+    md_store: MarkdownStore,       # 用于加载完整节点
+    embedder: object = None,       # 可选，用于 title embedding 路径
     top_k: int = 5,
-    threshold: float = 0.7,
+    threshold: float = 0.15,       # hash embedder 用 0.15，语义 embedder 用 0.7
 ) -> list[tuple[KnowledgeNode, float]]:
     """
-    向量相似度检索。
+    向量相似度检索（content + title 双路融合）。
 
-    P1: 纯 content_embedding 检索。
-    P2: stored_vector 检索（含 structural 信息）。
+    检索策略：
+    1. content embedding 路径：query vs content embeddings
+    2. title embedding 路径：query vs title: 前缀的 embeddings
+    3. 两路结果用倒数秩融合（RRF）合并
+    4. 最终按实际相似度降序返回
 
     Returns:
         (node, similarity) 列表，按相似度降序。
@@ -215,9 +221,11 @@ def rag_search(
 def ingest_nodes(
     candidates: list[KnowledgeNode],
     vector_store: BaseVectorStore,
-    md_root: Path,
+    md_store: MarkdownStore,        # 文件系统存储
+    overlay_store: OverlayStore,    # Overlay 存储
     embedder: Callable[[str], list[float]],
     dedup_threshold: float = 0.95,
+    attach_threshold: float = 0.7,  # 目录锚点相似度阈值
 ) -> IngestReport:
     """
     增量嫁接候选节点到知识树。
@@ -227,7 +235,8 @@ def ingest_nodes(
     2. vector_store.search(top-1) → 去重检查
     3. 找最相似的目录锚点 → 确定放置目录
     4. 写入 Markdown 文件到对应目录
-    5. 更新向量索引
+    5. 更新向量索引（content + title embedding）
+    6. 刷新目录锚点
     """
 ```
 
@@ -241,17 +250,25 @@ def ingest_nodes(
 # --- V4: Knowledge Tree ---
 enable_knowledge_tree: bool = False
 knowledge_tree_root: str = "workspace/knowledge_tree"
-kt_rag_similarity_threshold: float = 0.7
+kt_rag_similarity_threshold: float = 0.15   # hash embedder 用 0.15，语义 embedder 用 0.7
 kt_embedding_model: str = "BAAI/bge-small-zh-v1.5"
 kt_embedding_dimension: int = 512
 kt_ingest_chunk_max_tokens: int = 512
 kt_dedup_threshold: float = 0.95
 kt_ingest_enabled: bool = True
+kt_ingest_attach_threshold: float = 0.7     # 目录锚点相似度阈值
 
 # P2 新增
 kt_structural_weight: float = 0.2     # β：structural_vector 权重
 kt_content_weight: float = 0.8        # α：content_embedding 权重
 kt_max_tree_depth: int = 5
+
+# P3 优化闭环
+kt_optimization_window: int = 3600
+kt_max_optimizations_per_window: int = 10
+kt_total_failure_threshold: int = 3
+kt_rag_false_positive_threshold: int = 3
+kt_content_insufficient_threshold: int = 5
 ```
 
 ### 5.2 KnowledgeTreeConfig（`config.py`）
@@ -261,16 +278,23 @@ kt_max_tree_depth: int = 5
 class KnowledgeTreeConfig:
     """知识树运行时配置。"""
     markdown_root: Path                    # 种子/根目录
-    rag_similarity_threshold: float = 0.7
+    rag_similarity_threshold: float = 0.15  # hash embedder 用 0.15
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
     embedding_dimension: int = 512
     ingest_chunk_max_tokens: int = 512
     dedup_threshold: float = 0.95
     ingest_enabled: bool = True
+    ingest_attach_threshold: float = 0.7   # 目录锚点相似度阈值
     # P2
     structural_weight: float = 0.2
     content_weight: float = 0.8
     max_tree_depth: int = 5
+    # P3 优化闭环
+    optimization_window: int = 3600
+    max_optimizations_per_window: int = 10
+    total_failure_threshold: int = 3
+    rag_false_positive_threshold: int = 3
+    content_insufficient_threshold: int = 5
 ```
 
 ---
@@ -281,9 +305,10 @@ class KnowledgeTreeConfig:
 
 | 工具名 | 签名 | 说明 |
 |--------|------|------|
-| `knowledge_tree_retrieve` | `(query: str) -> str` | RAG 向量检索 |
+| `knowledge_tree_retrieve` | `(query: str) -> str` | RAG 向量检索（content + title 双路融合） |
 | `knowledge_tree_ingest` | `(text: str, trigger: str, source: str) -> str` | 增量摄入新知识 |
 | `knowledge_tree_status` | `() -> str` | 树概览（节点数、目录数、锚点状态） |
+| `knowledge_tree_bootstrap` | `() -> str` | 从种子目录建树（已有数据时跳过） |
 
 ### 6.2 P2 新增工具
 
@@ -321,6 +346,12 @@ tests/unit_tests/common/knowledge_tree/
     test_ingest.py
     test_chunker.py
     test_filter.py
+    test_retrieval_log.py
+    test_re_embed.py
+    test_signals.py
+    test_anti_oscillation.py
+    test_anchor_integration.py
+    test_sync.py
 
 tests/integration/
     test_knowledge_tree_loop.py   # 端到端闭环

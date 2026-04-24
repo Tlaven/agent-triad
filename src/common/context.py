@@ -256,6 +256,14 @@ class Context:
                            "Exceeding this returns a timeout warning to the LLM. 0 disables.",
         },
     )
+    executor_wait_timeout: float = field(
+        default=300.0,
+        metadata={
+            "description": "Wall-clock timeout in seconds for Supervisor to wait for Executor "
+                           "result (call_executor wait_for_result=True / get_executor_result). "
+                           "Should be > executor_call_model_timeout to avoid premature kills.",
+        },
+    )
 
     mailbox_port: int = field(
         default=0,
@@ -275,8 +283,8 @@ class Context:
         metadata={"description": "Root directory for Knowledge Tree Markdown files."},
     )
     kt_rag_similarity_threshold: float = field(
-        default=0.7,
-        metadata={"description": "Similarity threshold for RAG retrieval."},
+        default=0.15,
+        metadata={"description": "Similarity threshold for RAG retrieval. Lower for hash embedder (0.15), higher for semantic embedder (0.7)."},
     )
     kt_embedding_model: str = field(
         default="BAAI/bge-small-zh-v1.5",

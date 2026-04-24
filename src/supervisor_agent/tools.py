@@ -354,7 +354,8 @@ def _build_call_executor_tool(runtime_context: Context):
             # 默认路径：阻塞等待结果，直接返回 [EXECUTOR_RESULT]，省去额外工具调用
             logger.info("call_executor wait_for_result=True，等待 plan_id=%s 完成", actual_plan_id)
             return await _wait_for_executor_result(
-                actual_plan_id, plan_json, runtime_context
+                actual_plan_id, plan_json, runtime_context,
+                timeout=runtime_context.executor_wait_timeout,
             )
 
         # wait_for_result=False：异步派发，返回 [EXECUTOR_DISPATCH]
@@ -749,7 +750,10 @@ def _build_get_executor_result_tool(runtime_context: Context):
         except Exception:
             pass
 
-        return await _wait_for_executor_result(pid, plan_json_cached, runtime_context)
+        return await _wait_for_executor_result(
+            pid, plan_json_cached, runtime_context,
+            timeout=runtime_context.executor_wait_timeout,
+        )
 
     return get_executor_result
 

@@ -56,6 +56,12 @@ def full_rebuild(
             vector_store.upsert_embedding(node.node_id, embedding)
             report.embeddings_updated += 1
 
+            # 同时索引 title embedding
+            if node.title:
+                title_embedding = embedder(node.title)
+                vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
+                report.embeddings_updated += 1
+
             # 收集目录信息用于锚点计算
             parts = node.node_id.rsplit("/", 1)
             directory = parts[0] if len(parts) > 1 else ""

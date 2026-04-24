@@ -15,6 +15,9 @@
 | 静态检查 | `make lint`（在项目根） | Ruff + MyPy；与 pytest 互补。 |
 | 真实 API 是否通 | `make test_llm_health` | 约十几秒；**跑 E2E 前建议先跑**。 |
 | 真实 LLM 全链路 | `make test_e2e` | 分钟级、计费与网络依赖；按需或发版前。 |
+| **E2E Server 测试** | `uv run python -u tests/e2e/test_comprehensive_server.py` | 需 `make dev` 运行中；20 用例 × 全工具覆盖 × 三级验证；~15min。 |
+| E2E Server 全工具 | `uv run python -u tests/e2e/test_all_tools_server.py` | 需 `make dev`；10 用例快速覆盖；~10min。 |
+| E2E Server 知识树 | `uv run python -u tests/e2e/test_kt_via_server.py` | 需 `make dev`；5 用例 KT 专项；~3min。 |
 | 自动化 + E2E 串联 | `make test_everything` | 先 `test_lint_coverage`，再 `test_e2e`；需 API Key，适合发版前本地。 |
 
 `make test_coverage` 会执行 `unit + integration` 并输出覆盖率报告（含 `coverage.xml`）；默认覆盖率门槛由 `TEST_COVERAGE_FAIL_UNDER` 控制（默认 80）。
@@ -33,7 +36,7 @@ uv run pytest tests/unit_tests tests/integration -q --cov=src --cov-report=term-
 
 | 文件 | 内容 |
 |------|------|
-| [`TESTING.md`](TESTING.md) | 目录分层、`.env`、代理、E2E 前置检查、FAQ、**新增测试约定与准入规则**。 |
+| [`TESTING.md`](TESTING.md) | 目录分层、`.env`、代理、E2E 前置检查、**E2E Server 测试方法论与三级验证**、已知 LLM 行为问题、FAQ。 |
 | [`V2_TESTING.md`](V2_TESTING.md) | V2-a/b/c（Observation、Planner/MCP、Reflection）相关文件与**针对性** pytest 命令。 |
 
 根目录 [`README.md`](../README.md) 的快速上手会与这里对齐；`docs/README.md` 中的测试索引指向上述文件。

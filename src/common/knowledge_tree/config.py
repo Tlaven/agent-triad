@@ -24,7 +24,7 @@ class KnowledgeTreeConfig:
     markdown_root: Path = Path("workspace/knowledge_tree")
 
     # -- 检索阈值 --
-    rag_similarity_threshold: float = 0.7
+    rag_similarity_threshold: float = 0.15
     max_tree_depth: int = 5
 
     # -- 嵌入 --

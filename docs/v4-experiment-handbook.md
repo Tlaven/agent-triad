@@ -335,3 +335,66 @@ test_kt_e2e:        ## L3+L4 完整闭环（需 API key, ~2min）
 | 路由准确率 | L3 | 真实 LLM | ~10s |
 | 闭环收敛 | L3 | 真实 LLM + mock embed | ~30s |
 | 端到端验收 | L4 | 真实 LLM + embed | ~2min |
+| **全工具 Server 验收** | **L4+** | **test_comprehensive_server.py** | **~15min** |
+
+---
+
+## 8. L4+ Server 实测记录（2026-04）
+
+### 8.1 测试配置
+
+- 脚本：`tests/e2e/test_comprehensive_server.py`
+- 20 用例 / 4 组独立 thread / 三级验证（L1 工具调用 + L2 输出格式 + L3 副作用）
+- 目标：全部 10 个 Supervisor 工具触发
+
+### 8.2 实测结果
+
+| 组 | 用例 | 结果 | 耗时 | 备注 |
+|----|------|------|------|------|
+| A | A1 bootstrap | PASS | 6s | 空树自动 bootstrap |
+| A | A2 status | PASS | 11s | 4 nodes, 3 dirs |
+| A | A3 retrieve（精确） | PASS | 6s | similarity=1.0（种子精确匹配） |
+| A | A4 retrieve（模糊） | PASS | 7s | similarity=0.176，正确返回低质量 |
+| A | A5 ingest | PASS | 9s | nodes_ingested=1 |
+| A | A6 retrieve（验证摄入） | PASS | 14s | 首次 no results，自动重试命中 |
+| A | A7 ingest（重复） | PASS | 9s | nodes_deduplicated=1，去重生效 |
+| B | B1 executor (Mode 2) | PASS | 21s | 文件创建成功 |
+| B | B2 list_tasks | PASS | 8s | 表格格式输出 |
+| B | B3 get_result | PASS | 6s | 含步骤级详情 |
+| B | B4 planner+executor | PASS | 412s | Mode 3 全链路（含多次 executor 调用） |
+| B | B5 check_progress | SOFT_PASS | 24s | 工具触发成功，L2 格式问题 |
+| B | B6 executor (Mode 2) | PASS | 23s | 第二个简单任务 |
+| C | C1 async dispatch | PASS | 17s | plan_id returned, status=accepted |
+| C | C2 stop_executor | PASS | 14s | 停止信号发送成功 |
+| C | C3 list_tasks | PASS | 14s | 含 dispatched 状态任务 |
+| C | C4 get_result | PASS | 13s | 获取已完成任务结果 |
+| D | D1 planner | PASS | 20s | 纯规划，不执行 |
+| D | D2 executor+replan | PASS | 29s | 一次成功，未触发 replan |
+| D | D3 kt_status | PASS | 14s | total_nodes=5（种子4+摄入1） |
+
+**汇总：20/20 通过（19 PASS + 1 SOFT_PASS），10/10 工具覆盖。**
+
+### 8.3 关键发现
+
+#### Hash Embedder 摄入→检索限制
+
+P1 默认使用 n-gram hash embedder。实测发现：
+
+- **精确/近 n-gram 匹配**：工作正常（similarity=1.0）
+- **语义不同措辞**：基本无法命中（similarity<0.2）
+- **同句复述**：A6 测试中 "检索关于调试的知识" 无法命中 "调试 Python 程序时，用 print() 分段输出变量值是最快的方法"（similarity 过低），但 A7 后用完整原句重试可命中（similarity=0.589）
+
+**结论**：P1 hash embedder 的 ingest→retrieve 仅对 n-gram 近似匹配有效。P2 引入语义 embedder 后应重新验证 A6 场景。
+
+#### 去重机制验证
+
+A5 首次摄入：`nodes_ingested=1, nodes_deduplicated=0`
+A7 重复摄入：`nodes_ingested=0, nodes_deduplicated=1`
+
+去重阈值 `kt_dedup_threshold=0.95` 在 hash embedder 下工作正常——完全相同的文本被正确识别为重复。
+
+#### Supervisor 自主行为
+
+- B4（Mode 3）：Supervisor 自主将 plan 拆分为多个独立 executor 调用，而非单次执行全部 steps
+- B5（check_progress）：Supervisor 倾向于执行任务而非仅查看进度，需要非常明确的指令才能触发 `check_executor_progress`
+- Executor 创建文件时，如果消息中包含 "workspace" 前缀，可能在 `workspace/workspace/` 下创建文件（CWD 已经是 workspace）

@@ -8,8 +8,10 @@ Overlay 仅存储 is_primary=False 的跨目录关联边，
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -45,10 +47,6 @@ class OverlayEdge:
         )
 
 
-# 延迟导入类型注解用
-from typing import Any
-
-
 class OverlayStore:
     """Overlay JSON 文件读写。
 
@@ -81,13 +79,13 @@ class OverlayStore:
         self._edges = []
 
     def _save(self) -> None:
-        """持久化到磁盘。"""
+        """持久化到磁盘（原子写入：先写临时文件再重命名）。"""
         self._path.parent.mkdir(parents=True, exist_ok=True)
         data = [e.to_dict() for e in self._edges]
-        self._path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        tmp_path = self._path.with_suffix(".tmp")
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(tmp_path, self._path)
 
     # -- CRUD --
 

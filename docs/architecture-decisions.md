@@ -806,3 +806,35 @@ Agent 执行任务 → 产出新知识
 ```
 
 **原因**：知识树若无新内容入口，初始 bootstrap 后即成死树。摄入管道是"涌现"的核心——Agent 执行中产生的知识自动回流，再经重组工具自主整理，形成自进化闭环。
+
+---
+
+## 决策 27：Supervisor 等待 Executor 结果超时配置化
+
+**背景**：原 `_wait_for_executor_result` 硬编码 120s 超时，而 `executor_call_model_timeout` 为 180s。当 Executor 的 LLM 调用耗时超过 120s 但未达 180s 时，Supervisor 会提前终止 Executor 子进程，导致任务失败。
+
+**决策**：新增 `executor_wait_timeout` 配置字段（`Context` dataclass），默认值 300s，由 `call_executor` 和 `get_executor_result` 统一使用。
+
+**约束**：`executor_wait_timeout` 应 **大于** `executor_call_model_timeout`（180s），否则仍会出现提前终止。
+
+**实现**：
+
+```
+Context.executor_wait_timeout: float = 300.0
+  ↓
+call_executor(wait_for_result=True)
+  → _wait_for_executor_result(timeout=runtime_context.executor_wait_timeout)
+  ↓
+get_executor_result()
+  → _wait_for_executor_result(timeout=runtime_context.executor_wait_timeout)
+```
+
+**超时层级关系**（从内到外）：
+
+| 超时 | 默认值 | 作用域 |
+|------|--------|--------|
+| `executor_call_model_timeout` | 180s | Executor 子进程内单次 LLM 调用 |
+| `executor_tool_timeout` | 300s | Executor 子进程内 tools_node 执行 |
+| `executor_wait_timeout` | 300s | Supervisor 等待 Executor 结果返回 |
+
+**原因**：超时值必须由内到外递增——内层先超时并优雅降级，外层再超时才终止进程。硬编码的外层超时小于内层，等同于人为制造竞态。配置化后可通过环境变量 `EXECUTOR_WAIT_TIMEOUT` 按需调整。

@@ -86,7 +86,7 @@ class TestBootstrapFromDirectory:
 
         assert report.errors == []
         assert report.nodes_created == 4
-        assert report.embeddings_generated == 4
+        assert report.embeddings_generated == 8  # 4 content + 4 title
         assert report.anchors_computed >= 1  # 至少有 development 和 patterns
         assert report.max_depth >= 1
 

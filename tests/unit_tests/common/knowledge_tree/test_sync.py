@@ -37,7 +37,7 @@ class TestFullRebuild:
         # 全量重建
         report = full_rebuild(md, vec, embedder)
         assert report.nodes_synced == len(sample_nodes)
-        assert report.embeddings_updated == len(sample_nodes)
+        assert report.embeddings_updated == len(sample_nodes) * 2  # content + title
         assert report.errors == []
 
         # 验证嵌入

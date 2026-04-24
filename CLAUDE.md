@@ -114,7 +114,7 @@ class ExecutorResult:
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关；正整数启用。
 - **MCP**：`enable_deepwiki` / `enable_filesystem_mcp` 等须在 `.env` 显式开启方生效。
 - **分 Agent LLM 参数**：`SUPERVISOR_*` / `PLANNER_*` / `EXECUTOR_*`（`TEMPERATURE`、`TOP_P`、`MAX_TOKENS`、`SEED`）。
-- **Executor 超时保护**：`executor_call_model_timeout`（默认 180s）单次 LLM 调用超时 → 抛异常终止进程；`executor_tool_timeout`（默认 300s）tools_node 超时 → 返回部分结果让 LLM 摘要。Supervisor 侧 `_wait_for_executor_result` 超时（默认 120s）→ 终止 executor 进程并标记失败。
+- **Executor 超时保护**：`executor_call_model_timeout`（默认 180s）单次 LLM 调用超时 → 抛异常终止进程；`executor_tool_timeout`（默认 300s）tools_node 超时 → 返回部分结果让 LLM 摘要。Supervisor 侧 `executor_wait_timeout`（默认 300s，须 > `executor_call_model_timeout`）→ 终止 executor 进程并标记失败。
 - **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
 - **Thinking**：`ENABLE_IMPLICIT_THINKING`；仅 Supervisor 可用 `SUPERVISOR_THINKING_VISIBILITY`（`visible`|`implicit`，默认 implicit）把推理拼入对用户 `content`；Planner/Executor **不**拼。未设置时兼容旧名 `THINKING_VISIBILITY`。
 

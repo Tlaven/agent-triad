@@ -10,7 +10,7 @@ from src.common.knowledge_tree.config import KnowledgeTreeConfig
 class TestKnowledgeTreeConfig:
     def test_defaults(self):
         cfg = KnowledgeTreeConfig()
-        assert cfg.rag_similarity_threshold == 0.7
+        assert cfg.rag_similarity_threshold == 0.15
         assert cfg.max_tree_depth == 5
         assert cfg.embedding_dimension == 512
         assert cfg.max_optimizations_per_window == 10
@@ -27,7 +27,7 @@ class TestKnowledgeTreeConfig:
         ctx = Context(enable_knowledge_tree=True)
         cfg = KnowledgeTreeConfig.from_context(ctx)
         assert isinstance(cfg, KnowledgeTreeConfig)
-        assert cfg.rag_similarity_threshold == 0.7  # 默认值
+        assert cfg.rag_similarity_threshold == 0.15  # 默认值（hash embedder 用低阈值）
 
     def test_from_context_custom_values(self):
         from src.common.context import Context

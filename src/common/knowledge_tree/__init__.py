@@ -28,6 +28,9 @@ from src.common.knowledge_tree.storage.vector_store import (
 
 logger = logging.getLogger(__name__)
 
+# 全局 KT 实例缓存：按 markdown_root 路径索引，避免每次 get_tools() 重新创建
+_kt_cache: dict[str, KnowledgeTree] = {}
+
 
 class KnowledgeTree:
     """知识树门面类——两层存储 + Overlay 架构。
@@ -53,8 +56,9 @@ class KnowledgeTree:
         overlay_path = config.markdown_root / ".overlay.json"
         self.overlay_store = OverlayStore(overlay_path)
 
-        # 检索日志缓冲
+        # 检索日志缓冲（上限防止内存泄漏）
         self._retrieval_logs: list[RetrievalLog] = []
+        self._max_retrieval_logs = 1000
 
     def retrieve(self, query: str) -> tuple[list[tuple[KnowledgeNode, float]], RetrievalLog]:
         """RAG 向量检索（主检索路径）。
@@ -72,6 +76,7 @@ class KnowledgeTree:
             log.query_vector,
             self.vector_store,
             self.md_store,
+            embedder=self.embedder,
             threshold=self.config.rag_similarity_threshold,
         )
 
@@ -85,6 +90,8 @@ class KnowledgeTree:
         )
 
         self._retrieval_logs.append(log)
+        if len(self._retrieval_logs) > self._max_retrieval_logs:
+            self._retrieval_logs = self._retrieval_logs[-self._max_retrieval_logs:]
         return results, log
 
     def status(self) -> dict[str, Any]:
@@ -101,7 +108,7 @@ class KnowledgeTree:
             "overlay_edges": len(self.overlay_store.get_all_edges()),
             "retrieval_logs_count": len(self._retrieval_logs),
             "directories": directories,
-            "anchor_directories": [a.directory for a in anchors],
+            "anchor_directories": [a.directory for a in anchors if a.directory],
         }
 
     def record_feedback(self, query_id: str, satisfaction: bool, feedback: str = "") -> None:
@@ -215,26 +222,32 @@ class KnowledgeTree:
 
 
 def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
-    """默认 n-gram 哈希 embedder（零外部依赖）。
+    """默认 n-gram 哈希 embedder（零外部依赖）.
 
-    用 2-gram 和 3-gram 分片哈希映射到向量维度。
+    改进版：使用多粒度 n-gram（1~4）+ 稳定哈希分桶，
+    对中英文混合文本有更好的区分度。
     注意：此 embedder 的余弦相似度低于语义嵌入，
-    检索阈值应适当降低（建议 0.3-0.5）。
+    检索阈值应适当降低（建议 0.15-0.30）。
     """
+    def _stable_hash(s: str) -> int:
+        """稳定的字符串哈希（跨 Python 版本一致）。"""
+        h = 5381
+        for c in s:
+            h = ((h << 5) + h + ord(c)) & 0xFFFFFFFF
+        return h
+
     def embed(text: str) -> list[float]:
         vec = [0.0] * dimension
         if not text:
             return vec
 
-        for n in (2, 3):
-            for i in range(len(text) - n + 1):
+        # 多粒度 n-gram：1-gram 权重低，2~4 gram 权重高
+        weights = {1: 0.3, 2: 1.0, 3: 1.0, 4: 0.8}
+        for n, weight in weights.items():
+            for i in range(max(0, len(text) - n + 1)):
                 gram = text[i : i + n]
-                idx = hash(gram) % dimension
-                vec[idx] += 1.0
-
-        for c in text:
-            idx = ord(c) % dimension
-            vec[idx] += 0.5
+                idx = _stable_hash(gram) % dimension
+                vec[idx] += weight
 
         mag = sum(x * x for x in vec) ** 0.5
         if mag > 0:
@@ -248,19 +261,21 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
 
     P1 工具：retrieve, ingest, status, bootstrap。
     惰性初始化：KnowledgeTree 实例在首次工具调用时才创建。
+    实例按 markdown_root 路径缓存，避免每次 get_tools() 重新创建。
     """
     import asyncio
 
     from langchain_core.tools import tool as lc_tool
 
     config = KnowledgeTreeConfig.from_context(runtime_context)
-    _kt_holder: list[KnowledgeTree | None] = [None]
+    cache_key = str(config.markdown_root)
 
     def _kt() -> KnowledgeTree:
-        """惰性获取 KnowledgeTree 单例。"""
-        if _kt_holder[0] is None:
+        """从全局缓存获取或创建 KnowledgeTree 实例。"""
+        kt = _kt_cache.get(cache_key)
+        if kt is None:
             kt = KnowledgeTree(config)
-            _kt_holder[0] = kt
+            _kt_cache[cache_key] = kt
             # 自动从种子目录 bootstrap（如果目录存在且树为空）
             if config.markdown_root.is_dir():
                 try:
@@ -269,16 +284,22 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                         logger.info("Auto-bootstrapped knowledge tree: %s", result)
                 except Exception as e:
                     logger.warning("Auto-bootstrap failed (tree starts empty): %s", e)
-        return _kt_holder[0]
+        return kt
 
     # -- sync 业务逻辑 --
 
     def _sync_retrieve(query: str) -> str:
         results, log = _kt().retrieve(query)
         if not results:
-            return json.dumps({"ok": False, "message": "No results found"})
+            return json.dumps({
+                "ok": False,
+                "message": "No results found",
+                "query_id": log.query_id,
+            })
         top_node, top_score = results[0]
-        return json.dumps({
+        # 质量标记：帮助 Supervisor 判断检索结果的可信度
+        quality = "high" if top_score >= 0.5 else ("medium" if top_score >= 0.25 else "low")
+        response = {
             "ok": True,
             "source": "rag",
             "query_id": log.query_id,
@@ -286,8 +307,15 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "title": top_node.title,
             "content": top_node.content[:500],
             "similarity": round(top_score, 3),
+            "quality": quality,
             "additional_results": len(results) - 1,
-        }, ensure_ascii=False)
+        }
+        if quality == "low":
+            response["warning"] = (
+                "Low similarity score — result may not be relevant. "
+                "Consider rephrasing the query or using workspace tools to search files directly."
+            )
+        return json.dumps(response, ensure_ascii=False)
 
     def _sync_status() -> str:
         return json.dumps(_kt().status(), ensure_ascii=False)
@@ -330,7 +358,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
     @lc_tool
     async def knowledge_tree_ingest(
         text: str,
-        trigger: str = "agent:supervisor",
+        trigger: str = "task_complete",
         source: str = "agent:supervisor",
     ) -> str:
         """Ingest new knowledge into the tree from text.
@@ -349,11 +377,13 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
     async def knowledge_tree_bootstrap() -> str:
         """Bootstrap the knowledge tree from the seed directory.
 
-        Reads the directory structure under workspace/knowledge_tree/ and
+        Reads the directory structure under the knowledge tree root and
         generates vector embeddings for all .md files. Directory hierarchy
-        becomes the tree structure. Safe to call multiple times.
+        becomes the tree structure.
 
-        Skips if the tree already has data.
+        SAFE: Skips if the tree already has anchors (already initialized).
+        Calling this on an already-initialized tree is a no-op.
+        Does NOT delete overlay edges or ingested knowledge.
         """
         return await asyncio.to_thread(_sync_bootstrap)
 
