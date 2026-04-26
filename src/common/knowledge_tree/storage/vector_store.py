@@ -114,6 +114,24 @@ class BaseVectorStore(ABC):
         """找到与查询向量最相似的目录锚点。"""
 
     @abstractmethod
+    def find_matching_anchors(
+        self,
+        query_embedding: list[float],
+        threshold: float = 0.5,
+        top_k: int = 3,
+    ) -> list[tuple[DirectoryAnchor, float]]:
+        """找到与查询向量相似度 >= threshold 的所有目录锚点。
+
+        Args:
+            query_embedding: 查询向量。
+            threshold: 相似度阈值。
+            top_k: 最多返回 K 个锚点。
+
+        Returns:
+            (anchor, similarity) 列表，按相似度降序。
+        """
+
+    @abstractmethod
     def close(self) -> None:
         """清理资源。"""
 
@@ -194,6 +212,20 @@ class InMemoryVectorStore(BaseVectorStore):
                 best = (anchor, score)
         return best[0] if best is not None else None
 
+    def find_matching_anchors(
+        self,
+        query_embedding: list[float],
+        threshold: float = 0.5,
+        top_k: int = 3,
+    ) -> list[tuple[DirectoryAnchor, float]]:
+        results: list[tuple[DirectoryAnchor, float]] = []
+        for anchor in self._anchors.values():
+            score = _cosine_similarity(query_embedding, anchor.anchor_vector)
+            if score >= threshold:
+                results.append((anchor, score))
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
+
     def similarity_search_with_prefix(
         self,
         prefix: str,
@@ -228,14 +260,18 @@ class InMemoryVectorStore(BaseVectorStore):
         }
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    """计算余弦相似度。"""
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    """计算余弦相似度（公开 API）。"""
     dot = sum(x * y for x, y in zip(a, b))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(x * x for x in b))
     if norm_a == 0.0 or norm_b == 0.0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+# 内部使用公开版本
+_cosine_similarity = cosine_similarity
 
 
 def compute_anchor_vector(embeddings: list[list[float]]) -> list[float]:

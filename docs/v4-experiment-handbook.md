@@ -365,7 +365,7 @@ test_kt_e2e:        ## L3+L4 完整闭环（需 API key, ~2min）
 | B | B5 check_progress | SOFT_PASS | 24s | 工具触发成功，L2 格式问题 |
 | B | B6 executor (Mode 2) | PASS | 23s | 第二个简单任务 |
 | C | C1 async dispatch | PASS | 17s | plan_id returned, status=accepted |
-| C | C2 stop_executor | PASS | 14s | 停止信号发送成功 |
+| C | C2 manage_executor(stop) | PASS | 14s | 停止信号发送成功 |
 | C | C3 list_tasks | PASS | 14s | 含 dispatched 状态任务 |
 | C | C4 get_result | PASS | 13s | 获取已完成任务结果 |
 | D | D1 planner | PASS | 20s | 纯规划，不执行 |
@@ -396,5 +396,5 @@ A7 重复摄入：`nodes_ingested=0, nodes_deduplicated=1`
 #### Supervisor 自主行为
 
 - B4（Mode 3）：Supervisor 自主将 plan 拆分为多个独立 executor 调用，而非单次执行全部 steps
-- B5（check_progress）：Supervisor 倾向于执行任务而非仅查看进度，需要非常明确的指令才能触发 `check_executor_progress`
+- B5（check_progress）：Supervisor 倾向于执行任务而非仅查看进度，需要非常明确的指令才能触发 `manage_executor(action="check_progress")`
 - Executor 创建文件时，如果消息中包含 "workspace" 前缀，可能在 `workspace/workspace/` 下创建文件（CWD 已经是 workspace）

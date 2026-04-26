@@ -6,7 +6,7 @@ Thread-safe via threading.Lock — safe for concurrent access from:
   - Direct sync writes from within the same process
 
 Mailbox is consumed at these moments:
-  1. get_executor_result tool (Agent active query)
+  1. manage_executor(action="get_result") tool (Agent active query)
   2. _build_executor_status_brief (idle injection into system prompt)
   3. dynamic_tools_node post-processing
 """

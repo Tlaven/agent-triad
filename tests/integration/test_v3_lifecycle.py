@@ -15,6 +15,7 @@ import pytest
 from src.common.context import Context
 from src.common.mailbox import Mailbox, MailboxItem, set_mailbox, get_mailbox
 from src.supervisor_agent.state import ActiveExecutorTask, PlannerSession, State
+from src.supervisor_agent.tools import _get_executor_result_impl
 
 
 @pytest.fixture(autouse=True)
@@ -61,9 +62,7 @@ async def test_get_tools_returns_full_set(subprocess_ctx):
 
     tools = await get_tools(subprocess_ctx)
     tool_names = [t.name for t in tools]
-    for expected in ["call_planner", "call_executor", "stop_executor",
-                     "get_executor_result",
-                     "check_executor_progress", "list_executor_tasks"]:
+    for expected in ["call_planner", "call_executor", "manage_executor"]:
         assert expected in tool_names
 
 
@@ -144,10 +143,10 @@ async def test_call_executor_v3_dispatch_format(mailbox):
 
 
 async def test_get_executor_result_returns_executor_result_format(mailbox):
-    """get_executor_result returns [EXECUTOR_RESULT] after mailbox completion."""
+    """manage_executor(action="get_result") returns [EXECUTOR_RESULT] after mailbox completion."""
     from unittest.mock import patch
 
-    from src.supervisor_agent.tools import _build_get_executor_result_tool
+    from src.supervisor_agent.tools import _get_executor_result_impl
 
     plan_id = "plan_result_test"
     plan_json = json.dumps({
@@ -169,7 +168,7 @@ async def test_get_executor_result_returns_executor_result_format(mailbox):
     ))
 
     ctx = Context()
-    result_tool = _build_get_executor_result_tool(ctx)
+    
     state = State(
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
         active_executor_tasks={
@@ -178,7 +177,7 @@ async def test_get_executor_result_returns_executor_result_format(mailbox):
     )
 
     with patch("src.common.mailbox.get_mailbox", return_value=mailbox):
-        result = await result_tool.ainvoke({"state": state, "plan_id": plan_id})
+        result = await _get_executor_result_impl(state, plan_id, "overview", ctx)
 
     assert "[EXECUTOR_RESULT]" in result
     assert "Test completed via mailbox" in result
@@ -241,12 +240,11 @@ async def test_v3_lifecycle_ensure_started_idempotent(mailbox):
 
 
 async def test_call_executor_dispatches_then_get_result(mailbox):
-    """call_executor dispatches; get_executor_result reads the mailbox result."""
+    """call_executor dispatches; manage_executor(action="get_result") reads the mailbox result."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
     from src.supervisor_agent.tools import (
         _build_call_executor_tool,
-        _build_get_executor_result_tool,
     )
 
     plan_id = "plan_dispatch_test"
@@ -321,9 +319,9 @@ async def test_call_executor_dispatches_then_get_result(mailbox):
         },
     )
 
-    result_tool = _build_get_executor_result_tool(ctx)
+    
     with patch("src.common.mailbox.get_mailbox", return_value=mailbox):
-        final_result = await result_tool.ainvoke({"state": state2, "plan_id": plan_id})
+        final_result = await _get_executor_result_impl(state2, plan_id, "overview", ctx)
 
     assert "[EXECUTOR_RESULT]" in final_result
     assert "completed" in final_result

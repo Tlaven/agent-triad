@@ -89,3 +89,38 @@ class TestReEmbedNodes:
         md, vec = stores
         updated = re_embed_nodes([], md, vec, _embedder())
         assert updated == 0
+
+    def test_re_embed_refreshes_anchor(self, tmp_path: Path):
+        """重嵌入后受影响目录的锚点应被刷新。"""
+        md = MarkdownStore(tmp_path / "md")
+        vec = InMemoryVectorStore(dimension=16)
+        embedder = _embedder()
+        from src.common.knowledge_tree.storage.sync import _refresh_anchor
+
+        # 创建两个节点
+        for name, content in [("a.md", "alpha content"), ("b.md", "beta content")]:
+            node = KnowledgeNode.create(
+                node_id=f"dev/{name}", title=name, content=content,
+            )
+            md.write_node(node)
+            vec.upsert_embedding(node.node_id, embedder(content))
+
+        # 初始锚点
+        _refresh_anchor("dev", md, vec)
+        anchor_before = vec.get_anchor("dev")
+        assert anchor_before is not None
+        vec_before = list(anchor_before.anchor_vector)
+
+        # 修改 a.md 的内容
+        edited = KnowledgeNode.create(
+            node_id="dev/a.md", title="a", content="completely different gamma",
+        )
+        md.write_node(edited)
+
+        # 重嵌入
+        re_embed_nodes(["dev/a.md"], md, vec, embedder)
+
+        # 锚点应该已改变
+        anchor_after = vec.get_anchor("dev")
+        assert anchor_after is not None
+        assert anchor_after.anchor_vector != vec_before

@@ -239,16 +239,16 @@ async def test_call_executor_v3_dispatch_stores_active_task(make_runtime) -> Non
     assert "planner_session" not in result
 
 
-async def test_get_executor_result_completed_updates_session(
+async def test_manage_executor_get_result_completed_updates_session(
     make_runtime,
     sample_executor_result_completed,
 ) -> None:
-    """get_executor_result 的完成处理与同步 call_executor 一致。"""
+    """manage_executor(action=get_result) 的完成处理与同步 call_executor 一致。"""
     plan_json = json.dumps({
         "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
     })
     state = _make_state_with_tool_call(
-        "get_executor_result", {"plan_id": "plan_test0001"},
+        "manage_executor", {"action": "get_result", "plan_id": "plan_test0001"},
         call_id="call_result1",
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
         replan_count=2,
@@ -262,7 +262,7 @@ async def test_get_executor_result_completed_updates_session(
     assert result["replan_count"] == 0
 
 
-async def test_get_executor_result_detail_full_appends_step_detail(
+async def test_manage_executor_get_result_detail_full_appends_step_detail(
     make_runtime,
     sample_executor_result_completed,
 ) -> None:
@@ -271,7 +271,7 @@ async def test_get_executor_result_detail_full_appends_step_detail(
         "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
     })
     state = _make_state_with_tool_call(
-        "get_executor_result", {"plan_id": "plan_test0001", "detail": "full"},
+        "manage_executor", {"action": "get_result", "plan_id": "plan_test0001", "detail": "full"},
         call_id="call_result_full1",
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
         replan_count=2,
@@ -287,12 +287,12 @@ async def test_get_executor_result_detail_full_appends_step_detail(
     assert "[EXECUTOR_RESULT]" not in out
 
 
-async def test_get_executor_result_cache_detail_no_meta_passthrough(make_runtime) -> None:
+async def test_manage_executor_get_result_cache_detail_no_meta_passthrough(make_runtime) -> None:
     """detail=full 命中缓存路径时无 [EXECUTOR_RESULT]，原样透传 ToolMessage。"""
     body = "仅缓存的步骤级正文，无 EXECUTOR_RESULT 标记。"
     plan_json = json.dumps({"plan_id": "plan_cache", "version": 1, "goal": "g", "steps": []})
     state = _make_state_with_tool_call(
-        "get_executor_result", {"plan_id": "plan_cache", "detail": "full"},
+        "manage_executor", {"action": "get_result", "plan_id": "plan_cache", "detail": "full"},
         call_id="call_cache1",
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
     )
@@ -305,16 +305,16 @@ async def test_get_executor_result_cache_detail_no_meta_passthrough(make_runtime
     assert "planner_session" not in result
 
 
-async def test_get_executor_result_failed_increments_replan_count(
+async def test_manage_executor_get_result_failed_increments_replan_count(
     make_runtime,
     sample_executor_result_failed,
 ) -> None:
-    """get_executor_result with failed result increments replan_count."""
+    """manage_executor(action=get_result) with failed result increments replan_count."""
     plan_json = json.dumps({
         "plan_id": "plan_test0001", "version": 1, "goal": "g", "steps": [],
     })
     state = _make_state_with_tool_call(
-        "get_executor_result", {"plan_id": "plan_test0001"},
+        "manage_executor", {"action": "get_result", "plan_id": "plan_test0001"},
         call_id="call_result2",
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
         replan_count=0,

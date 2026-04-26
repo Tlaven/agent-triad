@@ -7,6 +7,7 @@ from src.common.knowledge_tree.storage.vector_store import (
     InMemoryVectorStore,
     _cosine_similarity,
     compute_anchor_vector,
+    cosine_similarity,
 )
 
 
@@ -156,3 +157,21 @@ class TestComputeAnchorVector:
 
     def test_empty_embeddings(self):
         assert compute_anchor_vector([]) == []
+
+
+class TestCosineSimilarity:
+    def test_parallel_vectors(self):
+        assert cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
+
+    def test_orthogonal_vectors(self):
+        assert cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+
+    def test_anti_parallel_vectors(self):
+        assert cosine_similarity([1.0, 0.0], [-1.0, 0.0]) == pytest.approx(-1.0)
+
+    def test_zero_vector(self):
+        assert cosine_similarity([0.0, 0.0], [1.0, 0.0]) == 0.0
+
+    def test_public_matches_private(self):
+        a, b = [0.5, 0.3, 0.1], [0.2, 0.8, 0.4]
+        assert cosine_similarity(a, b) == pytest.approx(_cosine_similarity(a, b))

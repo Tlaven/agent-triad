@@ -1,4 +1,4 @@
-"""通过 LangGraph dev server 测试 Supervisor 全部 10 个工具.
+"""通过 LangGraph dev server 测试 Supervisor 全部工具.
 
 用法:
     1. 先启动 dev server: make dev
@@ -7,14 +7,10 @@
 覆盖工具:
     - call_planner          T1
     - call_executor         T2 (Mode 2: task_description)
-    - get_executor_result   T3 (获取 T2 结果)
-    - list_executor_tasks   T4
-    - check_executor_progress T5
-    - stop_executor         T6 (派发后停止)
-    - knowledge_tree_status T7
-    - knowledge_tree_retrieve T8
-    - knowledge_tree_ingest  T9
-    - knowledge_tree_bootstrap T10
+    - manage_executor       T3 (get_result / list_tasks / check_progress / stop)
+    - knowledge_tree_status T4
+    - knowledge_tree_retrieve T5
+    - knowledge_tree_ingest  T6
 """
 
 from __future__ import annotations
@@ -67,9 +63,9 @@ TEST_CASES = [
         "expected_tools": ["call_executor"],
     },
     {
-        "name": "T3: list_executor_tasks — 列出所有执行任务",
+        "name": "T3: manage_executor(list_tasks) — 列出所有执行任务",
         "message": "请列出当前所有执行器任务的状态。",
-        "expected_tools": ["list_executor_tasks"],
+        "expected_tools": ["manage_executor"],
     },
     # ═══ Knowledge Tree ═══
     {
@@ -94,9 +90,9 @@ TEST_CASES = [
         "expected_tools": ["call_executor"],
     },
     {
-        "name": "T8: check_executor_progress — 检查进度",
+        "name": "T8: manage_executor(check_progress) — 检查进度",
         "message": "请检查一下刚才的执行器任务进度如何。",
-        "expected_tools": ["check_executor_progress", "get_executor_result", "list_executor_tasks"],
+        "expected_tools": ["manage_executor"],
     },
     # ═══ Knowledge Tree 再次验证 ═══
     {
@@ -317,8 +313,7 @@ def print_summary(results: list[dict], tools_seen: set[str]):
 
     # 工具覆盖报告
     all_tools = {
-        "call_planner", "call_executor", "stop_executor",
-        "get_executor_result", "check_executor_progress", "list_executor_tasks",
+        "call_planner", "call_executor", "manage_executor",
         "knowledge_tree_retrieve", "knowledge_tree_status",
         "knowledge_tree_ingest", "knowledge_tree_bootstrap",
     }
@@ -351,7 +346,7 @@ async def main():
     print(f"{BOLD}{CYAN}")
     print("╔════════════════════════════════════════════════════╗")
     print("║   Supervisor 全工具 — LangGraph Dev Server 测试   ║")
-    print("║   覆盖: 10 个工具 × 真实 LLM × ASGI 环境         ║")
+    print("║   覆盖: 核心工具 × 真实 LLM × ASGI 环境           ║")
     print("╚════════════════════════════════════════════════════╝")
     print(R)
 

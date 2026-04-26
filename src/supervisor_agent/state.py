@@ -84,3 +84,5 @@ class State(InputState):
     active_executor_tasks: dict[str, ActiveExecutorTask] = field(default_factory=dict)
     # 持久化的任务历史（完成后仍保留记录）
     executor_task_history: dict[str, ExecutorTaskRecord] = field(default_factory=dict)
+    # 知识树自动检索上下文（每轮用户消息时由 kt_retrieve 节点刷新）
+    kt_context: str = ""

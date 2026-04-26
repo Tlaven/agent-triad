@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import json
 import logging
+import time as _time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Union
 
-from src.common.knowledge_tree.bootstrap import BootstrapReport, bootstrap_from_directory
+from src.common.knowledge_tree.bootstrap import (
+    BootstrapReport,
+    bootstrap_from_directory,
+)
 from src.common.knowledge_tree.config import KnowledgeTreeConfig
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.ingestion.chunker import chunk_text
@@ -32,6 +36,53 @@ logger = logging.getLogger(__name__)
 _kt_cache: dict[str, KnowledgeTree] = {}
 
 
+def get_or_create_kt(
+    ctx_or_config: Union[Any, KnowledgeTreeConfig],
+) -> KnowledgeTree:
+    """从全局缓存获取或创建 KnowledgeTree 实例。
+
+    Graph 节点和工具共用同一缓存，避免重复创建。
+    接受 Context 或 KnowledgeTreeConfig。
+
+    Args:
+        ctx_or_config: Context 实例或 KnowledgeTreeConfig 实例。
+
+    Returns:
+        缓存的或新创建的 KnowledgeTree 实例。
+    """
+    from src.common.context import Context
+
+    if isinstance(ctx_or_config, KnowledgeTreeConfig):
+        config = ctx_or_config
+    elif isinstance(ctx_or_config, Context):
+        config = KnowledgeTreeConfig.from_context(ctx_or_config)
+    else:
+        config = KnowledgeTreeConfig.from_context(ctx_or_config)
+
+    cache_key = str(config.markdown_root)
+    kt = _kt_cache.get(cache_key)
+    if kt is not None:
+        return kt
+
+    t0 = _time.perf_counter()
+    kt = KnowledgeTree(config)
+    if config.markdown_root.is_dir():
+        try:
+            result = kt.bootstrap()
+            elapsed = _time.perf_counter() - t0
+            if result.get("ok") and not result.get("skipped"):
+                logger.info("Auto-bootstrapped knowledge tree (%.2fs): %s", elapsed, result)
+            else:
+                logger.debug("KT init (%.2fs): bootstrap skipped", elapsed)
+        except Exception as e:
+            elapsed = _time.perf_counter() - t0
+            logger.warning("Auto-bootstrap failed (%.2fs, tree starts empty): %s", elapsed, e)
+    else:
+        logger.debug("KT init: no seed directory at %s", config.markdown_root)
+    _kt_cache[cache_key] = kt
+    return kt
+
+
 class KnowledgeTree:
     """知识树门面类——两层存储 + Overlay 架构。
 
@@ -44,12 +95,34 @@ class KnowledgeTree:
         self,
         config: KnowledgeTreeConfig,
         embedder: Callable[[str], list[float]] | None = None,
+        llm: Any | None = None,
     ) -> None:
         self.config = config
-        self.embedder = embedder or _default_embedder(config.embedding_dimension)
+        self.llm = llm  # 可选 LLM 实例（用于查询扩展）
+        if embedder is not None:
+            self.embedder = embedder
+        elif config.embedding_model == "hash":
+            self.embedder = _default_embedder(config.embedding_dimension)
+        else:
+            # 尝试加载语义 embedder，失败则降级到 hash
+            from src.common.knowledge_tree.embedding.semantic import (
+                create_semantic_embedder,
+            )
+            semantic = create_semantic_embedder(config.embedding_model, config.embedding_dimension)
+            if semantic is not None:
+                self.embedder = semantic
+                # 语义 embedder 使用更高阈值
+                if config.rag_similarity_threshold < 0.3:
+                    logger.info(
+                        "Semantic embedder loaded: raising threshold %.2f → 0.50",
+                        config.rag_similarity_threshold,
+                    )
+                    config.rag_similarity_threshold = 0.5
+            else:
+                self.embedder = _default_embedder(config.embedding_dimension)
 
         # 两层存储
-        self.md_store = MarkdownStore(config.markdown_root)
+        self.md_store = MarkdownStore(config.markdown_root, on_change=self._on_fs_change)
         self.vector_store = InMemoryVectorStore(dimension=config.embedding_dimension)
 
         # Overlay JSON
@@ -59,6 +132,16 @@ class KnowledgeTree:
         # 检索日志缓冲（上限防止内存泄漏）
         self._retrieval_logs: list[RetrievalLog] = []
         self._max_retrieval_logs = 1000
+
+    def _on_fs_change(self, change_type: str, directory: str) -> None:
+        """文件系统变更回调：刷新受影响目录的锚点。
+
+        Change Mapping 的心跳——任何 write/delete/move 操作自动触发。
+        """
+        if directory:
+            from src.common.knowledge_tree.storage.sync import _refresh_anchor
+
+            _refresh_anchor(directory, self.md_store, self.vector_store)
 
     def retrieve(self, query: str) -> tuple[list[tuple[KnowledgeNode, float]], RetrievalLog]:
         """RAG 向量检索（主检索路径）。
@@ -78,6 +161,7 @@ class KnowledgeTree:
             self.md_store,
             embedder=self.embedder,
             threshold=self.config.rag_similarity_threshold,
+            anchor_boost_threshold=self.config.ingest_attach_threshold,
         )
 
         log.rag_results = [(n.node_id, s) for n, s in results]
@@ -259,37 +343,20 @@ def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
 def build_knowledge_tree_tools(runtime_context: Any) -> list:
     """构建知识树 Supervisor 工具列表。
 
-    P1 工具：retrieve, ingest, status, bootstrap。
+    P1 工具：retrieve, ingest。
     惰性初始化：KnowledgeTree 实例在首次工具调用时才创建。
-    实例按 markdown_root 路径缓存，避免每次 get_tools() 重新创建。
+    实例按 markdown_root 路径缓存，Graph 节点和工具共用同一缓存。
     """
     import asyncio
 
     from langchain_core.tools import tool as lc_tool
 
     config = KnowledgeTreeConfig.from_context(runtime_context)
-    cache_key = str(config.markdown_root)
-
-    def _kt() -> KnowledgeTree:
-        """从全局缓存获取或创建 KnowledgeTree 实例。"""
-        kt = _kt_cache.get(cache_key)
-        if kt is None:
-            kt = KnowledgeTree(config)
-            _kt_cache[cache_key] = kt
-            # 自动从种子目录 bootstrap（如果目录存在且树为空）
-            if config.markdown_root.is_dir():
-                try:
-                    result = kt.bootstrap()
-                    if result.get("ok") and not result.get("skipped"):
-                        logger.info("Auto-bootstrapped knowledge tree: %s", result)
-                except Exception as e:
-                    logger.warning("Auto-bootstrap failed (tree starts empty): %s", e)
-        return kt
 
     # -- sync 业务逻辑 --
 
     def _sync_retrieve(query: str) -> str:
-        results, log = _kt().retrieve(query)
+        results, log = get_or_create_kt(config).retrieve(query)
         if not results:
             return json.dumps({
                 "ok": False,
@@ -317,11 +384,8 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             )
         return json.dumps(response, ensure_ascii=False)
 
-    def _sync_status() -> str:
-        return json.dumps(_kt().status(), ensure_ascii=False)
-
     def _sync_ingest(text: str, trigger: str, source: str) -> str:
-        report = _kt().ingest(text, trigger=trigger, source=source)
+        report = get_or_create_kt(config).ingest(text, trigger=trigger, source=source)
         return json.dumps({
             "ok": True,
             "nodes_ingested": report.nodes_ingested,
@@ -329,10 +393,6 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "nodes_filtered": report.nodes_filtered,
             "errors": report.errors,
         }, ensure_ascii=False)
-
-    def _sync_bootstrap() -> str:
-        result = _kt().bootstrap()
-        return json.dumps(result, ensure_ascii=False)
 
     # -- async 工具 --
 
@@ -346,14 +406,6 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             query: The search query text.
         """
         return await asyncio.to_thread(_sync_retrieve, query)
-
-    @lc_tool
-    async def knowledge_tree_status() -> str:
-        """Get the current status and statistics of the knowledge tree.
-
-        Returns node count, directory count, anchor count, and overlay edge count.
-        """
-        return await asyncio.to_thread(_sync_status)
 
     @lc_tool
     async def knowledge_tree_ingest(
@@ -373,23 +425,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_ingest, text, trigger, source)
 
-    @lc_tool
-    async def knowledge_tree_bootstrap() -> str:
-        """Bootstrap the knowledge tree from the seed directory.
-
-        Reads the directory structure under the knowledge tree root and
-        generates vector embeddings for all .md files. Directory hierarchy
-        becomes the tree structure.
-
-        SAFE: Skips if the tree already has anchors (already initialized).
-        Calling this on an already-initialized tree is a no-op.
-        Does NOT delete overlay edges or ingested knowledge.
-        """
-        return await asyncio.to_thread(_sync_bootstrap)
-
     return [
         knowledge_tree_retrieve,
-        knowledge_tree_status,
         knowledge_tree_ingest,
-        knowledge_tree_bootstrap,
     ]

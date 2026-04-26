@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Callable
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 
@@ -20,9 +21,15 @@ class MarkdownStore:
     markdown_root 下的目录结构即知识树结构。
     """
 
-    def __init__(self, root: Path) -> None:
+    def __init__(
+        self,
+        root: Path,
+        on_change: Callable[[str, str], None] | None = None,
+    ) -> None:
         self.root = root
         self._initialized = False
+        self._node_cache: dict[str, KnowledgeNode] = {}
+        self._on_change = on_change
 
     def _ensure_root(self) -> None:
         if not self._initialized:
@@ -41,24 +48,35 @@ class MarkdownStore:
         path = self._node_path(node.node_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(node.to_frontmatter_md(), encoding="utf-8")
+        self._node_cache[node.node_id] = node
         logger.debug("Wrote node %s to %s", node.node_id, path)
+        if self._on_change:
+            self._on_change("write", self._extract_directory(node.node_id))
         return path
 
     def read_node(self, node_id: str) -> KnowledgeNode | None:
-        """读取节点。不存在返回 None。"""
+        """读取节点（带缓存）。不存在返回 None。"""
+        cached = self._node_cache.get(node_id)
+        if cached is not None:
+            return cached
         self._ensure_root()
         path = self._node_path(node_id)
         if not path.exists():
             return None
         text = path.read_text(encoding="utf-8")
-        return KnowledgeNode.from_frontmatter_md(text, node_id=node_id)
+        node = KnowledgeNode.from_frontmatter_md(text, node_id=node_id)
+        self._node_cache[node_id] = node
+        return node
 
     def delete_node(self, node_id: str) -> bool:
         """删除节点文件。返回是否成功删除。"""
         path = self._node_path(node_id)
+        self._node_cache.pop(node_id, None)
         if path.exists():
             path.unlink()
             logger.debug("Deleted node %s", node_id)
+            if self._on_change:
+                self._on_change("delete", self._extract_directory(node_id))
             return True
         return False
 
@@ -70,11 +88,27 @@ class MarkdownStore:
             return False
         new_path.parent.mkdir(parents=True, exist_ok=True)
         old_path.rename(new_path)
+        # 迁移缓存
+        cached = self._node_cache.pop(old_id, None)
+        if cached is not None:
+            cached.node_id = new_id
+            self._node_cache[new_id] = cached
         logger.debug("Moved node %s -> %s", old_id, new_id)
+        if self._on_change:
+            old_dir = self._extract_directory(old_id)
+            new_dir = self._extract_directory(new_id)
+            self._on_change("delete", old_dir)
+            self._on_change("write", new_dir)
         return True
 
     def node_exists(self, node_id: str) -> bool:
         return self._node_path(node_id).exists()
+
+    @staticmethod
+    def _extract_directory(node_id: str) -> str:
+        """从 node_id（相对路径）提取目录部分。"""
+        parts = node_id.rsplit("/", 1)
+        return parts[0] if len(parts) > 1 else ""
 
     # -- 列举 --
 

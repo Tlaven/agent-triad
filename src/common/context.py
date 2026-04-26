@@ -260,7 +260,7 @@ class Context:
         default=300.0,
         metadata={
             "description": "Wall-clock timeout in seconds for Supervisor to wait for Executor "
-                           "result (call_executor wait_for_result=True / get_executor_result). "
+                           "result (call_executor wait_for_result=True / manage_executor). "
                            "Should be > executor_call_model_timeout to avoid premature kills.",
         },
     )

@@ -10,8 +10,8 @@
 `call_executor` 接受 LLM 传入的结构化参数：
 - `task_description`: 纯文本，Mode 2（Executor-use ReAct）下只需要该参数
 - `plan_id`：Mode 3（Plan → Execute）下只需要该参数
-- `wait_for_result`（默认 `True`）：控制是否阻塞等待执行结果。`True` 时派发后自动等待并返回 `[EXECUTOR_RESULT]`，Supervisor 无需额外调用 `get_executor_result`，减少一次工具调用和 token 消耗。`False` 时为异步派发，需后续调用 `get_executor_result(plan_id)` 获取结果（适用于并行派发场景）。
-- `get_executor_result` 可选参数 `detail`（默认 `overview`）：与 `wait_for_result=false` 配套时仍为阻塞收束并返回 `[EXECUTOR_RESULT]`。`detail=full` 时，若任务仍在 `active_executor_tasks` 中与 `overview` 同路径等待；终态后由 `dynamic_tools_node` 把 `last_executor_full_output`（步骤级摘要）拼入给 LLM 的 ToolMessage。若任务已不在 active 且 `plan_id` 与会话中 `plan_json` 顶层一致，则只读会话缓存中的步骤级正文（返回体不含 `[EXECUTOR_RESULT]`，不重复跑会话合并）。原独立工具 `get_executor_full_output` 已并入本参数语义。
+- `wait_for_result`（默认 `True`）：控制是否阻塞等待执行结果。`True` 时派发后自动等待并返回 `[EXECUTOR_RESULT]`，Supervisor 无需额外调用 `manage_executor`，减少一次工具调用和 token 消耗。`False` 时为异步派发，需后续调用 `manage_executor(action="get_result", plan_id=...)` 获取结果（适用于并行派发场景）。
+- `manage_executor(action="get_result")` 可选参数 `detail`（默认 `overview`）：与 `wait_for_result=false` 配套时仍为阻塞收束并返回 `[EXECUTOR_RESULT]`。`detail=full` 时，若任务仍在 `active_executor_tasks` 中与 `overview` 同路径等待；终态后由 `dynamic_tools_node` 把 `last_executor_full_output`（步骤级摘要）拼入给 LLM 的 ToolMessage。若任务已不在 active 且 `plan_id` 与会话中 `plan_json` 顶层一致，则只读会话缓存中的步骤级正文（返回体不含 `[EXECUTOR_RESULT]`，不重复跑会话合并）。原独立工具 `get_executor_full_output` 已并入本参数语义。
 
 `call_planner` 接受 LLM 传入的结构化参数：
 - `task_core`：
@@ -324,11 +324,11 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 
 ---
 
-## 决策 14：list_executor_tasks 时间显示格式
+## 决策 14：manage_executor(action="list_tasks") 时间显示格式
 
 **问题**：LLM 对绝对时间戳（如 `22:35:17` 或 `2026-04-15T22:35:17`）缺乏直觉感知。与人类类似，LLM 对时间的理解以"多久之前"为锚点。
 
-**决策**：`list_executor_tasks` 面向 LLM 的输出中，`last_updated` 列使用相对时间格式：
+**决策**：`manage_executor(action="list_tasks")` 面向 LLM 的输出中，`last_updated` 列使用相对时间格式：
 
 | 距离 | 显示 |
 |------|------|
@@ -345,16 +345,13 @@ V1 阶段明确为**单线程**，Supervisor 每次只调用一个 Executor。
 
 ---
 
-## 决策 15：Supervisor 工具面收缩与「直连 Executor」工具合并（备忘）
+## 决策 15：Supervisor 工具面收缩 — 4 合并为 manage_executor（已实施）
 
-**背景**：当前 `stop_executor` 与 `check_executor_progress` 在实现上都属于 Supervisor 经 HTTP **直连 Executor 进程**的路径（与 `call_executor` 经派发、邮箱收结果的主路径并列）。二者能力不同（写：请求停止；读：查进度），但**工具名多一条、模型多一次「该点哪个」的选择**。
+**背景**：原 `stop_executor`、`check_executor_progress`、`list_executor_tasks`、`get_executor_result` 四个工具在实现上都属于 Supervisor 经 HTTP 直连 Executor 进程或查询 Mailbox 的路径。工具名多一条、模型多一次「该点哪个」的选择，且提示词中需要分别描述每个工具。
 
-**何时值得考虑合并**（无硬编码阈值，按症状判断即可）：
+**决策**：合并为**单一工具 `manage_executor` + `Literal` 枚举参数**（`action`: `stop` | `get_result` | `check_progress` | `list_tasks`），由模型在调用时显式选择模式。先例见决策 1：`get_executor_result` 的 `detail` 参数吸收原 `get_executor_full_output` 的语义。
 
-- Supervisor 暴露的工具继续增加，且**多枚工具共享同一资源边界**（例如都对着「按 `plan_id` 找子进程 / 调同一组 REST」），导致提示词里难以用一句话区分职责；或
-- 实测中 **tool 选择错误率**（该查却停、该停却反复查）或 **无效 tool 轮次** 明显上升。
-
-此时可考虑合并为**单一工具 + 枚举参数**（例如 `action`: `status` | `stop`），由模型在调用时显式选择模式。先例见决策 1：`get_executor_result` 的 `detail` 参数吸收原 `get_executor_full_output` 的语义。
+**实施状态**：已完成。Supervisor 从 6 核心工具（+ 2 KT）缩减为 3 核心工具（+ 2 KT），每次 LLM 请求节省约 40% 工具描述 token。
 
 **取舍**（对 LLM 友好度无绝对优劣）：
 
@@ -813,7 +810,7 @@ Agent 执行任务 → 产出新知识
 
 **背景**：原 `_wait_for_executor_result` 硬编码 120s 超时，而 `executor_call_model_timeout` 为 180s。当 Executor 的 LLM 调用耗时超过 120s 但未达 180s 时，Supervisor 会提前终止 Executor 子进程，导致任务失败。
 
-**决策**：新增 `executor_wait_timeout` 配置字段（`Context` dataclass），默认值 300s，由 `call_executor` 和 `get_executor_result` 统一使用。
+**决策**：新增 `executor_wait_timeout` 配置字段（`Context` dataclass），默认值 300s，由 `call_executor` 和 `manage_executor(action="get_result")` 统一使用。
 
 **约束**：`executor_wait_timeout` 应 **大于** `executor_call_model_timeout`（180s），否则仍会出现提前终止。
 
@@ -825,7 +822,7 @@ Context.executor_wait_timeout: float = 300.0
 call_executor(wait_for_result=True)
   → _wait_for_executor_result(timeout=runtime_context.executor_wait_timeout)
   ↓
-get_executor_result()
+manage_executor(action="get_result")
   → _wait_for_executor_result(timeout=runtime_context.executor_wait_timeout)
 ```
 

@@ -35,10 +35,7 @@
 │       │  early returns:    │  调用:                               │
 │       │  - replan 耗尽     │  - call_planner                     │
 │       │  - Mode2→3 升级    │  - call_executor ──────────┐        │
-│       │  - max step        │  - get_executor_result      │        │
-│       │                    │  - check_executor_progress  │        │
-│       │                    │  - list_executor_tasks      │        │
-│       │                    │  - stop_executor            │        │
+│       │  - max step        │  - manage_executor          │        │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────────────┐│
 │  │  V3LifecycleManager（懒加载单例）                              ││
@@ -169,21 +166,25 @@ dynamic_tools_node
       │   │
       │   └─ 两者都不含：透传原始 ToolMessage
       │
-      ├─ get_executor_result
-      │   ├─ 含 [EXECUTOR_RESULT]：
-      │   │   ├─ 同上 _process_executor_completion
-      │   │   ├─ 如果 detail=="full" → 追加完整输出到 ToolMessage
-      │   │   ├─ 终态（completed/failed/stopped）→ 从 active_executor_tasks 移除
-      │   │   └─ 非终态 → 更新 active_executor_tasks 的 status
-      │   └─ 不含标记：透传
-      │
-      ├─ check_executor_progress
-      │   ├─ 透传 ToolMessage
-      │   └─ 如果内容含"任务运行中" → 提升 dispatched→running
-      │
-      ├─ list_executor_tasks
-      │   ├─ 透传 ToolMessage
-      │   └─ 解析 [EXECUTOR_REGISTRY_UPDATE] → 合并到 executor_task_history
+      ├─ manage_executor
+      │   ├─ action=get_result:
+      │   │   ├─ 含 [EXECUTOR_RESULT]：
+      │   │   │   ├─ 同上 _process_executor_completion
+      │   │   │   ├─ 如果 detail=="full" → 追加完整输出到 ToolMessage
+      │   │   │   ├─ 终态（completed/failed/stopped）→ 从 active_executor_tasks 移除
+      │   │   │   └─ 非终态 → 更新 active_executor_tasks 的 status
+      │   │   └─ 不含标记：透传
+      │   │
+      │   ├─ action=check_progress:
+      │   │   ├─ 透传 ToolMessage
+      │   │   └─ 如果内容含"任务运行中" → 提升 dispatched→running
+      │   │
+      │   ├─ action=list_tasks:
+      │   │   ├─ 透传 ToolMessage
+      │   │   └─ 解析 [EXECUTOR_REGISTRY_UPDATE] → 合并到 executor_task_history
+      │   │
+      │   └─ action=stop:
+      │       └─ 透传 ToolMessage
       │
       └─ 其他工具：透传原始 ToolMessage
 ```
@@ -474,7 +475,7 @@ ExecutorPoller._poll_loop（后台 asyncio Task）
 
 ## 8. _wait_for_executor_result 守候逻辑
 
-这是 `call_executor(wait_for_result=True)` 和 `get_executor_result` 的核心等待函数：
+这是 `call_executor(wait_for_result=True)` 和 `manage_executor(action="get_result")` 的核心等待函数：
 
 ```
 _wait_for_executor_result(plan_id, plan_json, ctx, timeout=120.0)
@@ -724,7 +725,7 @@ ExecutorResult 返回 Supervisor
 
 ### 11.3 仍存在的边界情况
 
-#### (F) get_executor_result(detail="full") 的缓存窗口
+#### (F) manage_executor(action="get_result", detail="full") 的缓存窗口
 
 `detail="full"` 读取 `state.planner_session.last_executor_full_output`。这是上一次 executor 完成时缓存的内容。如果此后又发起了新的 executor 调用，缓存会被覆盖。
 
@@ -760,14 +761,14 @@ call_executor 返回后（EXECUTOR_DISPATCH）:
   active_executor_tasks[plan_id] ← ActiveExecutorTask(status="dispatched")
   executor_task_history[plan_id] ← ExecutorTaskRecord(status="dispatched")
 
-get_executor_result 终态后:
+manage_executor(action="get_result") 终态后:
   active_executor_tasks[plan_id] ← 删除
   planner_session ← 更新 last_executor_*
   replan_count ← 按规则增减
 
-check_executor_progress:
+manage_executor(action="check_progress"):
   active_executor_tasks[plan_id].status ← "dispatched"→"running"（条件满足时）
 
-list_executor_tasks:
+manage_executor(action="list_tasks"):
   executor_task_history ← 合并 [EXECUTOR_REGISTRY_UPDATE] 数据
 ```

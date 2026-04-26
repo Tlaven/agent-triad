@@ -27,10 +27,10 @@ def test_infer_supervisor_decision_mode_2_with_call_executor() -> None:
     assert decision.mode == 2
 
 
-def test_infer_supervisor_decision_mode_2_with_get_executor_result() -> None:
+def test_infer_supervisor_decision_mode_2_with_manage_executor() -> None:
     msg = AIMessage(
         content="",
-        tool_calls=[{"name": "get_executor_result", "args": {"plan_id": "p1"}, "id": "1", "type": "tool_call"}],
+        tool_calls=[{"name": "manage_executor", "args": {"action": "get_result", "plan_id": "p1"}, "id": "1", "type": "tool_call"}],
     )
     decision = _infer_supervisor_decision(msg)
     assert decision.mode == 2

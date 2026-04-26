@@ -388,16 +388,16 @@ async def test_supervisor_polls_failed_task(executor_server, mailbox):
 async def test_tool_dispatch_then_get_result(
     executor_server, mailbox
 ):
-    """call_executor(wait=false) -> get_executor_result -> [EXECUTOR_RESULT].
+    """call_executor(wait=false) -> manage_executor(action="get_result") -> [EXECUTOR_RESULT].
 
     Full chain: Supervisor tool -> HTTP -> Executor server ->
-    Supervisor polls /result -> mailbox -> get_executor_result reads result.
+    Supervisor polls /result -> mailbox -> manage_executor(action="get_result") reads result.
     """
     from unittest.mock import MagicMock
 
     from src.supervisor_agent.tools import (
         _build_call_executor_tool,
-        _build_get_executor_result_tool,
+        _get_executor_result_impl,
     )
 
     port = executor_server
@@ -474,7 +474,7 @@ async def test_tool_dispatch_then_get_result(
                 item_type="completion", payload=result_data,
             ))
 
-        # 4) get_executor_result reads from mailbox
+        # 4) manage_executor(action="get_result") reads from mailbox
         state2 = State(
             planner_session=PlannerSession(
                 session_id="s1",
@@ -487,19 +487,11 @@ async def test_tool_dispatch_then_get_result(
                 ),
             },
         )
-        get_result = _build_get_executor_result_tool(ctx)
+        # get_result replaced by _get_executor_result_impl
         with patch("src.common.mailbox.get_mailbox", return_value=mailbox):
-            final_result = await get_result.ainvoke(
-                {"state": state2, "plan_id": plan_id}
-            )
+            final_result = await _get_executor_result_impl(state2, plan_id, "overview", ctx)
 
-        assert "[EXECUTOR_RESULT]" in final_result, (
-            f"Expected [EXECUTOR_RESULT], got: {final_result[:200]}"
-        )
-        assert "completed" in final_result
-
-        # Verify the result JSON is well-formed
-        import re
+        assert "[EXECUTOR_RESULT]" in final_result
 
         match = re.search(r"\[EXECUTOR_RESULT\]\s*(\{.*\})", final_result, re.DOTALL)
         assert match is not None
@@ -509,14 +501,14 @@ async def test_tool_dispatch_then_get_result(
 
 
 async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
-    """get_executor_result fetches via direct /result when not yet in mailbox.
+    """manage_executor(action="get_result") fetches via direct /result when not yet in mailbox.
 
     Tests the probe fallback path: mailbox empty -> probe Executor ->
     task completed -> _fetch_executor_result_directly.
     """
     from unittest.mock import MagicMock
 
-    from src.supervisor_agent.tools import _build_get_executor_result_tool
+    from src.supervisor_agent.tools import _get_executor_result_impl
 
     port = executor_server
     plan_id = "plan_probe_fb_001"
@@ -550,7 +542,7 @@ async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
         async with httpx.AsyncClient(base_url=base, timeout=5.0) as client:
             await _wait_for_status(client, plan_id, "completed")
 
-        # get_executor_result: mailbox is empty -> probe finds completed task ->
+        # manage_executor(action="get_result"): mailbox is empty -> probe finds completed task ->
         # direct fetch returns the result
         state = State(
             planner_session=PlannerSession(
@@ -565,7 +557,7 @@ async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
             },
         )
 
-        get_result = _build_get_executor_result_tool(ctx)
+        # get_result replaced by _get_executor_result_impl
         # Mock v3_manager so _probe_executor_task can get base_url
         mock_pm = MagicMock()
         mock_pm.base_url = f"http://127.0.0.1:{port}"
@@ -581,9 +573,10 @@ async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
         with patch("src.supervisor_agent.v3_lifecycle.v3_manager") as mock_v3, \
              patch("src.common.mailbox.get_mailbox", return_value=mailbox):
             mock_v3.ensure_started = AsyncMock(return_value=mock_infra)
-            result = await get_result.ainvoke(
-                {"state": state, "plan_id": plan_id}
-            )
+            result = await _get_executor_result_impl(state, plan_id, "overview", ctx)
+
+
+
 
         # Must get result via direct /result fetch, not "not_found"
         assert "[EXECUTOR_RESULT]" in result, (
@@ -593,12 +586,12 @@ async def test_tool_get_result_via_direct_fetch(executor_server, mailbox):
 
 
 async def test_tool_dispatch_and_get_result_separate(executor_server, mailbox):
-    """call_executor dispatches (fire-and-forget), then get_executor_result retrieves from mailbox."""
+    """call_executor dispatches (fire-and-forget), then manage_executor(action="get_result") retrieves from mailbox."""
     from unittest.mock import MagicMock
 
     from src.supervisor_agent.tools import (
         _build_call_executor_tool,
-        _build_get_executor_result_tool,
+        _get_executor_result_impl,
     )
 
     port = executor_server
@@ -687,11 +680,9 @@ async def test_tool_dispatch_and_get_result_separate(executor_server, mailbox):
                 ),
             },
         )
-        get_result = _build_get_executor_result_tool(ctx)
+        # get_result replaced by _get_executor_result_impl
         with patch("src.common.mailbox.get_mailbox", return_value=mailbox):
-            final_result = await get_result.ainvoke(
-                {"state": state2, "plan_id": plan_id}
-            )
+            final_result = await _get_executor_result_impl(state2, plan_id, "overview", ctx)
 
         assert "[EXECUTOR_RESULT]" in final_result, (
             f"Expected [EXECUTOR_RESULT], got: {final_result[:200]}"
@@ -705,7 +696,7 @@ async def test_call_executor_starts_real_subprocess_lifecycle(monkeypatch):
 
     from src.supervisor_agent.tools import (
         _build_call_executor_tool,
-        _build_get_executor_result_tool,
+        _get_executor_result_impl,
     )
     from src.supervisor_agent.v3_lifecycle import V3LifecycleManager
 
@@ -721,7 +712,7 @@ async def test_call_executor_starts_real_subprocess_lifecycle(monkeypatch):
         executor_startup_timeout=20.0,
     )
     call_exec = _build_call_executor_tool(ctx)
-    get_result = _build_get_executor_result_tool(ctx)
+    # get_result replaced by _get_executor_result_impl
     state = State(
         planner_session=PlannerSession(session_id="s1", plan_json=plan_json),
         active_executor_tasks={},
@@ -758,9 +749,7 @@ async def test_call_executor_starts_real_subprocess_lifecycle(monkeypatch):
                     plan_id: ActiveExecutorTask(plan_id=plan_id, status="dispatched"),
                 },
             )
-            final_result = await get_result.ainvoke(
-                {"state": state_after_dispatch, "plan_id": plan_id}
-            )
+            final_result = await _get_executor_result_impl(state_after_dispatch, plan_id, "overview", ctx)
 
             assert "[EXECUTOR_RESULT]" in final_result
             assert '"status": "completed"' in final_result

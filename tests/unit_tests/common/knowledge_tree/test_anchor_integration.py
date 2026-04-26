@@ -181,3 +181,121 @@ class TestAnchorIntegration:
         vec.delete_embedding("dev/only.md")
         _refresh_anchor("dev", md, vec)
         assert vec.get_anchor("dev") is None
+
+
+class TestFindMatchingAnchors:
+    def test_returns_multiple_matching_anchors(self):
+        vec = InMemoryVectorStore(dimension=16)
+        embedder = _embedder(16)
+
+        dev_emb = embedder("LangGraph 状态管理 TypedDict 开发")
+        pat_emb = embedder("设计模式 嵌入向量 语义检索")
+        vec.upsert_anchor(DirectoryAnchor("dev", dev_emb, 2))
+        vec.upsert_anchor(DirectoryAnchor("patterns", pat_emb, 1))
+
+        query = embedder("开发 调试")
+        matches = vec.find_matching_anchors(query, threshold=0.0, top_k=3)
+
+        assert len(matches) >= 1
+        assert all(isinstance(a, DirectoryAnchor) for a, s in matches)
+        # 按分数降序
+        scores = [s for _, s in matches]
+        for i in range(len(scores) - 1):
+            assert scores[i] >= scores[i + 1]
+
+    def test_respects_threshold(self):
+        vec = InMemoryVectorStore(dimension=4)
+        embedder = _embedder(4)
+
+        vec.upsert_anchor(DirectoryAnchor("a", embedder("aaa"), 1))
+        vec.upsert_anchor(DirectoryAnchor("z", embedder("zzz"), 1))
+
+        # 高阈值应该过滤掉大部分结果
+        query = embedder("aaa")
+        matches = vec.find_matching_anchors(query, threshold=0.99)
+        assert len(matches) <= 1
+
+    def test_respects_top_k(self):
+        vec = InMemoryVectorStore(dimension=16)
+        embedder = _embedder(16)
+
+        for i in range(5):
+            emb = embedder(f"topic_{i} " * 10)
+            vec.upsert_anchor(DirectoryAnchor(f"dir_{i}", emb, 1))
+
+        query = embedder("topic_0 topic_1")
+        matches = vec.find_matching_anchors(query, threshold=0.0, top_k=2)
+        assert len(matches) <= 2
+
+    def test_empty_store_returns_empty(self):
+        vec = InMemoryVectorStore(dimension=4)
+        matches = vec.find_matching_anchors([1.0, 0.0, 0.0, 0.0])
+        assert matches == []
+
+
+class TestChangeMappingIntegration:
+    """Change Mapping 通过 MarkdownStore 回调自动刷新锚点。"""
+
+    def test_write_node_auto_refreshes_anchor(self, tmp_path: Path):
+        """write_node 触发回调 → 锚点自动刷新。"""
+        changes: list[tuple[str, str]] = []
+        md = MarkdownStore(tmp_path / "md", on_change=lambda t, d: changes.append((t, d)))
+        vec = InMemoryVectorStore(dimension=16)
+        embedder = _embedder(16)
+
+        from src.common.knowledge_tree.storage.sync import _refresh_anchor
+
+        # 先手动建一个锚点
+        node1 = KnowledgeNode.create("dev/a.md", "A", "content A")
+        md.write_node(node1)
+        vec.upsert_embedding("dev/a.md", embedder("content A"))
+        _refresh_anchor("dev", md, vec)
+
+        # 回调列表里有之前的 write
+        changes.clear()
+
+        # 通过带回调的 md_store 写入新节点
+        node2 = KnowledgeNode.create("dev/b.md", "B", "content B")
+        md.write_node(node2)
+        vec.upsert_embedding("dev/b.md", embedder("content B"))
+
+        # 回调应该被触发
+        assert ("write", "dev") in changes
+
+    def test_delete_node_auto_refreshes_anchor(self, tmp_path: Path):
+        """delete_node 触发回调。"""
+        changes: list[tuple[str, str]] = []
+        md = MarkdownStore(tmp_path / "md", on_change=lambda t, d: changes.append((t, d)))
+
+        node = KnowledgeNode.create("dev/x.md", "X", "content X")
+        md.write_node(node)
+        changes.clear()
+
+        md.delete_node("dev/x.md")
+        assert ("delete", "dev") in changes
+
+    def test_move_node_fires_two_callbacks(self, tmp_path: Path):
+        """move_node 触发两次回调：source delete + dest write。"""
+        changes: list[tuple[str, str]] = []
+        md = MarkdownStore(tmp_path / "md", on_change=lambda t, d: changes.append((t, d)))
+
+        node = KnowledgeNode.create("dev/old.md", "Old", "content")
+        md.write_node(node)
+        changes.clear()
+
+        md.move_node("dev/old.md", "patterns/new.md")
+        assert ("delete", "dev") in changes
+        assert ("write", "patterns") in changes
+
+    def test_no_callback_when_none(self, tmp_path: Path):
+        """on_change=None 时不触发回调。"""
+        md = MarkdownStore(tmp_path / "md")  # no callback
+        node = KnowledgeNode.create("dev/test.md", "Test", "content")
+        # Should not raise
+        md.write_node(node)
+        md.delete_node("dev/test.md")
+
+    def test_extract_directory(self):
+        assert MarkdownStore._extract_directory("dev/state.md") == "dev"
+        assert MarkdownStore._extract_directory("a/b/c.md") == "a/b"
+        assert MarkdownStore._extract_directory("root.md") == ""

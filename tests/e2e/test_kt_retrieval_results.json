@@ -1,0 +1,1498 @@
+{
+  "summary": {
+    "passed": 11,
+    "total": 12
+  },
+  "results": [
+    {
+      "id": "R1",
+      "name": "精确查询：状态管理",
+      "elapsed": 121.1,
+      "passed": false,
+      "detail": "retrieve 工具未被调用",
+      "kt_outputs": []
+    },
+    {
+      "id": "R2",
+      "name": "精确查询：ReAct 模式",
+      "elapsed": 35.4,
+      "passed": true,
+      "detail": "符合预期 [sim=1.000 q=high]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "精确查询：向量嵌入",
+      "elapsed": 21.2,
+      "passed": true,
+      "detail": "符合预期 [sim=0.737 q=high]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R4",
+      "name": "模糊查询：错误处理（无种子）",
+      "elapsed": 42.2,
+      "passed": true,
+      "detail": "符合预期 [sim=0.262 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "R5",
+      "name": "英文查询：state management",
+      "elapsed": 30.3,
+      "passed": true,
+      "detail": "符合预期 [sim=0.244 q=low]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        }
+      ]
+    },
+    {
+      "id": "R6",
+      "name": "同义词查询：代理架构（≈patterns）",
+      "elapsed": 50.7,
+      "passed": true,
+      "detail": "符合预期 [sim=0.281 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R7",
+      "name": "摄入：Agent 超时处理知识",
+      "elapsed": 29.8,
+      "passed": true,
+      "detail": "摄入成功: ingested=1 dedup=0",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "R8",
+      "name": "检索：超时处理（精确）",
+      "elapsed": 27.3,
+      "passed": true,
+      "detail": "符合预期 [sim=0.437 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e641dc0e3f20",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.437,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "R9",
+      "name": "检索：超时处理（同义）",
+      "elapsed": 20.2,
+      "passed": true,
+      "detail": "符合预期 [sim=0.440 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e641dc0e3f20",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.437,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1607f3ec19e1",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.44,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R10",
+      "name": "空查询触发",
+      "elapsed": 8.1,
+      "passed": true,
+      "detail": "符合预期 [sim=0.440 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e641dc0e3f20",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.437,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1607f3ec19e1",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.44,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R11",
+      "name": "大量摄入后检索",
+      "elapsed": 34.1,
+      "passed": true,
+      "detail": "摄入成功: ingested=1 dedup=0",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e641dc0e3f20",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.437,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1607f3ec19e1",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.44,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "R12",
+      "name": "摄入后验证：asyncio 事件循环",
+      "elapsed": 19.9,
+      "passed": true,
+      "detail": "符合预期 [sim=0.488 q=medium]",
+      "kt_outputs": [
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "051753f366e1",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "078ab90f9c55",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 1.0,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "3e2a69af118e",
+            "node_id": "fundamentals/embedding.md",
+            "title": "向量嵌入基础",
+            "content": "文本嵌入将语义映射到高维向量空间。常用模型包括 BGE 和 OpenAI embeddings。",
+            "similarity": 0.737,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9cb727c7cd38",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.181,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "f43dfe52753e",
+            "node_id": "development/tools.md",
+            "title": "工具调用",
+            "content": "LangGraph 通过 ToolNode 执行工具。支持同步和异步工具调用。",
+            "similarity": 0.262,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1edcd8d78f2a",
+            "node_id": "development/state.md",
+            "title": "状态管理",
+            "content": "LangGraph 使用 TypedDict 定义状态模式，通过 StateGraph 构建执行图。状态是不可变的。",
+            "similarity": 0.244,
+            "quality": "low",
+            "additional_results": 1,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0979c1bf2365",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.324,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "a606df5d84bd",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.353,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "4076971050db",
+            "node_id": "patterns/react.md",
+            "title": "ReAct 模式",
+            "content": "ReAct 模式结合推理和行动，逐步解决复杂问题。Agent 在每一步都先推理再行动。",
+            "similarity": 0.281,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e641dc0e3f20",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.437,
+            "quality": "medium",
+            "additional_results": 3
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1607f3ec19e1",
+            "node_id": "executor_supervisor_sigte/当 Executor 子进程超时时_Supervisor 应该发送 SIGTER.md",
+            "title": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而",
+            "content": "当 Executor 子进程超时时，Supervisor 应该发送 SIGTERM 信号优雅终止，而不是直接 SIGKILL。超时配置应从内到外递增。",
+            "similarity": 0.44,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_ingest",
+          "output": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        },
+        {
+          "tool": "knowledge_tree_retrieve",
+          "output": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "b2ffacc1ba4b",
+            "node_id": "python_asyncio/Python 的 asyncio 使用事件循环管理并发任务_避免阻塞_.md",
+            "title": "Python 的 asyncio 使用事件循环管理并发任务，避免阻塞。",
+            "content": "Python 的 asyncio 使用事件循环管理并发任务，避免阻塞。",
+            "similarity": 0.488,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 """Supervisor 全工具进阶综合测试 V2 — 通过 LangGraph Dev Server.
 
-20 个测试用例，4 组独立 thread，覆盖全部 10 个 Supervisor 工具。
+20 个测试用例，4 组独立 thread，覆盖全部 Supervisor 工具。
 三级验证：L1(工具调用) + L2(输出格式) + L3(副作用)。
 
 组 A (A1-A7): 知识树完整闭环 — bootstrap/status/retrieve/ingest/dedup/retrieve-verify
@@ -50,9 +50,7 @@ KT_ROOT = "workspace/kt_comprehensive_test"
 ALL_TOOLS = {
     "knowledge_tree_bootstrap", "knowledge_tree_status",
     "knowledge_tree_retrieve", "knowledge_tree_ingest",
-    "call_planner", "call_executor", "stop_executor",
-    "get_executor_result", "check_executor_progress",
-    "list_executor_tasks",
+    "call_planner", "call_executor", "manage_executor",
 }
 
 CTX_KT = {"enable_knowledge_tree": True, "knowledge_tree_root": KT_ROOT}
@@ -99,19 +97,9 @@ def validate_executor_output(tool_name: str, raw: str) -> list[str]:
         # plan JSON 应含 steps 或 goal
         if "steps" not in raw and "goal" not in raw and "[PLANNER_REASONING]" not in raw:
             issues.append("missing plan content (no steps/goal/reasoning)")
-    elif tool_name == "stop_executor":
-        if "停止" not in raw and "未找到" not in raw and "不存在" not in raw:
-            issues.append("unexpected stop_executor output")
-    elif tool_name == "list_executor_tasks":
-        if "任务" not in raw and "无" not in raw:
-            issues.append("unexpected list_executor_tasks output")
-    elif tool_name == "check_executor_progress":
-        if ("进度" not in raw and "状态" not in raw and "完成" not in raw
-                and "暂无" not in raw and "不可用" not in raw and "status" not in raw):
-            issues.append("unexpected check_executor_progress output")
-    elif tool_name == "get_executor_result":
-        # 输出应含执行详情或错误信息
-        if not raw or len(raw.strip()) < 10:
+    elif tool_name == "manage_executor":
+        # manage_executor 涵盖 stop/get_result/check_progress/list_tasks
+        if not raw or len(raw.strip()) < 5:
             issues.append("empty or too short output")
     return issues
 
@@ -208,15 +196,15 @@ GROUP_B = [
         "l2_check": True, "l3_check": True,
     },
     {
-        "id": "B2", "name": "B2: list_executor_tasks — 查看任务列表",
+        "id": "B2", "name": "B2: manage_executor(list_tasks) — 查看任务列表",
         "message": "请列出当前所有执行器任务。",
-        "expected_tools": ["list_executor_tasks"],
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
     {
-        "id": "B3", "name": "B3: get_executor_result — 获取 B1 结果详情",
-        "message": "请用 get_executor_result 获取刚才 B1 任务的结果，使用 detail='full'。",
-        "expected_tools": ["get_executor_result"],
+        "id": "B3", "name": "B3: manage_executor(get_result) — 获取 B1 结果详情",
+        "message": "请用 manage_executor(action=get_result) 获取刚才 B1 任务的结果，使用 detail='full'。",
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
     {
@@ -230,12 +218,12 @@ GROUP_B = [
         "l2_check": True, "l3_check": True,
     },
     {
-        "id": "B5", "name": "B5: check_executor_progress — 检查任务进度",
+        "id": "B5", "name": "B5: manage_executor(check_progress) — 检查任务进度",
         "message": (
-            "请只使用 check_executor_progress 工具检查当前所有执行器任务的进度。"
+            "请只使用 manage_executor(action=check_progress) 工具检查当前所有执行器任务的进度。"
             "不要执行任何任务，不要调用 call_executor 或 call_planner，只需要查看进度。"
         ),
-        "expected_tools": ["check_executor_progress"],
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
     {
@@ -262,21 +250,21 @@ GROUP_C = [
         "l2_check": True,
     },
     {
-        "id": "C2", "name": "C2: stop_executor — 停止异步任务",
-        "message": "请立即用 stop_executor 停止刚才的素数任务。",
-        "expected_tools": ["stop_executor"],
+        "id": "C2", "name": "C2: manage_executor(stop) — 停止异步任务",
+        "message": "请立即用 manage_executor(action=stop) 停止刚才的素数任务。",
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
     {
-        "id": "C3", "name": "C3: list_executor_tasks — 查看含异步任务的列表",
+        "id": "C3", "name": "C3: manage_executor(list_tasks) — 查看含异步任务的列表",
         "message": "列出所有执行器任务。",
-        "expected_tools": ["list_executor_tasks"],
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
     {
-        "id": "C4", "name": "C4: get_executor_result — 获取异步任务最终结果",
-        "message": "请用 get_executor_result 获取刚才素数任务的结果。",
-        "expected_tools": ["get_executor_result"],
+        "id": "C4", "name": "C4: manage_executor(get_result) — 获取异步任务最终结果",
+        "message": "请用 manage_executor(action=get_result) 获取刚才素数任务的结果。",
+        "expected_tools": ["manage_executor"],
         "l2_check": True,
     },
 ]
@@ -389,8 +377,7 @@ def _resolve_timeout(tc: dict) -> int:
     tools = tc["expected_tools"]
     if any(t in ("call_planner", "call_executor") for t in tools):
         return 480
-    if any(t in ("stop_executor", "get_executor_result", "check_executor_progress")
-           for t in tools):
+    if any(t in ("manage_executor",) for t in tools):
         return 300
     return 120
 

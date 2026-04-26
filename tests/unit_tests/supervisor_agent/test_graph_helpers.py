@@ -63,7 +63,7 @@ def test_feedback_completed_returns_summary_with_hint() -> None:
     content = _make_full_content("All tasks done successfully")
     feedback = _build_executor_feedback_for_llm(content, "completed", None)
     assert feedback.startswith("All tasks done successfully")
-    assert "get_executor_result" in feedback
+    assert "manage_executor" in feedback
     assert "detail" in feedback
     assert "[EXECUTOR_RESULT]" not in feedback
 

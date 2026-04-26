@@ -7,15 +7,14 @@ V4: 通过目录锚点定位放置目录。
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Callable
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.overlay import OverlayStore
+from src.common.knowledge_tree.storage.sync import _refresh_anchor
 from src.common.knowledge_tree.storage.vector_store import (
     BaseVectorStore,
     DirectoryAnchor,
@@ -142,7 +141,7 @@ def ingest_nodes(
                 vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
 
             # 6. 刷新目录锚点
-            _refresh_directory_anchor(node.directory, md_store, vector_store)
+            _refresh_anchor(node.directory, md_store, vector_store)
 
             report.nodes_ingested += 1
 
@@ -151,33 +150,6 @@ def ingest_nodes(
             logger.warning("Ingest failed: %s", e)
 
     return report
-
-
-def _refresh_directory_anchor(
-    directory: str,
-    md_store: MarkdownStore,
-    vector_store: BaseVectorStore,
-) -> None:
-    """重新计算目录锚点。"""
-    if not directory:
-        return
-
-    embeddings: list[list[float]] = []
-    for nid in md_store.get_directory_files(directory):
-        emb = vector_store.get_embedding(nid)
-        if emb is not None:
-            embeddings.append(emb)
-
-    if embeddings:
-        anchor_vec = compute_anchor_vector(embeddings)
-        if anchor_vec:
-            anchor = DirectoryAnchor(
-                directory=directory,
-                anchor_vector=anchor_vec,
-                file_count=len(embeddings),
-                last_updated=datetime.now(timezone.utc).isoformat(),
-            )
-            vector_store.upsert_anchor(anchor)
 
 
 def _sanitize_filename(title: str) -> str:

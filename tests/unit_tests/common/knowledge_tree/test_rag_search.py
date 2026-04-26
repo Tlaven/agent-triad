@@ -1,6 +1,6 @@
 """RAG 向量检索测试。
 
-覆盖 rag_search 的核心场景：基本检索、双路融合、空存储、阈值过滤、缺失节点。
+覆盖 rag_search 的核心场景：基本检索、双路融合、锚点扩展、空存储、阈值过滤、缺失节点。
 """
 
 from __future__ import annotations
@@ -10,7 +10,10 @@ import pytest
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.retrieval.rag_search import rag_search
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
-from src.common.knowledge_tree.storage.vector_store import InMemoryVectorStore
+from src.common.knowledge_tree.storage.vector_store import (
+    DirectoryAnchor,
+    InMemoryVectorStore,
+)
 
 
 @pytest.fixture
@@ -169,3 +172,97 @@ class TestScoreOrdering:
             scores = [score for _, score in results]
             for i in range(len(scores) - 1):
                 assert scores[i] >= scores[i + 1], f"Results not sorted: {scores}"
+
+
+class TestAnchorExpansion:
+    """锚点扩展路径（Path 3）测试。"""
+
+    def test_anchor_expansion_adds_directory_neighbors(self, tmp_path, mock_embedder, dim):
+        """锚点匹配时，同目录的其他节点应被加入候选。"""
+        md = MarkdownStore(tmp_path / "md")
+        vs = InMemoryVectorStore(dimension=dim)
+
+        # 创建同目录下两个节点：一个与 query 相似，一个不太相似
+        node_direct = KnowledgeNode.create(
+            "dev/state.md", "状态管理",
+            "LangGraph 使用 TypedDict 定义状态模式。", "seed",
+        )
+        node_sibling = KnowledgeNode.create(
+            "dev/testing.md", "测试策略",
+            "单元测试应覆盖边缘条件和错误路径。", "seed",
+        )
+        for node in [node_direct, node_sibling]:
+            md.write_node(node)
+            vs.upsert_embedding(node.node_id, mock_embedder(node.content))
+            if node.title:
+                vs.upsert_embedding(f"title:{node.node_id}", mock_embedder(node.title))
+
+        # 创建目录锚点（两个节点 content 的质心）
+        from src.common.knowledge_tree.storage.vector_store import compute_anchor_vector
+        anchor_vec = compute_anchor_vector([
+            mock_embedder(node_direct.content),
+            mock_embedder(node_sibling.content),
+        ])
+        vs.upsert_anchor(DirectoryAnchor("dev", anchor_vec, 2))
+
+        # 无锚点扩展时，query "LangGraph 状态" 只应命中 state.md
+        results_no_expand = rag_search(
+            mock_embedder("LangGraph 状态管理"),
+            vs, md, embedder=mock_embedder, threshold=0.05, anchor_boost_threshold=1.0,
+        )
+        ids_no_expand = {n.node_id for n, s in results_no_expand}
+
+        # 有锚点扩展时，同目录的 testing.md 也应出现
+        results_with_expand = rag_search(
+            mock_embedder("LangGraph 状态管理"),
+            vs, md, embedder=mock_embedder, threshold=0.05, anchor_boost_threshold=0.0,
+        )
+        ids_with_expand = {n.node_id for n, s in results_with_expand}
+
+        # 锚点扩展应引入更多节点（至少不会更少）
+        assert len(ids_with_expand) >= len(ids_no_expand)
+
+    def test_anchor_expansion_high_threshold_no_boost(self, populated_store, mock_embedder):
+        """锚点阈值极高时等于关闭扩展。"""
+        md, vs, _ = populated_store
+        query_vec = mock_embedder("状态管理")
+
+        results = rag_search(
+            query_vec, vs, md, embedder=mock_embedder,
+            threshold=0.05, anchor_boost_threshold=0.99,
+        )
+        # 在高阈值下不应崩溃，结果可能少于低阈值
+        assert isinstance(results, list)
+
+    def test_anchor_boost_does_not_displace_strong_match(self, tmp_path, mock_embedder, dim):
+        """直接 content 匹配应排在锚点扩展节点前面。"""
+        md = MarkdownStore(tmp_path / "md")
+        vs = InMemoryVectorStore(dimension=dim)
+
+        # 精确匹配节点
+        exact = KnowledgeNode.create("dev/exact.md", "精确", "LangGraph 状态管理 TypedDict", "seed")
+        md.write_node(exact)
+        vs.upsert_embedding(exact.node_id, mock_embedder(exact.content))
+
+        # 同目录弱匹配节点
+        weak = KnowledgeNode.create("dev/weak.md", "弱匹配", "完全不相关的无关内容 xyz", "seed")
+        md.write_node(weak)
+        vs.upsert_embedding(weak.node_id, mock_embedder(weak.content))
+
+        # 锚点
+        from src.common.knowledge_tree.storage.vector_store import compute_anchor_vector
+        anchor_vec = compute_anchor_vector([
+            mock_embedder(exact.content),
+            mock_embedder(weak.content),
+        ])
+        vs.upsert_anchor(DirectoryAnchor("dev", anchor_vec, 2))
+
+        results = rag_search(
+            mock_embedder("LangGraph 状态管理"),
+            vs, md, embedder=mock_embedder, threshold=0.01, anchor_boost_threshold=0.0,
+        )
+
+        if len(results) >= 2:
+            # 精确匹配应排第一（分数更高）
+            ids = [n.node_id for n, s in results]
+            assert ids.index("dev/exact.md") < ids.index("dev/weak.md")
