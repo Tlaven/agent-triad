@@ -287,7 +287,7 @@ async def call_model(
             msg = llm_messages[i]
             if isinstance(msg, HumanMessage):
                 original = msg.content if isinstance(msg.content, str) else str(msg.content)
-                augmented = f"{original}\n\n{state.kt_context}"
+                augmented = f"{state.kt_context}\n\n{original}"
                 llm_messages[i] = HumanMessage(content=augmented, id=msg.id)
                 break
 
