@@ -10,7 +10,6 @@ import pytest
 from src.common.knowledge_tree import KnowledgeTree
 from src.common.knowledge_tree.config import KnowledgeTreeConfig
 from src.common.knowledge_tree.dag.node import KnowledgeNode
-from src.common.knowledge_tree.storage.vector_store import InMemoryVectorStore
 
 
 def _mock_embedder(dim: int = 16):

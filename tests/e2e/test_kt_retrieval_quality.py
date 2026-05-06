@@ -27,6 +27,7 @@ if sys.platform == "win32":
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 R = "\033[0m"
@@ -357,7 +358,7 @@ def analyze_retrieval(tc: dict, kt_outputs: list[dict]) -> dict:
 
     if expect_hit:
         if not ok:
-            issues.append(f"预期命中但 ok=false")
+            issues.append("预期命中但 ok=false")
         if expect_keyword and expect_keyword not in content and expect_keyword not in title:
             issues.append(f"预期关键词 '{expect_keyword}' 未出现（title={title}, content={content[:100]}）")
     else:

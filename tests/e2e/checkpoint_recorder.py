@@ -16,7 +16,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -76,26 +75,26 @@ class CheckpointRecorder:
 
         lines: list[str] = []
         lines.append(f"# Checkpoint Report: {self.test_name}")
-        lines.append(f"")
+        lines.append("")
         lines.append(f"- Generated: {datetime.now().isoformat(timespec='seconds')}")
         lines.append(f"- Duration: {datetime.now() - self.start_time}")
         lines.append(f"- Checkpoints: {len(self.checkpoints)}")
-        lines.append(f"")
+        lines.append("")
 
         for i, cp in enumerate(self.checkpoints, 1):
-            lines.append(f"---")
+            lines.append("---")
             lines.append(f"## CP{i}: {cp.name}")
             lines.append(f"`timestamp: {cp.timestamp}`")
-            lines.append(f"")
+            lines.append("")
             for label, data in cp.records:
                 lines.append(f"### {label}")
-                lines.append(f"```")
+                lines.append("```")
                 if "\n" in data:
                     lines.append(data)
                 else:
                     lines.append(data)
-                lines.append(f"```")
-                lines.append(f"")
+                lines.append("```")
+                lines.append("")
 
         path.write_text("\n".join(lines), encoding="utf-8")
         return path

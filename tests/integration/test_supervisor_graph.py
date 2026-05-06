@@ -11,7 +11,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.common.context import Context
@@ -332,7 +331,6 @@ async def test_supervisor_max_replan_forces_termination() -> None:
     mock_httpx_2 = _make_mock_httpx_failed()
 
     call_count = 0
-    original_client = None
 
     def _client_factory(*args, **kwargs):
         nonlocal call_count

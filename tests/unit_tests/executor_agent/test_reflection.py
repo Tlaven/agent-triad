@@ -1,20 +1,19 @@
 """Unit tests for Executor reflection/snapshot mechanism."""
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
+from src.common.context import Context
 from src.executor_agent.graph import (
-    ExecutorState,
     ExecutorResult,
+    ExecutorState,
     _normalize_executor_status_token,
     reflection_node,
     route_after_tools,
 )
-from src.common.context import Context
-
 
 # ---------------------------------------------------------------------------
 # route_after_tools — parametrized routing table
@@ -128,7 +127,8 @@ def _make_runtime(streaming: bool = False):
 def _patch_reflection_llm(response):
     """Context manager that patches both load_chat_model and invoke_chat_model."""
     from contextlib import contextmanager
-    from unittest.mock import patch as _patch, MagicMock
+    from unittest.mock import MagicMock
+    from unittest.mock import patch as _patch
 
     @contextmanager
     def _cm():

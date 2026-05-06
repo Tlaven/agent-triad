@@ -1,7 +1,6 @@
 """KnowledgeNode 数据模型测试。"""
 
 import yaml
-import pytest
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 

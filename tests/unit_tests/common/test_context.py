@@ -5,7 +5,6 @@ import pytest
 from src.common import context_model_defaults as defaults_module
 from src.common.context import Context
 
-
 # ---------------------------------------------------------------------------
 # Default values — parametrized for simple int/bool fields
 # ---------------------------------------------------------------------------

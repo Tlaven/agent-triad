@@ -36,7 +36,6 @@ def test_replan_without_task_core_uses_placeholder_first_message() -> None:
 
 def test_fresh_plan_empty_task_core_uses_placeholder() -> None:
     """Empty task_core with no replan → placeholder message."""
-    from langchain_core.messages import AIMessage
     msgs = build_planner_messages("", None)
     assert len(msgs) == 1
     assert "未提供任务描述" in msgs[0].content

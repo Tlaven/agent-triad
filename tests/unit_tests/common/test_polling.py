@@ -1,6 +1,5 @@
 """Unit tests for ExecutorPoller staleness detection and auto-unregister."""
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -319,7 +318,6 @@ async def test_force_poll_once_with_active_plans_sweeps(
     )
 
     # Mock the httpx client to return 200 with terminal status
-    import httpx
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from src.executor_agent.interrupt import (
+    INTERRUPT_PROMPT,
     ToolInterrupted,
     check_interrupt,
     clear_current_plan_id,
@@ -16,9 +17,7 @@ from src.executor_agent.interrupt import (
     is_interrupted,
     run_with_interrupt_check,
     set_current_plan_id,
-    INTERRUPT_PROMPT,
 )
-
 
 # ==================== Plan ID Context ====================
 

@@ -6,7 +6,7 @@ import time
 import pytest
 
 from src.common.mailbox import Mailbox, MailboxItem
-from src.common.mailbox_server import MailboxHTTPServer, MAILBOX_PORT_FILE
+from src.common.mailbox_server import MAILBOX_PORT_FILE, MailboxHTTPServer
 
 
 @pytest.fixture
@@ -91,8 +91,8 @@ def test_post_status_to_inbox(server: MailboxHTTPServer, mailbox: Mailbox) -> No
 
 
 def test_post_invalid_json_returns_400(server: MailboxHTTPServer) -> None:
-    import urllib.request
     import urllib.error
+    import urllib.request
     req = urllib.request.Request(
         f"{server.base_url}/inbox",
         data=b"not json",
@@ -104,8 +104,8 @@ def test_post_invalid_json_returns_400(server: MailboxHTTPServer) -> None:
 
 
 def test_post_missing_fields_returns_400(server: MailboxHTTPServer) -> None:
-    import urllib.request
     import urllib.error
+    import urllib.request
     payload = json.dumps({"plan_id": "p1"}).encode()
     req = urllib.request.Request(
         f"{server.base_url}/inbox",
@@ -118,7 +118,6 @@ def test_post_missing_fields_returns_400(server: MailboxHTTPServer) -> None:
 
 
 def test_server_stop_cleans_port_file(server: MailboxHTTPServer) -> None:
-    port = server.port
     server.stop()
     assert not server.is_alive()
     assert not MAILBOX_PORT_FILE.exists()

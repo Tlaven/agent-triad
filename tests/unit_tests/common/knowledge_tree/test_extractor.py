@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from src.common.knowledge_tree.ingestion.extractor import (
     extract_knowledge_from_executor_result,
 )

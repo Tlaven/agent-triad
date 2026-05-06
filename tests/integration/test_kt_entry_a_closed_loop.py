@@ -20,7 +20,9 @@ import pytest
 
 from src.common.knowledge_tree import KnowledgeTree
 from src.common.knowledge_tree.config import KnowledgeTreeConfig
-from src.common.knowledge_tree.ingestion.extractor import extract_knowledge_from_executor_result
+from src.common.knowledge_tree.ingestion.extractor import (
+    extract_knowledge_from_executor_result,
+)
 from src.common.knowledge_tree.ingestion.filter import should_remember
 
 SEED_DIR = Path("workspace/knowledge_tree")

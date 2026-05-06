@@ -10,7 +10,6 @@ from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.overlay import OverlayStore
 from src.common.knowledge_tree.storage.vector_store import InMemoryVectorStore
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -94,7 +93,7 @@ class TestBootstrapFromDirectory:
         md_store, vector_store, overlay_store = stores
         embedder = _mock_embedder()
 
-        report = bootstrap_from_directory(
+        bootstrap_from_directory(
             seed_dir, md_store, vector_store, overlay_store, embedder,
         )
 

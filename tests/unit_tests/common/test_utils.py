@@ -3,7 +3,12 @@
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.common.utils import extract_reasoning_text, get_message_text, invoke_chat_model, normalize_region
+from src.common.utils import (
+    extract_reasoning_text,
+    get_message_text,
+    invoke_chat_model,
+    normalize_region,
+)
 
 # ---------------------------------------------------------------------------
 # normalize_region

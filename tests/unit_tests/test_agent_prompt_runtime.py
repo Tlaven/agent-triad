@@ -1,6 +1,9 @@
 """验证 Executor 和 Planner 提示词包含运行时行为说明。"""
 
-from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
+from src.executor_agent.prompts import (
+    get_executor_system_prompt,
+    get_reflection_system_prompt,
+)
 from src.planner_agent.prompts import get_planner_system_prompt
 
 

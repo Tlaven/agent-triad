@@ -6,7 +6,6 @@ import pytest
 
 from src.common.knowledge_tree.ingestion.filter import should_remember
 
-
 # 真实 Executor 输出模式 + 期望行为
 # (text, trigger, expected_passed, description)
 REAL_EXECUTOR_PATTERNS: list[tuple[str, str, bool, str]] = [

@@ -1,11 +1,11 @@
 """Integration tests for Planner MCP (Model Context Protocol) integration."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.common.mcp import get_mcp_client, get_readonly_mcp_tools, MCP_SERVERS
-from src.common.context import Context
+import pytest
 
+from src.common.context import Context
+from src.common.mcp import MCP_SERVERS, get_mcp_client, get_readonly_mcp_tools
 
 # ---------------------------------------------------------------------------
 # get_mcp_client — creation and error handling

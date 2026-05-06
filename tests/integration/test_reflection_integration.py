@@ -6,14 +6,12 @@ Pure routing logic (route_after_tools) is covered in unit tests.
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.executor_agent.graph import ExecutorState, ExecutorResult, reflection_node
-from src.common.context import Context
-
+from src.executor_agent.graph import ExecutorResult, ExecutorState, reflection_node
 
 # ---------------------------------------------------------------------------
 # reflection_node output contracts (replan / abort suggestions)

@@ -1,11 +1,13 @@
 """Unit tests for planner_agent._final_planner_text_from_messages and route_planner_output."""
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage
 
-from src.planner_agent.graph import _final_planner_text_from_messages, route_planner_output
+from src.planner_agent.graph import (
+    _final_planner_text_from_messages,
+    route_planner_output,
+)
 from src.planner_agent.state import PlannerState
-
 
 # ---------------------------------------------------------------------------
 # _final_planner_text_from_messages — string content

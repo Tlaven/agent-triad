@@ -1,6 +1,5 @@
 """知识树可见性工具（status/list）测试。"""
 
-import json
 from pathlib import Path
 
 import pytest

@@ -52,7 +52,7 @@ async def test_remove_deletes_mailbox(mailbox: Mailbox) -> None:
 
 async def test_set_and_get_mailbox() -> None:
     """set_mailbox / get_mailbox module-level functions work."""
-    from src.common.mailbox import set_mailbox, get_mailbox
+    from src.common.mailbox import get_mailbox, set_mailbox
 
     mb = Mailbox()
     set_mailbox(mb)
@@ -61,10 +61,9 @@ async def test_set_and_get_mailbox() -> None:
 
 async def test_get_mailbox_raises_when_not_set() -> None:
     """get_mailbox raises RuntimeError when not initialized."""
-    from src.common.mailbox import get_mailbox as _get
-
     # Reset global state
     import src.common.mailbox as _mod
+    from src.common.mailbox import get_mailbox as _get
     _mod._mailbox = None
     with pytest.raises(RuntimeError, match="Mailbox not initialized"):
         _get()

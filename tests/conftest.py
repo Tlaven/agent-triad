@@ -164,6 +164,7 @@ def make_runtime():
     """
     def _factory(context=None):
         from unittest.mock import MagicMock
+
         from src.common.context import Context
         mock = MagicMock()
         mock.context = context if context is not None else Context(max_replan=2, max_executor_iterations=5)

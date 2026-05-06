@@ -435,14 +435,14 @@ def test_trim_task_history_under_limit_unchanged() -> None:
 
 
 def test_trim_task_history_over_limit_trims_oldest() -> None:
-    from src.supervisor_agent.graph import _trim_task_history, _MAX_TASK_HISTORY
+    from src.supervisor_agent.graph import _MAX_TASK_HISTORY, _trim_task_history
     history = {f"plan_{i:03d}": f"record_{i}" for i in range(60)}
     result = _trim_task_history(history)
     assert len(result) == _MAX_TASK_HISTORY
     # Oldest entries removed
     assert "plan_000" not in result
     # Newest entries kept
-    assert f"plan_059" in result
+    assert "plan_059" in result
 
 
 # ---------------------------------------------------------------------------

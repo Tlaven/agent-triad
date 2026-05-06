@@ -16,14 +16,14 @@ import asyncio
 import json
 import re
 import socket
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 import uvicorn
-from unittest.mock import AsyncMock, patch
 
 from src.common.context import Context
-from src.common.mailbox import Mailbox, MailboxItem, set_mailbox, get_mailbox
+from src.common.mailbox import Mailbox, MailboxItem, set_mailbox
 from src.executor_agent.graph import ExecutorResult
 from src.executor_agent.server import app as executor_app
 from src.supervisor_agent.state import ActiveExecutorTask, PlannerSession, State

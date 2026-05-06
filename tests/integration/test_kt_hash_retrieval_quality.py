@@ -184,6 +184,6 @@ class TestHashIngestAndRetrieve:
     def test_ingest_dedup(self, kt_hash: KnowledgeTree):
         """重复摄入应被去重。"""
         text = "去重测试：这是一条唯一的测试知识内容。"
-        r1 = kt_hash.ingest(text, trigger="user_explicit")
+        kt_hash.ingest(text, trigger="user_explicit")
         r2 = kt_hash.ingest(text, trigger="user_explicit")
         assert r2.nodes_deduplicated > 0, "Expected dedup on second ingest"

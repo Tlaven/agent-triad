@@ -5,12 +5,10 @@ from dataclasses import dataclass
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from src.supervisor_agent.graph import kt_retrieve
 from src.supervisor_agent.state import State
-
 
 # ---------------------------------------------------------------------------
 # Minimal runtime stub — matches langgraph Runtime[Context] interface

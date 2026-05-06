@@ -1,20 +1,17 @@
 """Unit tests for supervisor tools helper functions."""
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
-import pytest
-
-from src.supervisor_agent.tools import (
-    _relative_time_ago,
-    _normalize_plan_json,
-    _normalize_plan_id_arg,
-    _resolve_planner_input_for_call_planner,
-    _mark_plan_steps_failed,
-    _format_completion_result,
-)
 from src.supervisor_agent.state import PlannerSession
-
+from src.supervisor_agent.tools import (
+    _format_completion_result,
+    _mark_plan_steps_failed,
+    _normalize_plan_id_arg,
+    _normalize_plan_json,
+    _relative_time_ago,
+    _resolve_planner_input_for_call_planner,
+)
 
 # ---------------------------------------------------------------------------
 # _format_relative_time

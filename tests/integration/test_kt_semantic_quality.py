@@ -17,7 +17,6 @@ from src.common.knowledge_tree.config import KnowledgeTreeConfig
 # 从 conftest_semantic 导入
 from tests.unit_tests.common.knowledge_tree.conftest_semantic import (
     _create_real_semantic_embedder,
-    _has_semantic,
     requires_semantic,
 )
 

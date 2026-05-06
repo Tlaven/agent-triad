@@ -10,12 +10,10 @@ import httpx
 import pytest
 
 from src.executor_agent.server import (
-    ExecuteRequestBody,
-    StopRequestBody,
-    _running_tasks,
-    _stop_events,
     _results,
+    _running_tasks,
     _statuses,
+    _stop_events,
     app,
 )
 

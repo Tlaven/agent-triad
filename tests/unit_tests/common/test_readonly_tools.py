@@ -1,8 +1,6 @@
 """Tests for read-only workspace tools: list_workspace_entries, read_workspace_text_file, search_files, grep_content, read_file_structure."""
 
 import json
-import os
-import tempfile
 
 import pytest
 

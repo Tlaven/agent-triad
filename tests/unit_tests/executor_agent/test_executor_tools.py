@@ -1,16 +1,14 @@
 """Unit tests for executor_agent.tools tool functions (write_file, run_local_command)."""
 
 import os
-import tempfile
 
 import pytest
 
 from src.executor_agent.tools import (
-    write_file,
-    _resolve_workspace_path,
     _agent_workspace_root,
+    _resolve_workspace_path,
+    write_file,
 )
-
 
 # ---------------------------------------------------------------------------
 # write_file — integration tests using temp workspace

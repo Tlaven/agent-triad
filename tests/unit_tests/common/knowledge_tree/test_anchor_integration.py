@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.vector_store import (

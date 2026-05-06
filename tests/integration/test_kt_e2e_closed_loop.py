@@ -17,7 +17,6 @@ from src.common.knowledge_tree.config import KnowledgeTreeConfig
 from src.common.knowledge_tree.ingestion.extractor import (
     extract_knowledge_from_executor_result,
 )
-
 from tests.unit_tests.common.knowledge_tree.conftest_semantic import (
     _create_real_semantic_embedder,
     requires_semantic,

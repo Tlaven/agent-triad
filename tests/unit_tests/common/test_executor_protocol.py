@@ -1,6 +1,7 @@
 """Unit tests for cross-process protocol data structures."""
 
 import json
+from dataclasses import asdict
 
 from src.common.executor_protocol import (
     ExecuteRequest,
@@ -8,7 +9,6 @@ from src.common.executor_protocol import (
     ExecutorResultResponse,
     StopRequest,
 )
-from dataclasses import asdict
 
 
 def test_execute_request_defaults() -> None:

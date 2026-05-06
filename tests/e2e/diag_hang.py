@@ -1,23 +1,23 @@
 """诊断 graph.ainvoke() 挂死问题"""
 import asyncio
 import logging
-import sys
 import os
+import sys
 
 # 确保 src 在 path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # 加载 .env
 from dotenv import load_dotenv
+
 load_dotenv()
 
 logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
 logger = logging.getLogger("diag")
 
 async def main():
-    from langgraph.func import entrypoint
-    from src.supervisor_agent.graph import graph
     from src.common.context import Context
+    from src.supervisor_agent.graph import graph
 
     # 构造 context（禁用 KT 隔离变量）
     ctx = Context()

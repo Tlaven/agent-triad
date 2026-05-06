@@ -4,7 +4,6 @@
 Reflection 路由逻辑在单元测试中覆盖；Planner 工具契约见 test_tools_registry.py。
 """
 
-import json
 
 import pytest
 from langchain_core.messages import HumanMessage
@@ -13,7 +12,6 @@ from src.common.context import Context
 from src.common.observation import normalize_observation
 from src.executor_agent.graph import ExecutorState, route_after_tools
 from src.planner_agent.tools import get_planner_tools
-
 
 # ---------------------------------------------------------------------------
 # Observation governance

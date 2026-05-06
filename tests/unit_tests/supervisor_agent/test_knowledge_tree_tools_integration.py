@@ -1,15 +1,11 @@
 """知识树工具 Supervisor 集成测试。"""
 
-import asyncio
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
-
 from src.common.context import Context
-from src.supervisor_agent.state import State
 from src.supervisor_agent.tools import get_tools
 
 
@@ -130,7 +126,7 @@ class TestBlockingIOCompliance:
             return original_write_text(self, *args, **kwargs)
 
         with patch.object(Path, "write_text", tracking_write_text):
-            result = await ingest_tool.ainvoke({
+            await ingest_tool.ainvoke({
                 "text": "测试知识摄入",
                 "trigger": "user_explicit",
             })

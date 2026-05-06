@@ -13,7 +13,7 @@ import re
 import pytest
 
 from src.common.context import Context
-from src.common.mailbox import Mailbox, MailboxItem, set_mailbox, get_mailbox
+from src.common.mailbox import Mailbox, MailboxItem, get_mailbox, set_mailbox
 from src.supervisor_agent.state import ActiveExecutorTask, PlannerSession, State
 from src.supervisor_agent.tools import _get_executor_result_impl
 

@@ -1,11 +1,11 @@
 """Tests for Planner tools registry — readonly contract and separation from Executor."""
 
-import pytest
 from unittest.mock import patch
 
-from src.planner_agent.tools import get_planner_tools
-from src.common.context import Context
+import pytest
 
+from src.common.context import Context
+from src.planner_agent.tools import get_planner_tools
 
 EXPECTED_TOOL_NAMES = [
     "read_workspace_text_file",
