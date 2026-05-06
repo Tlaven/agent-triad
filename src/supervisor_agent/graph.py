@@ -172,9 +172,10 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         return {"kt_context": ""}
 
     # 格式化为 LLM 友好的上下文
-    context_lines = ["[相关知识]"]
+    context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
     for node, score in high_quality[:3]:
-        context_lines.append(f"- {node.title}（相似度 {score:.2f}）")
+        tag = "[高可信]" if score >= 0.7 else "[参考]"
+        context_lines.append(f"- {tag} {node.title}（相似度 {score:.2f}）")
         context_lines.append(f"  {node.content[:300]}")
 
     logger.info(

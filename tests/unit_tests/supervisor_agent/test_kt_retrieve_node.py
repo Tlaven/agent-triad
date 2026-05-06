@@ -185,6 +185,39 @@ class TestKtRetrieveFormat:
 
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_high_confidence_tag(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        _mock_kt_setup(mock_get_kt, [(_make_node("Test", "body"), 0.75)])
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        assert "[高可信]" in result["kt_context"]
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_reference_tag(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        _mock_kt_setup(mock_get_kt, [(_make_node("Test", "body"), 0.50)])
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        assert "[参考]" in result["kt_context"]
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_inject_source_disclaimer(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        _mock_kt_setup(mock_get_kt, [(_make_node("Test", "body"), 0.5)])
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        assert "非用户输入" in result["kt_context"]
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
     def test_content_truncated_at_300(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
         _mock_kt_setup(mock_get_kt, [(_make_node("Test", "x" * 500), 0.5)])
 
