@@ -215,13 +215,14 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] RAG 结果拼接到用户消息（不是 system prompt）
 - [x] 向量-结构互塑闭环：MarkdownStore on_change 回调 + Change Mapping 自动锚点刷新
 - [x] 检索结构信号：rag_search 锚点扩展路径（RRF Path 3）
-- [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（877 tests）
+- [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（940 tests）
 - [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest
 - [x] **项目种子知识** — 11 篇文档覆盖架构/规范/模式（含 Plan JSON、Observation/Reflection）
 - [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤
 - [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest
 - [x] **P2：Agent 可见性** — `knowledge_tree_status`（概览）+ `knowledge_tree_list`（节点列表），Supervisor 可查看 KT 内部状态
-- [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），900 tests
+- [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），940 tests
+- [x] **认知集成第二轮** — Reflection/paused 状态处理 + 异步派发诚实 + Observation 路径修复（workspace/agent/.observations）+ Planner KT 共享
 
 ### 待实现（按优先级）
 
@@ -255,6 +256,11 @@ src/common/knowledge_tree/
         extractor.py         # Entry A：Executor 结果知识提取
         filter.py            # 轻量过滤
         ingest.py            # 增量嫁接
+    editing/
+        re_embed.py          # 节点重嵌入
+    optimization/
+        anti_oscillation.py # 反振荡保护
+        signals.py          # 优化信号检测
     dag/
         node.py              # KnowledgeNode
 ```
