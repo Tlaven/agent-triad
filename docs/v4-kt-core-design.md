@@ -194,7 +194,7 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] P1 基础架构（两层存储 + Overlay + Bootstrap）
 - [x] 语义 embedder 集成（BAAI/bge-small-zh-v1.5，降级到 hash）
 - [x] 节点缓存（消除重复文件 I/O）
-- [x] 工具精简（bootstrap/status 移除 + 4 Executor 管理工具合并为 manage_executor，共 3 核心 + 2 KT = 5 工具）
+- [x] 工具精简（bootstrap/status 移除 + 4 Executor 管理工具合并为 manage_executor，共 3 核心 + 4 KT = 7 工具）
 - [x] Graph 集成（kt_retrieve 节点，用户消息自动 RAG 注入）
 - [x] `get_or_create_kt()` 模块级接口
 - [x] RAG 结果拼接到用户消息（不是 system prompt）
@@ -202,14 +202,15 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] 检索结构信号：rag_search 锚点扩展路径（RRF Path 3）
 - [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（877 tests）
 - [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest
-- [x] **项目种子知识** — 9 篇文档覆盖架构/规范/模式
+- [x] **项目种子知识** — 11 篇文档覆盖架构/规范/模式（含 Plan JSON、Observation/Reflection）
 - [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤
 - [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest
+- [x] **P2：Agent 可见性** — `knowledge_tree_status`（概览）+ `knowledge_tree_list`（节点列表），Supervisor 可查看 KT 内部状态
 
 ### 待实现（按优先级）
 
-1. **P2：structural_vector 混合** — content_embedding + 结构位置向量，增强目录内区分
-2. **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整
+1. **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整
+2. **P2：structural_vector 混合** — content_embedding + 结构位置向量，增强目录内区分
 3. **P2：Overlay 主动管理** — 跨目录关联边的增删查
 4. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类
 
@@ -250,6 +251,8 @@ src/common/knowledge_tree/
 |------|------|------|
 | `knowledge_tree_retrieve` | 主动工具 | Supervisor 主动查询知识树 |
 | `knowledge_tree_ingest` | 主动工具 | Supervisor 主动记忆（用户要求、skill 触发、自主判断） |
+| `knowledge_tree_status` | 可见性工具 | 返回 KT 概览（节点数、目录数、锚点数） |
+| `knowledge_tree_list` | 可见性工具 | 列出节点（支持按目录过滤，含标题和内容预览） |
 | `kt_retrieve` graph 节点 | 自动注入 | 用户消息进入时自动 RAG 检索，拼接到用户消息 |
 
-bootstrap 和 status 已从工具列表移除（内部自动处理）。
+bootstrap 已从工具列表移除（内部自动处理）。
