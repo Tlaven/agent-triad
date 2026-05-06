@@ -1,4 +1,4 @@
-"""验证 Supervisor 系统提示词包含知识树认知段。"""
+"""验证 Supervisor 系统提示词包含知识树认知段和执行状态处理。"""
 
 from src.common.context import Context
 from src.supervisor_agent.prompts import get_supervisor_system_prompt
@@ -42,3 +42,52 @@ class TestSupervisorPromptKTIntegration:
         ctx = Context(enable_knowledge_tree=False)
         prompt = get_supervisor_system_prompt(ctx)
         assert "知识树" in prompt
+
+
+class TestSupervisorPromptExecutorStatusHandling:
+    """系统提示词必须指导 Supervisor 处理 Executor 的三种返回状态。"""
+
+    def test_prompt_mentions_completed_status(self):
+        prompt = get_supervisor_system_prompt()
+        assert "completed" in prompt
+
+    def test_prompt_mentions_failed_status(self):
+        prompt = get_supervisor_system_prompt()
+        assert "failed" in prompt
+
+    def test_prompt_mentions_paused_status(self):
+        """提示词必须解释 paused 状态的含义。"""
+        prompt = get_supervisor_system_prompt()
+        assert "paused" in prompt
+
+    def test_prompt_guides_paused_decision(self):
+        """提示词必须指导 Supervisor 在 paused 时做出决策（继续/重规划/终止）。"""
+        prompt = get_supervisor_system_prompt()
+        assert "继续执行" in prompt or "continue" in prompt.lower()
+        assert "重规划" in prompt or "replan" in prompt.lower()
+
+    def test_prompt_explains_snapshot(self):
+        """提示词必须解释 Checkpoint 快照的含义。"""
+        prompt = get_supervisor_system_prompt()
+        assert "快照" in prompt or "snapshot" in prompt.lower() or "Checkpoint" in prompt
+
+    def test_prompt_explains_replan_limit(self):
+        """提示词必须说明重规划次数限制。"""
+        prompt = get_supervisor_system_prompt()
+        assert "重规划" in prompt
+        assert "2" in prompt  # 最大 2 次
+
+
+class TestSupervisorPromptAsyncHonesty:
+    """异步派发说明必须诚实——不承诺无法兑现的并行执行。"""
+
+    def test_prompt_mentions_async_dispatch(self):
+        """提示词应该包含异步派发说明。"""
+        prompt = get_supervisor_system_prompt()
+        assert "wait_for_result" in prompt or "异步" in prompt
+
+    def test_prompt_does_not_promise_parallel_group_split(self):
+        """提示词不应承诺自动拆分 parallel_group。"""
+        prompt = get_supervisor_system_prompt()
+        # 不应包含"将同组步骤拆为独立子任务"这种承诺
+        assert "拆为独立子任务" not in prompt

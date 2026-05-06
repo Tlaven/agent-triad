@@ -71,7 +71,7 @@ _PLANNER_SYSTEM_PROMPT_TEMPLATE = """你是 Planner Agent，只负责"规划"，
 
 - 当多个步骤之间**无依赖关系**、可以同时执行时，为它们设置相同的 `parallel_group` 值（如 `"group_a"`）。
 - 有依赖关系的步骤 **不要** 设置 `parallel_group`（保持 `null`），它们将按顺序执行。
-- Supervisor 会根据 `parallel_group` 将同组步骤派发到并行 Executor 执行，不同组之间顺序执行。
+- 标注了 `parallel_group` 的步骤可能由 Supervisor 根据运行时条件决定是否并行执行。
 - 只有在你确信步骤之间完全独立时才标注 `parallel_group`。
 
 ## 质量标准

@@ -46,3 +46,9 @@ class TestPlannerPromptRuntimeBehavior:
         assert "step_id" in prompt
         assert "intent" in prompt
         assert "expected_output" in prompt
+
+    def test_parallel_group_does_not_promise_auto_split(self):
+        """Planner 提示词不应承诺 Supervisor 会自动拆分并行步骤。"""
+        prompt = get_planner_system_prompt("测试能力")
+        assert "会根据 parallel_group 将同组步骤派发" not in prompt
+        assert "可能" in prompt  # 应该用"可能"而非"会"

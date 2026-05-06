@@ -179,7 +179,7 @@ class Context:
     enable_observation_offload: bool = field(
         default=True,
         metadata={
-            "description": "If true, very large tool outputs are written under workspace/.observations/.",
+            "description": "If true, very large tool outputs are written under workspace/agent/.observations/.",
         },
     )
     enable_observation_summary: bool = field(
@@ -189,9 +189,9 @@ class Context:
         },
     )
     observation_workspace_dir: str = field(
-        default="workspace/.observations",
+        default="workspace/agent/.observations",
         metadata={
-            "description": "Relative directory for offloaded observation files.",
+            "description": "Relative directory for offloaded observation files (must be within agent workspace root).",
         },
     )
 

@@ -139,3 +139,15 @@ def test_normalize_tool_message_content_non_str_non_list() -> None:
     ctx = Context()
     result = normalize_tool_message_content(12345, context=ctx)
     assert "12345" in result
+
+
+def test_default_offload_path_within_agent_workspace() -> None:
+    """默认外置路径必须在 agent workspace 根目录内，否则 agent 无法读取。"""
+    from src.common.context import Context
+
+    ctx = Context()
+    # 默认的 observation_workspace_dir 必须以 agent workspace root 开头
+    assert ctx.observation_workspace_dir.startswith("workspace/agent"), (
+        f"observation_workspace_dir={ctx.observation_workspace_dir} "
+        "不在 agent workspace root (workspace/agent) 内"
+    )

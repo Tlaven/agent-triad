@@ -63,7 +63,7 @@ def normalize_observation(
         context.enable_observation_offload
         and n > context.observation_offload_threshold_chars
     ):
-        rel_dir = (context.observation_workspace_dir or "workspace/.observations").strip()
+        rel_dir = (context.observation_workspace_dir or "workspace/agent/.observations").strip()
         abs_dir = os.path.abspath(os.path.join(base_cwd, rel_dir))
         os.makedirs(abs_dir, exist_ok=True)
         fname = f"{uuid.uuid4().hex}.txt"
