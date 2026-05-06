@@ -1,0 +1,47 @@
+# ═══ Golden Path Validation — 端到端价值链验证 ═══
+# 验证完整的 KT + 多 Agent 协作流程，模拟真实用户使用场景
+# 命令：uv run chat.py --kt --kt-root workspace/kt_golden_test --reset-kt-root --script tests/e2e/scripts/golden_path.txt --report tests/e2e/results/golden_path.json --turn-timeout 180
+#
+# 验证目标：
+#   T1: 种子知识被动召回（Mode A）
+#   T2: Mode B 任务执行 + Entry A 自动摄入
+#   T3: 执行结果被动召回
+#   T4: 显式摄入（Entry B）
+#   T5: 显式摄入内容被动召回
+#   T6: 知识树状态查询
+#   T7: 需要工作区工具兜底的查询
+#   T8: Mode C 多步任务规划+执行
+
+# === T1: 种子知识被动召回 — Mode A ===
+# 期望：KT auto-inject 命中种子文档，直接回答，不调用工具
+AgentTriad 的三层架构是怎么工作的？请简要说明 Supervisor、Planner、Executor 各自的职责。
+
+# === T2: Mode B 任务执行 ===
+# 期望：Supervisor 识别需要执行操作，进入 Mode B，调用 call_executor
+在工作区创建一个文件 called golden_test_result.md，内容是 "Golden Path Test - OK"
+请确认文件创建成功。
+
+# === T3: 执行结果被动召回 ===
+# 期望：如果 Entry A 工作正常，上一步的执行结果应该已被自动摄入
+# Supervisor 可能直接回答（从记忆）或调用工具查看
+你刚才创建了什么文件？内容是什么？
+
+# === T4: 显式摄入（Entry B）===
+# 期望：Supervisor 调用 knowledge_tree_ingest
+请记住这个信息：项目使用 SiliconFlow 作为 LLM API 提供商，Supervisor 模型默认是 MiniMax-M2.5，开发服务器端口 2024。
+
+# === T5: 显式摄入内容被动召回 ===
+# 期望：KT auto-inject 命中 T4 摄入的知识，Mode A 直接回答
+这个项目用的 LLM 提供商和模型是什么？开发服务器跑在哪个端口？
+
+# === T6: 知识树状态查询 ===
+# 期望：Supervisor 调用 knowledge_tree_status 查看状态
+帮我看看知识树现在有多少个节点和目录？
+
+# === T7: 工作区工具兜底 ===
+# 期望：Supervisor 调用 read_workspace_text_file 读取文件
+请帮我读一下工作区里 golden_test_result.md 的内容。
+
+# === T8: Mode C 多步任务 ===
+# 期望：Supervisor 进入 Mode C（call_planner → call_executor），多步计划执行
+请完成以下两个任务：1) 在工作区创建 step1_done.txt，内容是 "Step 1 complete"；2) 然后创建 step2_done.txt，内容是 "Step 2 complete"。全部完成后告诉我。
