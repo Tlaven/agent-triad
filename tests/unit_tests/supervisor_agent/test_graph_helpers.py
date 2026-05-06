@@ -266,6 +266,150 @@ def test_extract_registry_updates_no_marker() -> None:
     assert _extract_registry_updates("no registry marker") == {}
 
 
+# ---------------------------------------------------------------------------
+# _try_auto_ingest_executor_result — Entry A wiring
+# ---------------------------------------------------------------------------
+
+
+class TestAutoIngestExecutorResult:
+    """Verify Entry A auto-ingest handles completed and failed statuses."""
+
+    def test_completed_status_triggers_ingest(self, tmp_path, monkeypatch):
+        """completed status should trigger knowledge extraction."""
+        from src.supervisor_agent.graph import _try_auto_ingest_executor_result
+
+        ingested_chunks = []
+
+        class FakeKT:
+            def ingest(self, chunk, trigger="", source=""):
+                ingested_chunks.append(chunk)
+                class Report:
+                    nodes_ingested = 1
+                    nodes_deduplicated = 0
+                return Report()
+
+        class FakeConfig:
+            pass
+
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.get_or_create_kt", lambda config: FakeKT()
+        )
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.config.KnowledgeTreeConfig",
+            type("FakeKTConfig", (), {"from_context": staticmethod(lambda ctx: FakeConfig())}),
+        )
+
+        plan_json = json.dumps({
+            "plan_id": "plan_test",
+            "goal": "test",
+            "steps": [
+                {"step_id": "s1", "intent": "do", "status": "completed",
+                 "result_summary": "Added timeout config (180s).", "failure_reason": ""},
+            ],
+        })
+        content = f"Task done\n\n[EXECUTOR_RESULT] {{\"status\":\"completed\",\"updated_plan_json\":{json.dumps(plan_json)}}}"
+
+        _try_auto_ingest_executor_result(content, None, "completed")
+
+        assert len(ingested_chunks) > 0
+
+    def test_failed_status_triggers_ingest(self, tmp_path, monkeypatch):
+        """failed status should also trigger knowledge extraction (failure_reason as lessons)."""
+        from src.supervisor_agent.graph import _try_auto_ingest_executor_result
+
+        ingested_chunks = []
+
+        class FakeKT:
+            def ingest(self, chunk, trigger="", source=""):
+                ingested_chunks.append(chunk)
+                class Report:
+                    nodes_ingested = 1
+                    nodes_deduplicated = 0
+                return Report()
+
+        class FakeConfig:
+            pass
+
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.get_or_create_kt", lambda config: FakeKT()
+        )
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.config.KnowledgeTreeConfig",
+            type("FakeKTConfig", (), {"from_context": staticmethod(lambda ctx: FakeConfig())}),
+        )
+
+        plan_json = json.dumps({
+            "plan_id": "plan_fail",
+            "goal": "deploy",
+            "steps": [
+                {"step_id": "s1", "intent": "check env", "status": "failed",
+                 "result_summary": "", "failure_reason": ".env encoding error: UTF-8 BOM."},
+            ],
+        })
+        content = f"Deploy failed\n\n[EXECUTOR_RESULT] {{\"status\":\"failed\",\"updated_plan_json\":{json.dumps(plan_json)}}}"
+
+        _try_auto_ingest_executor_result(content, None, "failed")
+
+        assert len(ingested_chunks) > 0
+        # failure_reason should appear in extracted chunks
+        all_text = " ".join(ingested_chunks)
+        assert "失败原因" in all_text or "encoding" in all_text.lower()
+
+    def test_exception_does_not_propagate(self, monkeypatch):
+        """KT failures should be silently caught, never breaking the graph."""
+        from src.supervisor_agent.graph import _try_auto_ingest_executor_result
+
+        def raise_error(config):
+            raise RuntimeError("KT is broken")
+
+        class FakeConfig:
+            pass
+
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.get_or_create_kt", raise_error
+        )
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.config.KnowledgeTreeConfig",
+            type("FakeKTConfig", (), {"from_context": staticmethod(lambda ctx: FakeConfig())}),
+        )
+
+        # Should not raise
+        _try_auto_ingest_executor_result("some content", None, "completed")
+
+    def test_no_chunks_means_no_ingest(self, monkeypatch):
+        """Empty executor result should not trigger any ingest calls."""
+        from src.supervisor_agent.graph import _try_auto_ingest_executor_result
+
+        ingest_called = []
+
+        class FakeKT:
+            def ingest(self, chunk, trigger="", source=""):
+                ingest_called.append(chunk)
+                class Report:
+                    nodes_ingested = 0
+                    nodes_deduplicated = 0
+                return Report()
+
+        class FakeConfig:
+            pass
+
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.get_or_create_kt", lambda config: FakeKT()
+        )
+        monkeypatch.setattr(
+            "src.common.knowledge_tree.config.KnowledgeTreeConfig",
+            type("FakeKTConfig", (), {"from_context": staticmethod(lambda ctx: FakeConfig())}),
+        )
+
+        # Generic template content — should be filtered
+        content = "执行成功\n\n[EXECUTOR_RESULT] {\"status\":\"completed\"}"
+
+        _try_auto_ingest_executor_result(content, None, "completed")
+
+        # "执行成功" is filtered by generic_template, so no ingest should happen
+        assert len(ingest_called) == 0
+
+
 def test_extract_registry_updates_invalid_json() -> None:
     from src.supervisor_agent.graph import _extract_registry_updates
     content = "[EXECUTOR_REGISTRY_UPDATE] [not valid json]"

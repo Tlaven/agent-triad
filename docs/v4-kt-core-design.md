@@ -1,6 +1,6 @@
 # V4 知识树核心设计 — 向量-结构互塑闭环
 
-> 状态：P1 闭环验证完成（2026-05-06）
+> 状态：端到端质量验证完成（2026-05-07），993 tests，覆盖率 80%
 > 前置：`v4-knowledge-tree-spec.md`（P1 技术规格，已实现）
 > 定位：知识树是 AgentTriad 与其他 Agent 项目的核心差异
 
@@ -215,14 +215,15 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] RAG 结果拼接到用户消息（不是 system prompt）
 - [x] 向量-结构互塑闭环：MarkdownStore on_change 回调 + Change Mapping 自动锚点刷新
 - [x] 检索结构信号：rag_search 锚点扩展路径（RRF Path 3）
-- [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（940 tests）
-- [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest
-- [x] **项目种子知识** — 11 篇文档覆盖架构/规范/模式（含 Plan JSON、Observation/Reflection）
+- [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（993 tests, 340 KT-specific）
+- [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest（completed + failed 状态均触发，失败结果的 failure_reason 作为教训知识）
+- [x] **项目种子知识** — 15 篇文档覆盖架构/规范/模式/配置/排错（含 Plan JSON、Observation/Reflection、工具参考、环境配置、常见错误）
 - [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤
 - [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest
 - [x] **P2：Agent 可见性** — `knowledge_tree_status`（概览）+ `knowledge_tree_list`（节点列表），Supervisor 可查看 KT 内部状态
-- [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），940 tests
+- [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），993 tests
 - [x] **认知集成第二轮** — Reflection/paused 状态处理 + 异步派发诚实 + Observation 路径修复（workspace/agent/.observations）+ Planner KT 共享
+- [x] **端到端质量验证** — Hash embedder 检索基线（14 tests）+ Entry A 闭环（22 tests）+ Filter 边界（23 tests）+ 种子增强（15 篇）+ 配置审计，993 tests 全通过，详见 `docs/kt-validation-report.md`
 
 ### 待实现（按优先级）
 

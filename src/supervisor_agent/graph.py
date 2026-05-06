@@ -481,8 +481,8 @@ async def dynamic_tools_node(state: State, runtime: Runtime[Context]) -> dict:
                     )
                     updates["executor_task_history"] = _trim_task_history(history)
                 # Entry A: 自动从 Executor 结果提取知识
-                if exec_status == "completed" and runtime.context.enable_knowledge_tree:
-                    _try_auto_ingest_executor_result(content, runtime.context)
+                if exec_status in ("completed", "failed") and runtime.context.enable_knowledge_tree:
+                    _try_auto_ingest_executor_result(content, runtime.context, exec_status)
             elif "[EXECUTOR_DISPATCH]" in content:
                 # 异步派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
                 clean_content = re.sub(
@@ -787,10 +787,11 @@ def _append_full_executor_detail_to_last_tool_message(
     sanitized_tool_messages[-1] = last.model_copy(update={"content": new_content})
 
 
-def _try_auto_ingest_executor_result(content: str, ctx: Any) -> None:
+def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = "completed") -> None:
     """Entry A: 从 Executor 完成结果中自动提取知识并存入知识树。
 
     设计原则：全程 try/except 包裹，KT 失败不影响主图执行路径。
+    同时处理 completed 和 failed 状态——失败结果的 failure_reason 是重要的教训知识。
     """
     try:
         from src.common.knowledge_tree import get_or_create_kt
@@ -803,7 +804,7 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any) -> None:
         updated_plan = _extract_updated_plan_from_executor(content) or ""
 
         chunks = extract_knowledge_from_executor_result(
-            summary, updated_plan, "completed"
+            summary, updated_plan, exec_status
         )
         if not chunks:
             return

@@ -8,6 +8,19 @@ from src.common.knowledge_tree.dag.node import KnowledgeNode
 
 SEED_DIR = Path("workspace/knowledge_tree")
 
+# 只扫描预期的种子目录，排除自动生成的垃圾文件（misc/、step_*/）
+_SEED_CATEGORIES = {"architecture", "conventions", "patterns", "setup", "troubleshooting"}
+
+
+def _seed_files() -> list[Path]:
+    """收集所有预期目录下的种子 .md 文件。"""
+    files = []
+    for cat_dir in _SEED_CATEGORIES:
+        cat_path = SEED_DIR / cat_dir
+        if cat_path.is_dir():
+            files.extend(cat_path.glob("*.md"))
+    return sorted(files)
+
 
 class TestSeedDirectory:
     """种子目录结构验证。"""
@@ -16,7 +29,7 @@ class TestSeedDirectory:
         assert SEED_DIR.is_dir(), f"Seed directory not found: {SEED_DIR}"
 
     def test_has_minimum_files(self):
-        md_files = list(SEED_DIR.rglob("*.md"))
+        md_files = _seed_files()
         assert len(md_files) >= 5, f"Expected >= 5 seed files, found {len(md_files)}"
 
     def test_has_subdirectories(self):
@@ -33,7 +46,7 @@ class TestSeedDirectory:
 class TestSeedFileFormat:
     """每个种子文件应能被 KnowledgeNode 正确解析。"""
 
-    @pytest.fixture(params=list(Path("workspace/knowledge_tree").rglob("*.md")))
+    @pytest.fixture(params=_seed_files(), ids=lambda p: str(p.relative_to(SEED_DIR)))
     def seed_file(self, request):
         return request.param
 
