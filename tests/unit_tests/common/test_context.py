@@ -194,3 +194,15 @@ def test_as_non_empty_str_returns_fallback_for_empty() -> None:
 
 def test_as_non_empty_str_returns_fallback_for_non_str() -> None:
     assert defaults_module._as_non_empty_str(123, "fallback") == "fallback"
+
+
+def test_supervisor_max_history_messages_default() -> None:
+    """supervisor_max_history_messages 默认 100。"""
+    ctx = Context()
+    assert ctx.supervisor_max_history_messages == 100
+
+
+def test_supervisor_max_history_messages_zero_means_no_limit() -> None:
+    """0 表示不限制。"""
+    ctx = Context(supervisor_max_history_messages=0)
+    assert ctx.supervisor_max_history_messages == 0
