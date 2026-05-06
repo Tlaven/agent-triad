@@ -1,12 +1,14 @@
 # V4 知识树核心设计 — 向量-结构互塑闭环
 
-> 状态：设计确认（2026-04-25）
+> 状态：P1 闭环验证完成（2026-05-06）
 > 前置：`v4-knowledge-tree-spec.md`（P1 技术规格，已实现）
 > 定位：知识树是 AgentTriad 与其他 Agent 项目的核心差异
 
 ---
 
 ## 1. 核心愿景
+
+V4 知识树服务于一个长期目标：**必须让 Agent 自己可以管理自己的上下文**。这里的"管理"不只是检索记忆，而是让 Agent 能主动判断什么值得沉淀、何时召回、何时裁剪、何时重组，并把上下文维护纳入任务闭环。
 
 **一个向量-结构互塑闭环**：
 
@@ -18,6 +20,28 @@
 ```
 
 关键约束：**组织靠向量不靠 LLM，降低 token 消耗**。Agent 只在必要时参与，日常聚类和放置全部由向量空间自动完成。
+
+### 元知识自举：Agent 学会使用记忆
+
+KT 不只存储任务知识，还可以存储**关于如何使用 KT 本身的决策知识**（元知识）。这包括：
+
+- **存什么** — 什么样的信息值得沉淀（判断规则）
+- **何时取** — 在什么场景下应该主动检索（召回时机）
+- **怎么用** — 检索到的信息如何与当前任务结合（应用方式）
+
+这些元知识作为普通文本节点存入 KT，与任务知识走同一条 ingest → embed → 聚类路径。当 Supervisor 需要管理 KT 时，RAG 检索到相关元知识并注入上下文，Supervisor 据此做出决策。
+
+```
+Supervisor 需要做 KT 相关决策
+  → kt_retrieve 自动注入
+     ├── 任务相关记忆（"上次这个项目怎么构建的"）
+     └── 元知识（"遇到这类任务该怎么用 KT"）
+  → Supervisor 拿到增强后的上下文 → 做出更好的决策
+```
+
+**核心洞察**：这把"让 Agent 变聪明"从"依赖模型原生判断力"转化为"让 Agent 检索到更好的知识"。LLM 遵循检索到的指令，远比自主做出正确判断容易。这像人类的学习方式——不需要天生知道怎么做笔记，学了一套方法论后遇到信息时调用即可。
+
+**前提**：语义 embedder 必须可靠工作。元知识的检索依赖语义匹配，hash embedder 无法支撑。
 
 ---
 
@@ -155,6 +179,8 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - Supervisor 可以看到 Planner 的规划输出
 - Planner 和 Executor 通过 Supervisor 传递的上下文间接获得 KT 信息
 
+这意味着上下文自管理的责任首先落在 Supervisor：它需要决定哪些上下文进入知识树、哪些上下文被召回给 Planner/Executor、哪些过期或低质量信息应被压缩、降权或清理。
+
 未来扩展：
 - Planner 被 Supervisor 调用时，Supervisor 可以将 KT 检索结果注入 Planner 的 prompt
 - Executor 执行 Plan 的每个 step 时，可以按 step intent 做 RAG 检索（但当前不做，先打磨好基础）
@@ -168,18 +194,24 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] P1 基础架构（两层存储 + Overlay + Bootstrap）
 - [x] 语义 embedder 集成（BAAI/bge-small-zh-v1.5，降级到 hash）
 - [x] 节点缓存（消除重复文件 I/O）
-- [x] 工具精简（bootstrap/status 移除，10→8 工具）
+- [x] 工具精简（bootstrap/status 移除 + 4 Executor 管理工具合并为 manage_executor，共 3 核心 + 2 KT = 5 工具）
 - [x] Graph 集成（kt_retrieve 节点，用户消息自动 RAG 注入）
 - [x] `get_or_create_kt()` 模块级接口
 - [x] RAG 结果拼接到用户消息（不是 system prompt）
+- [x] 向量-结构互塑闭环：MarkdownStore on_change 回调 + Change Mapping 自动锚点刷新
+- [x] 检索结构信号：rag_search 锚点扩展路径（RRF Path 3）
+- [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（877 tests）
+- [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest
+- [x] **项目种子知识** — 9 篇文档覆盖架构/规范/模式
+- [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤
+- [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest
 
 ### 待实现（按优先级）
 
-1. **清理垃圾测试节点** — 测试时写入的低质量节点在污染检索结果
-2. **验证语义 embedder 端到端质量** — 确认聚类和检索在语义空间下有效
-3. **入口 A：Executor 完成后的执行记录提取** — 自动从执行记录中提取知识
-4. **检索增强：结构信号** — 目录锚点参与检索评分
-5. **Change Mapping 实时闭环** — 确保任何文件系统结构变更都实时触发锚点重算
+1. **P2：structural_vector 混合** — content_embedding + 结构位置向量，增强目录内区分
+2. **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整
+3. **P2：Overlay 主动管理** — 跨目录关联边的增删查
+4. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类
 
 ### 文件结构（不变）
 
@@ -201,6 +233,9 @@ src/common/knowledge_tree/
         log.py               # 检索日志
     ingestion/
         chunker.py           # 文本切分
+        filter.py            # 记忆过滤（含通用模板垃圾检测）
+        ingest.py            # 知识摄入管道
+        extractor.py         # Entry A：Executor 结果知识提取
         filter.py            # 轻量过滤
         ingest.py            # 增量嫁接
     dag/
