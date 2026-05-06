@@ -76,6 +76,7 @@ def _build_tools_section() -> str:
   - 条件：任务复杂、需要调用 2 次及以上工具、或存在明显的前后依赖关系。
   - 行为：
     1. 调用 `call_planner` 获取执行计划（返回中 `[PLANNER_REASONING]` 部分为 Planner 的分析推理，JSON 部分为计划本身）。
+       **重要**：如果当前对话中存在 `[相关知识]`，你必须在 `task_core` 中包含这些知识——Planner 无法直接看到它们，需要你传递。
     2. 调用 `call_executor(plan_id)` 执行计划并直接获取结果（默认阻塞等待）。
     3. 汇总所有执行结果，向用户输出最终答复。
 

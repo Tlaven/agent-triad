@@ -91,3 +91,21 @@ class TestSupervisorPromptAsyncHonesty:
         prompt = get_supervisor_system_prompt()
         # 不应包含"将同组步骤拆为独立子任务"这种承诺
         assert "拆为独立子任务" not in prompt
+
+
+class TestSupervisorPromptPlannerKTSharing:
+    """Supervisor 提示词必须指导在调用 Planner 时传递知识上下文。"""
+
+    def test_prompt_guides_kt_sharing_with_planner(self):
+        """提示词必须告诉 Supervisor 在 task_core 中包含 [相关知识]。"""
+        prompt = get_supervisor_system_prompt()
+        assert "call_planner" in prompt
+        # 必须有指导说明将知识传递给 Planner
+        assert "task_core" in prompt
+        assert "Planner" in prompt
+
+    def test_prompt_explains_planner_cannot_see_kt(self):
+        """提示词必须说明 Planner 无法直接看到知识树内容。"""
+        prompt = get_supervisor_system_prompt()
+        # 关键指导：Planner 无法直接看到 [相关知识]
+        assert "Planner 无法直接看到" in prompt or "Planner" in prompt and "传递" in prompt
