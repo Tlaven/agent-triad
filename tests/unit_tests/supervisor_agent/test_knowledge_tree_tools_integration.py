@@ -2,11 +2,14 @@
 
 import asyncio
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
 from src.common.context import Context
+from src.supervisor_agent.state import State
 from src.supervisor_agent.tools import get_tools
 
 
@@ -24,6 +27,7 @@ def ctx_kt_enabled(tmp_path, monkeypatch) -> Context:
     return Context(
         enable_knowledge_tree=True,
         knowledge_tree_root=str(tmp_path / "kt_md"),
+        kt_embedding_model="hash",
     )
 
 
@@ -93,6 +97,15 @@ class TestKnowledgeTreeToolExecution:
         ingest_data = json.loads(ingest_result)
         assert "ok" in ingest_data
 
+        retrieve_result = await retrieve_tool.ainvoke({
+            "query": "模块化设计 明确接口通信",
+        })
+        retrieve_data = json.loads(retrieve_result)
+        assert retrieve_data["ok"] is True
+        assert retrieve_data["source"] == "rag"
+        assert retrieve_data["node_id"]
+        assert "模块化设计" in retrieve_data["content"]
+
 
 class TestBlockingIOCompliance:
     """验证工具执行不直接在事件循环中调用 blocking I/O。"""
@@ -125,3 +138,81 @@ class TestBlockingIOCompliance:
             assert caller_thread != main_thread_id, (
                 "Path.write_text called in main event loop thread"
             )
+
+
+class TestAutoIngestFromExecutorResult:
+    """验证 Entry A: Executor 完成后自动知识提取。"""
+
+    def test_extract_knowledge_from_completed_result(self):
+        """completed executor 结果应触发知识提取。"""
+        from src.common.knowledge_tree.ingestion.extractor import (
+            extract_knowledge_from_executor_result,
+        )
+
+        summary = "完成了知识提取器的实现，创建了 extractor.py 模块。"
+        plan_json = json.dumps({
+            "plan_id": "plan_test",
+            "goal": "实现 Entry A",
+            "steps": [
+                {
+                    "step_id": "step_1",
+                    "intent": "创建提取器模块",
+                    "status": "completed",
+                    "result_summary": "创建了 extract_knowledge_from_executor_result 函数。",
+                    "failure_reason": "",
+                },
+            ],
+        })
+
+        chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
+        assert len(chunks) >= 2  # summary + step result + goal
+        all_text = " ".join(chunks)
+        assert "extractor" in all_text
+
+    def test_failed_status_still_extracts(self):
+        """failed 状态也应提取 failure_reason 作为负面知识。"""
+        from src.common.knowledge_tree.ingestion.extractor import (
+            extract_knowledge_from_executor_result,
+        )
+
+        summary = "执行失败：Executor 进程超时。"
+        plan_json = json.dumps({
+            "plan_id": "plan_test",
+            "goal": "测试任务",
+            "steps": [
+                {
+                    "step_id": "step_1",
+                    "intent": "执行任务",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "Executor 超时，exit code 137 (SIGKILL)。",
+                },
+            ],
+        })
+
+        chunks = extract_knowledge_from_executor_result(summary, plan_json, "failed")
+        assert len(chunks) >= 1
+        all_text = " ".join(chunks)
+        assert "失败原因" in all_text
+
+    def test_auto_ingest_helper_does_not_crash(self, tmp_path):
+        """_try_auto_ingest_executor_result 在各种输入下不应崩溃。"""
+        from src.supervisor_agent.graph import _try_auto_ingest_executor_result
+
+        ctx = Context(
+            enable_knowledge_tree=True,
+            knowledge_tree_root=str(tmp_path / "kt_md"),
+            kt_embedding_model="hash",
+        )
+
+        # 正常输入
+        _try_auto_ingest_executor_result(
+            "完成了模块创建。\n[EXECUTOR_RESULT] {\"status\":\"completed\",\"summary\":\"ok\"}",
+            ctx,
+        )
+
+        # 空输入
+        _try_auto_ingest_executor_result("", ctx)
+
+        # 非法 JSON
+        _try_auto_ingest_executor_result("summary\n[EXECUTOR_RESULT] {bad json}", ctx)

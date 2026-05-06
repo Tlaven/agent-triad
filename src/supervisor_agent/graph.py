@@ -9,7 +9,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
-from typing import Dict, List, Literal, cast
+from typing import Any, Dict, List, Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import StateGraph
@@ -164,8 +164,9 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         logger.warning("KT auto-retrieve failed: %s", e)
         return {"kt_context": ""}
 
-    # 高阈值过滤：只保留 similarity >= 0.6 的结果（避免注入噪声）
-    high_quality = [(node, score) for node, score in results if score >= 0.6]
+    # 过滤低质量结果：语义 embedder 下 0.4 可有效区分相关/无关（实测验证），
+    # hash embedder 下此阈值仍会注入较多噪声，但 hash 本身不适合被动召回。
+    high_quality = [(node, score) for node, score in results if score >= 0.4]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
         return {"kt_context": ""}
@@ -437,8 +438,8 @@ async def dynamic_tools_node(
                 updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
                 # Record in executor_task_history
                 meta_plan_id = _extract_plan_id_from_meta(content)
+                exec_status, _ = _extract_executor_status(content)
                 if meta_plan_id:
-                    exec_status, _ = _extract_executor_status(content)
                     history = dict(state.executor_task_history)
                     history[meta_plan_id] = ExecutorTaskRecord(
                         plan_id=meta_plan_id,
@@ -447,6 +448,9 @@ async def dynamic_tools_node(
                         last_updated=datetime.now().isoformat(timespec="seconds"),
                     )
                     updates["executor_task_history"] = _trim_task_history(history)
+                # Entry A: 自动从 Executor 结果提取知识
+                if exec_status == "completed" and runtime.context.enable_knowledge_tree:
+                    _try_auto_ingest_executor_result(content, runtime.context)
             elif "[EXECUTOR_DISPATCH]" in content:
                 # 异步派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
                 clean_content = re.sub(r'\n?\[EXECUTOR_DISPATCH\]\s*\{.*?\}', '', content, flags=re.DOTALL).strip()
@@ -728,6 +732,47 @@ def _append_full_executor_detail_to_last_tool_message(
     body = old.replace(hint_legacy, "").replace(hint_new, "").rstrip()
     new_content = f"{body}\n\n{(full_output or '').strip()}"
     sanitized_tool_messages[-1] = last.model_copy(update={"content": new_content})
+
+
+def _try_auto_ingest_executor_result(content: str, ctx: Any) -> None:
+    """Entry A: 从 Executor 完成结果中自动提取知识并存入知识树。
+
+    设计原则：全程 try/except 包裹，KT 失败不影响主图执行路径。
+    """
+    try:
+        from src.common.knowledge_tree import get_or_create_kt
+        from src.common.knowledge_tree.config import KnowledgeTreeConfig
+        from src.common.knowledge_tree.ingestion.extractor import (
+            extract_knowledge_from_executor_result,
+        )
+
+        summary = _extract_executor_summary(content)
+        updated_plan = _extract_updated_plan_from_executor(content) or ""
+
+        chunks = extract_knowledge_from_executor_result(
+            summary, updated_plan, "completed"
+        )
+        if not chunks:
+            return
+
+        config = KnowledgeTreeConfig.from_context(ctx)
+        kt = get_or_create_kt(config)
+        total_ingested = 0
+        for chunk in chunks:
+            report = kt.ingest(
+                chunk,
+                trigger="task_complete",
+                source="auto:executor",
+            )
+            total_ingested += report.nodes_ingested
+
+        if total_ingested > 0:
+            logger.info(
+                "Entry A: auto-ingested %d knowledge chunks from executor result",
+                total_ingested,
+            )
+    except Exception:
+        logger.debug("Entry A: auto-ingest failed (non-critical)", exc_info=True)
 
 
 def _process_executor_completion(

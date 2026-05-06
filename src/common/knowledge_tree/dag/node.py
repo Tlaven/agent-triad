@@ -112,6 +112,11 @@ class KnowledgeNode:
 
         content = parts[2].strip()
 
+        # directory 不存于 frontmatter，从 node_id 路径推导
+        directory = fm.get("directory", "")
+        if not directory and "/" in node_id:
+            directory = node_id.rsplit("/", 1)[0]
+
         return cls(
             node_id=node_id,
             title=fm.get("title", node_id.rsplit("/", 1)[-1].removesuffix(".md")),
@@ -120,6 +125,7 @@ class KnowledgeNode:
             created_at=fm.get("created_at", ""),
             summary=fm.get("summary", ""),
             metadata=fm.get("metadata", {}),
+            directory=directory,
         )
 
     # -- 通用字典序列化 --

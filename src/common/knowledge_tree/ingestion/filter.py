@@ -10,10 +10,16 @@ _DECISION_KEYWORDS = {
     "决定", "结论", "规则", "发现", "原因", "因为",
     "最佳实践", "经验", "教训", "模式", "原则", "策略",
     "方案", "架构", "设计", "约束", "注意", "重要",
+    "失败", "错误", "崩溃", "超时", "异常",
 }
 
 # 数字检测
 _HAS_NUMBER = re.compile(r"\d+")
+
+# 通用模板文本（Executor 自动输出的低信息量短语）
+_GENERIC_PATTERNS = re.compile(
+    r"^(所有步骤执行完成|执行成功|任务完成|已完成|步骤\d+已成功完成)$"
+)
 
 
 @dataclass
@@ -46,6 +52,10 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
         return FilterResult(passed=False, reason="empty_chunk")
 
     text = chunk.strip()
+
+    # 通用模板文本过滤（即使 task_complete 也不记忆无信息量的模板输出）
+    if _GENERIC_PATTERNS.match(text):
+        return FilterResult(passed=False, reason="generic_template", confidence=0.0)
 
     # 用户显式指令：直接通过
     if trigger == "user_explicit":
