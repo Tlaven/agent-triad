@@ -344,6 +344,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
     """构建知识树 Supervisor 工具列表。
 
     P1 工具：retrieve, ingest。
+    P2 工具：status, list（Agent 可见性）。
     惰性初始化：KnowledgeTree 实例在首次工具调用时才创建。
     实例按 markdown_root 路径缓存，Graph 节点和工具共用同一缓存。
     """
@@ -394,6 +395,32 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             "errors": report.errors,
         }, ensure_ascii=False)
 
+    def _sync_status() -> str:
+        kt = get_or_create_kt(config)
+        s = kt.status()
+        return json.dumps(s, ensure_ascii=False)
+
+    def _sync_list(directory: str) -> str:
+        kt = get_or_create_kt(config)
+        nodes = kt.md_store.list_nodes()
+        # Filter by directory if specified
+        if directory:
+            nodes = [n for n in nodes if n.directory == directory]
+        items = []
+        for n in nodes:
+            items.append({
+                "node_id": n.node_id,
+                "title": n.title,
+                "directory": n.directory,
+                "created_at": n.created_at,
+                "content_preview": n.content[:80] if n.content else "",
+            })
+        return json.dumps({
+            "ok": True,
+            "total": len(items),
+            "items": items,
+        }, ensure_ascii=False)
+
     # -- async 工具 --
 
     @lc_tool
@@ -425,7 +452,31 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_ingest, text, trigger, source)
 
+    @lc_tool
+    async def knowledge_tree_status() -> str:
+        """Get knowledge tree overview: total nodes, directories, anchors.
+
+        Use this to understand what knowledge is available before deciding
+        whether to search, ingest, or rely on auto-injection.
+        """
+        return await asyncio.to_thread(_sync_status)
+
+    @lc_tool
+    async def knowledge_tree_list(directory: str = "") -> str:
+        """List knowledge tree nodes, optionally filtered by directory.
+
+        Returns each node's title, directory, and content preview.
+        Use this to browse the tree structure and understand what knowledge exists.
+
+        Args:
+            directory: Optional directory filter (e.g. "architecture", "patterns").
+                       Empty string lists all nodes.
+        """
+        return await asyncio.to_thread(_sync_list, directory)
+
     return [
         knowledge_tree_retrieve,
         knowledge_tree_ingest,
+        knowledge_tree_status,
+        knowledge_tree_list,
     ]

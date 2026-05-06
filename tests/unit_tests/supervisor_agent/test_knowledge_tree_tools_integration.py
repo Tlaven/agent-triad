@@ -43,27 +43,28 @@ class TestKnowledgeTreeToolRegistration:
         assert "knowledge_tree_ingest" not in tool_names
 
     @pytest.mark.asyncio
-    async def test_enabled_registers_two_kt_tools(self, ctx_kt_enabled: Context):
-        """enable_knowledge_tree=True 时注册 retrieve + ingest 两个工具。"""
+    async def test_enabled_registers_four_kt_tools(self, ctx_kt_enabled: Context):
+        """enable_knowledge_tree=True 时注册 retrieve + ingest + status + list 四个工具。"""
         tools = await get_tools(ctx_kt_enabled)
         tool_names = [t.name for t in tools]
 
         expected = [
             "knowledge_tree_retrieve",
             "knowledge_tree_ingest",
+            "knowledge_tree_status",
+            "knowledge_tree_list",
         ]
         for name in expected:
             assert name in tool_names, f"Missing tool: {name}"
 
-        # bootstrap/status 已移除
+        # bootstrap 已移除
         assert "knowledge_tree_bootstrap" not in tool_names
-        assert "knowledge_tree_status" not in tool_names
 
     @pytest.mark.asyncio
     async def test_enabled_total_tool_count(self, ctx_kt_enabled: Context):
-        """总工具数 = 3 (核心) + 2 (知识树) = 5。"""
+        """总工具数 = 3 (核心) + 4 (知识树) = 7。"""
         tools = await get_tools(ctx_kt_enabled)
-        assert len(tools) == 5
+        assert len(tools) == 7
 
     @pytest.mark.asyncio
     async def test_disabled_total_tool_count(self, ctx_kt_disabled: Context):
