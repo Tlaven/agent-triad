@@ -99,6 +99,7 @@ class ExecutorResult:
 
 - `call_planner` 后：`plan_json` 写入 Planner 会话。
 - `call_executor` 后：更新 `last_executor_*`；`updated_plan_json` 非空则刷新 `plan_json`，**空则保留**原 `plan_json`。
+- `completed` 或 `failed` 后，Entry A 自动从 Executor 结果提取知识：`_try_auto_ingest_executor_result()` 调用 `extract_knowledge_from_executor_result()`（提取 summary + 步骤 result_summary + failure_reason），过滤通用模板后摄入知识树。全程 try/except 包裹，KT 失败不影响主图。
 - `completed` 时 Supervisor 默认只收 `summary`；步骤级细节用 `manage_executor(action="get_result", plan_id=..., detail="full")`（任务已结束且 `plan_id` 与会话计划一致时读缓存；异步仍在跑时与 `overview` 相同先等待，再由图节点附带详情）。
 
 ---
@@ -116,6 +117,7 @@ class ExecutorResult:
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关；正整数启用。
 - **MCP**：`enable_deepwiki` / `enable_filesystem_mcp` 等须在 `.env` 显式开启方生效。
 - **分 Agent LLM 参数**：`SUPERVISOR_*` / `PLANNER_*` / `EXECUTOR_*`（`TEMPERATURE`、`TOP_P`、`MAX_TOKENS`、`SEED`）。
+- **消息历史限制**：`SUPERVISOR_MAX_HISTORY_MESSAGES`（默认 100）；`call_model` 构造 LLM 输入时截断，保持工具调用序列完整性。0 = 不限制。
 - **Executor 超时保护**：`executor_call_model_timeout`（默认 180s）单次 LLM 调用超时 → 抛异常终止进程；`executor_tool_timeout`（默认 300s）tools_node 超时 → 返回部分结果让 LLM 摘要。Supervisor 侧 `executor_wait_timeout`（默认 300s，须 > `executor_call_model_timeout`）→ 终止 executor 进程并标记失败。
 - **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
 - **Thinking**：`ENABLE_IMPLICIT_THINKING`；仅 Supervisor 可用 `SUPERVISOR_THINKING_VISIBILITY`（`visible`|`implicit`，默认 implicit）把推理拼入对用户 `content`；Planner/Executor **不**拼。未设置时兼容旧名 `THINKING_VISIBILITY`。
