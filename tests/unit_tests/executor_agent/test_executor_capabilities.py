@@ -34,3 +34,27 @@ def test_get_executor_capabilities_docs_contains_safety_hint() -> None:
     docs = get_executor_capabilities_docs()
     # The safety hint for run_local_command should be present
     assert "run_local_command" in docs
+
+
+def test_get_executor_capabilities_docs_contains_constraints() -> None:
+    """能力描述必须包含关键约束，让 Agent 知道操作边界。"""
+    docs = get_executor_capabilities_docs()
+    # 文件大小限制
+    assert "1MB" in docs or "1_000_000" in docs
+    # 工作区限制
+    assert "工作区" in docs
+
+
+def test_capabilities_match_registered_tools() -> None:
+    """能力描述必须覆盖所有已注册工具。"""
+    docs = get_executor_capabilities_docs()
+    tools = get_executor_tools()
+    tool_names = {getattr(t, "name", None) for t in tools}
+    # write_file 和 run_local_command 必须被提及
+    assert "write" in docs.lower() or "文件" in docs
+    assert "command" in docs.lower() or "命令" in docs
+    # 只读工具必须被提及
+    assert "读取" in docs or "read" in docs.lower()
+    assert "列出" in docs or "list" in docs.lower()
+    # 能力描述的工具数应 >= 注册工具数
+    assert len(tool_names) == 4

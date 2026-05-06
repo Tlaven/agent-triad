@@ -6,8 +6,8 @@ can understand Executor capabilities without importing Executor side-effect tool
 
 EXECUTOR_CAPABILITIES_DOCS = "\n".join(
     [
-        "- 写入文本文件并返回结构化确认信息。",
-        "- 在本地执行命令并返回执行结果。执行期间可被 Supervisor 软中断。",
+        "- 写入文本文件并返回结构化确认信息。限制：文件大小不超过 1MB，路径必须在 Agent 工作区内。",
+        "- 在本地执行命令并返回执行结果。执行期间可被 Supervisor 软中断。限制：命令长度不超过 2000 字符，超时上限 3600 秒。",
         (
             "- run_local_command 使用提示：执行命令时必须使用安全、最小权限原则；"
             "禁止关机/重启/格式化/高风险删除命令；默认在 Agent 工作区执行，且自动使用工作区内 Python venv。"

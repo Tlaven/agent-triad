@@ -142,6 +142,7 @@ class ExecutorResult:
 | `src/common/polling.py` | `ExecutorPoller`：统一后台轮询 + `force_poll_once` |
 | `src/common/executor_protocol.py` | 跨进程数据结构（`ExecuteRequest`、`ExecuteStatus` 等） |
 | `src/common/observation.py` | Observation 规范化 |
+| `src/common/capabilities.py` | Executor 能力描述（Planner/Executor 共享） |
 | `src/common/utils.py` | `load_chat_model("provider:model")` |
 
 | `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
