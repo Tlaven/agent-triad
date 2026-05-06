@@ -288,8 +288,11 @@ async def call_model(
     if executor_brief:
         system_message = system_message + "\n\n" + executor_brief
 
-    # 构造发送给 LLM 的消息列表
-    llm_messages = [{"role": "system", "content": system_message}, *state.messages]
+    # 构造发送给 LLM 的消息列表（截断防止 token 溢出）
+    trimmed_history = _trim_messages_for_llm(
+        state.messages, runtime.context.supervisor_max_history_messages
+    )
+    llm_messages = [{"role": "system", "content": system_message}, *trimmed_history]
 
     # 知识树检索结果拼接到最后一条用户消息（不污染 state.messages）
     if state.kt_context:
@@ -647,6 +650,63 @@ def _split_planner_output(content: str) -> tuple[str, str]:
         remaining = content[: m.start()] + content[m.end() :]
         return reasoning, remaining.strip()
     return "", content.strip()
+
+
+def _trim_messages_for_llm(
+    messages: list[Any],
+    max_messages: int,
+) -> list[Any]:
+    """截断消息历史，保持工具调用序列完整性。
+
+    策略：从末尾保留 max_messages 条消息，向前扫描确保不切断
+    工具调用序列（AI message with tool_calls + 对应 ToolMessages）。
+    如果截断导致开头出现孤立的 ToolMessage（对应的 AI message 被截掉），
+    则丢弃这些孤立消息。
+
+    Args:
+        messages: 原始消息列表。
+        max_messages: 最大保留条数。<= 0 表示不截断。
+
+    Returns:
+        截断后的消息列表（浅拷贝）。
+    """
+    if max_messages <= 0 or len(messages) <= max_messages:
+        return messages
+
+    # 从末尾保留 max_messages 条
+    trimmed = messages[-max_messages:]
+
+    # 找到开头的连续 ToolMessage 块（孤立的 ToolMessages）
+    orphan_end = 0
+    for i, msg in enumerate(trimmed):
+        if isinstance(msg, ToolMessage):
+            orphan_end = i + 1
+        else:
+            break
+
+    if orphan_end == 0:
+        # 第一条不是 ToolMessage，无需处理
+        return trimmed
+
+    # 检查 trimmed 中是否有包含 tool_calls 的 AIMessage
+    # 其 tool_call_ids 与开头的 ToolMessages 匹配
+    orphan_ids = {
+        getattr(trimmed[i], "tool_call_id", None)
+        for i in range(orphan_end)
+    }
+    has_parent_ai = False
+    for msg in trimmed[orphan_end:]:
+        if isinstance(msg, AIMessage):
+            tc_ids = {tc.get("id") for tc in getattr(msg, "tool_calls", []) or []}
+            if tc_ids & orphan_ids:
+                has_parent_ai = True
+                break
+
+    if not has_parent_ai:
+        # 孤立的 ToolMessages，丢弃
+        trimmed = trimmed[orphan_end:]
+
+    return trimmed
 
 
 def _parse_plan_meta(plan_json: str) -> tuple[str | None, int | None]:

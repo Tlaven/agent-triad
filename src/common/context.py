@@ -83,6 +83,13 @@ class Context:
         default=MODEL_DEFAULTS["supervisor_seed"],
         metadata={"description": "Supervisor LLM seed. <0 uses model default."},
     )
+    supervisor_max_history_messages: int = field(
+        default=100,
+        metadata={
+            "description": "Max messages kept in Supervisor history before truncation. "
+            "0 = no limit. Prevents token overflow in long sessions."
+        },
+    )
     planner_temperature: float = field(
         default=MODEL_DEFAULTS["planner_temperature"],
         metadata={"description": "Planner LLM temperature. <0 uses model default."},
