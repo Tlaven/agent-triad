@@ -7,8 +7,8 @@ sync 从 markdown 文件重新生成向量索引和目录锚点。
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.vector_store import (

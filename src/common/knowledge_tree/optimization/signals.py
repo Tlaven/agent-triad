@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from src.common.knowledge_tree.retrieval.log import RetrievalLog
@@ -22,7 +22,7 @@ class OptimizationSignal:
 
     def __post_init__(self):
         if not self.detected_at:
-            self.detected_at = datetime.now(timezone.utc).isoformat()
+            self.detected_at = datetime.now(UTC).isoformat()
 
 
 # 优先级映射
@@ -80,34 +80,40 @@ def detect_signals(
 
     # 生成信号
     if total_failure_count >= total_failure_threshold:
-        signals.append(OptimizationSignal(
-            signal_type="total_failure",
-            node_id=None,
-            evidence={
-                "count": total_failure_count,
-                "sample_queries": total_failure_queries[:5],
-            },
-            priority=SIGNAL_PRIORITY["total_failure"],
-        ))
+        signals.append(
+            OptimizationSignal(
+                signal_type="total_failure",
+                node_id=None,
+                evidence={
+                    "count": total_failure_count,
+                    "sample_queries": total_failure_queries[:5],
+                },
+                priority=SIGNAL_PRIORITY["total_failure"],
+            )
+        )
 
     if rag_false_positive_count >= rag_false_positive_threshold:
-        signals.append(OptimizationSignal(
-            signal_type="rag_false_positive",
-            node_id=None,
-            evidence={
-                "count": rag_false_positive_count,
-                "affected_nodes": list(set(rag_false_positive_nodes)),
-            },
-            priority=SIGNAL_PRIORITY["rag_false_positive"],
-        ))
+        signals.append(
+            OptimizationSignal(
+                signal_type="rag_false_positive",
+                node_id=None,
+                evidence={
+                    "count": rag_false_positive_count,
+                    "affected_nodes": list(set(rag_false_positive_nodes)),
+                },
+                priority=SIGNAL_PRIORITY["rag_false_positive"],
+            )
+        )
 
     for node_id, count in content_insufficient_count.items():
         if count >= content_insufficient_threshold:
-            signals.append(OptimizationSignal(
-                signal_type="content_insufficient",
-                node_id=node_id,
-                evidence={"count": count},
-                priority=SIGNAL_PRIORITY["content_insufficient"],
-            ))
+            signals.append(
+                OptimizationSignal(
+                    signal_type="content_insufficient",
+                    node_id=node_id,
+                    evidence={"count": count},
+                    priority=SIGNAL_PRIORITY["content_insufficient"],
+                )
+            )
 
     return signals

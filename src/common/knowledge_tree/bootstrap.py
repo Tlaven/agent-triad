@@ -7,15 +7,14 @@ V4: 目录结构直接成为树结构，不需要聚类算法。
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.overlay import OverlayStore
-from src.common.knowledge_tree.storage.sync import _refresh_anchor
 from src.common.knowledge_tree.storage.vector_store import (
     BaseVectorStore,
     DirectoryAnchor,
@@ -76,8 +75,7 @@ def bootstrap_from_directory(
 
     # 收集所有 .md 文件
     md_files = sorted(
-        p for p in seed_dir.rglob("*.md")
-        if p.is_file() and not p.name.startswith(".")
+        p for p in seed_dir.rglob("*.md") if p.is_file() and not p.name.startswith(".")
     )
 
     if not md_files:
@@ -136,7 +134,7 @@ def bootstrap_from_directory(
                     directory=directory,
                     anchor_vector=anchor_vec,
                     file_count=len(embeddings),
-                    last_updated=datetime.now(timezone.utc).isoformat(),
+                    last_updated=datetime.now(UTC).isoformat(),
                 )
                 vector_store.upsert_anchor(anchor)
                 report.anchors_computed += 1

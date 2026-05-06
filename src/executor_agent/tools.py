@@ -10,10 +10,9 @@ from langchain_core.tools import tool
 
 from src.common.tools import list_workspace_entries, read_workspace_text_file
 from src.executor_agent.interrupt import (
-    ToolInterrupted,
-    check_interrupt,
-    run_with_interrupt_check,
     INTERRUPT_PROMPT,
+    ToolInterrupted,
+    run_with_interrupt_check,
 )
 
 
@@ -51,12 +50,16 @@ _BLOCKED_COMMAND_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bdd\s+if=", "禁止执行原始磁盘写入命令"),
     (r"\bshutdown\b|\breboot\b|\bpoweroff\b", "禁止执行关机/重启命令"),
 )
+
+
 def _project_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _agent_workspace_root() -> str:
-    configured = os.environ.get("AGENT_WORKSPACE_DIR", DEFAULT_AGENT_WORKSPACE_DIR).strip()
+    configured = os.environ.get(
+        "AGENT_WORKSPACE_DIR", DEFAULT_AGENT_WORKSPACE_DIR
+    ).strip()
     if not configured:
         configured = DEFAULT_AGENT_WORKSPACE_DIR
     root = os.path.join(_project_root(), configured)
@@ -117,7 +120,6 @@ def _build_subprocess_env_with_venv(venv_dir: str) -> dict[str, str]:
 
 
 def _validate_write_file_input(path: str, content: str) -> str | None:
-
     """校验 write_file 入参，避免越界写入和超大内容。"""
     normalized_path = path.strip()
     if not normalized_path:
@@ -162,7 +164,6 @@ def write_file(path: str, content: str, overwrite: bool = True) -> WriteFileResu
     parent_dir = os.path.dirname(abs_path)
 
     try:
-
         if parent_dir:
             os.makedirs(parent_dir, exist_ok=True)
 
@@ -197,7 +198,9 @@ def write_file(path: str, content: str, overwrite: bool = True) -> WriteFileResu
         }
 
 
-def _validate_run_local_command_input(command: str, timeout: int, cwd: str | None) -> str | None:
+def _validate_run_local_command_input(
+    command: str, timeout: int, cwd: str | None
+) -> str | None:
     """校验 run_local_command 入参，拒绝高风险命令。"""
     normalized_command = command.strip()
     if not normalized_command:
@@ -227,7 +230,9 @@ def _validate_run_local_command_input(command: str, timeout: int, cwd: str | Non
 
 
 @tool
-def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) -> LocalCommandResult:
+def run_local_command(
+    command: str, cwd: str | None = None, timeout: int = 120
+) -> LocalCommandResult:
     """在本地执行命令并返回执行结果。执行期间可被 Supervisor 软中断。"""
     normalized_command = command.strip()
     workspace_root = _agent_workspace_root()
@@ -316,4 +321,9 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) 
 
 def get_executor_tools() -> list[object]:
     """返回 Executor 可用的工具列表。"""
-    return [write_file, run_local_command, list_workspace_entries, read_workspace_text_file]
+    return [
+        write_file,
+        run_local_command,
+        list_workspace_entries,
+        read_workspace_text_file,
+    ]

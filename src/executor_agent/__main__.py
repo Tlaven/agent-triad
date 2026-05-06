@@ -49,9 +49,11 @@ if __name__ == "__main__":
     _write_port_file(port_file, actual_port)
 
     sock.listen()
-    uvicorn.Server(uvicorn.Config(
-        "src.executor_agent.server:app",
-        host="0.0.0.0",
-        port=actual_port,
-        log_level="info",
-    )).run(sockets=[sock])
+    uvicorn.Server(
+        uvicorn.Config(
+            "src.executor_agent.server:app",
+            host="0.0.0.0",
+            port=actual_port,
+            log_level="info",
+        )
+    ).run(sockets=[sock])

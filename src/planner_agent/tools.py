@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from src.common.context import Context
 
 
-def get_planner_tools(ctx: "Context | None" = None) -> list[object]:
+def get_planner_tools(ctx: Context | None = None) -> list[object]:
     """返回 Planner 绑定的本地只读工具列表。"""
     apply_context_workspace_root(ctx)
     return [

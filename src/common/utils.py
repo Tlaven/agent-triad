@@ -1,7 +1,7 @@
 """Utility & helper functions."""
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
@@ -11,7 +11,7 @@ from langchain_qwq import ChatQwen, ChatQwQ
 logger = logging.getLogger(__name__)
 
 
-def normalize_region(region: str) -> Optional[str]:
+def normalize_region(region: str) -> str | None:
     """Normalize region aliases to standard values.
 
     Args:
@@ -74,7 +74,7 @@ def extract_reasoning_text(msg: AIMessage) -> str:
 def load_chat_model(
     fully_specified_name: str,
     **kwargs: Any,
-) -> Union[BaseChatModel, ChatQwQ, ChatQwen]:
+) -> BaseChatModel | ChatQwQ | ChatQwen:
     """Load a chat model from a fully specified name.
 
     Args:
@@ -110,6 +110,7 @@ async def invoke_chat_model(
     When streaming is enabled, aggregate `astream` chunks into one final AIMessage.
     Falls back to `ainvoke` when streaming aggregation fails.
     """
+
     def _is_chunk_message(obj: Any) -> bool:
         return obj.__class__.__name__.endswith("Chunk")
 
@@ -121,7 +122,9 @@ async def invoke_chat_model(
                 converted = result.to_message()
                 if isinstance(converted, AIMessage):
                     return converted
-            raise TypeError(f"ainvoke returned unsupported chunk message type: {type(result).__name__}")
+            raise TypeError(
+                f"ainvoke returned unsupported chunk message type: {type(result).__name__}"
+            )
         return result
 
     chunks: list[Any] = []
@@ -132,7 +135,9 @@ async def invoke_chat_model(
                 chunks.append(chunk)
     except Exception as exc:
         stream_error = exc
-        logger.warning("LLM astream 过程中发生异常，尝试使用已接收 chunk 聚合", exc_info=True)
+        logger.warning(
+            "LLM astream 过程中发生异常，尝试使用已接收 chunk 聚合", exc_info=True
+        )
 
     if not chunks:
         if stream_error is not None:

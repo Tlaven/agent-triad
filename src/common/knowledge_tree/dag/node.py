@@ -7,7 +7,7 @@ V4: node_id 为文件相对路径（如 "development/debugging.md"），
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import yaml
@@ -53,7 +53,7 @@ class KnowledgeNode:
             title=title,
             content=content,
             source=source,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
             summary=summary,
             metadata=metadata or {},
         )

@@ -178,6 +178,7 @@ app = FastAPI(title="AgentTriad Executor", lifespan=lifespan)
 # Mailbox push + self-shutdown (per-task process lifecycle)
 # ---------------------------------------------------------------------------
 
+
 async def _push_result_to_mailbox(plan_id: str) -> None:
     """Push the task result to Supervisor's mailbox via HTTP POST.
 
@@ -207,25 +208,37 @@ async def _push_result_to_mailbox(plan_id: str) -> None:
     for attempt in range(3):
         try:
             import httpx
+
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(f"{mailbox_url}/inbox", json=payload)
                 if resp.status_code == 200:
-                    logger.info("Pushed result for %s to mailbox (attempt %d)", plan_id, attempt + 1)
+                    logger.info(
+                        "Pushed result for %s to mailbox (attempt %d)",
+                        plan_id,
+                        attempt + 1,
+                    )
                     return
                 logger.warning(
                     "Mailbox returned %d for %s (attempt %d)",
-                    resp.status_code, plan_id, attempt + 1,
+                    resp.status_code,
+                    plan_id,
+                    attempt + 1,
                 )
         except (httpx.ConnectError, httpx.TimeoutException) as e:
             logger.warning(
                 "Failed to push %s to mailbox (attempt %d): %s",
-                plan_id, attempt + 1, e,
+                plan_id,
+                attempt + 1,
+                e,
             )
 
         if attempt < 2:
             await asyncio.sleep(1.0)
 
-    logger.error("All mailbox push attempts failed for %s — result available via /result", plan_id)
+    logger.error(
+        "All mailbox push attempts failed for %s — result available via /result",
+        plan_id,
+    )
 
 
 def _sync_push_result_to_mailbox(plan_id: str) -> None:
@@ -244,17 +257,19 @@ def _sync_push_result_to_mailbox(plan_id: str) -> None:
     if result is None:
         return
 
-    payload_str = json.dumps({
-        "plan_id": plan_id,
-        "item_type": "completion",
-        "payload": {
+    payload_str = json.dumps(
+        {
             "plan_id": plan_id,
-            "status": result.status,
-            "updated_plan_json": result.updated_plan_json,
-            "summary": result.summary,
-            "snapshot_json": result.snapshot_json,
-        },
-    }).encode()
+            "item_type": "completion",
+            "payload": {
+                "plan_id": plan_id,
+                "status": result.status,
+                "updated_plan_json": result.updated_plan_json,
+                "summary": result.summary,
+                "snapshot_json": result.snapshot_json,
+            },
+        }
+    ).encode()
 
     try:
         req = urllib.request.Request(
@@ -320,7 +335,9 @@ async def list_tasks():
 async def execute(req: ExecuteRequestBody, request: Request):
     """Start plan execution as background task. Returns immediately."""
     if req.plan_id in _running_tasks:
-        raise HTTPException(status_code=409, detail=f"Plan {req.plan_id} already running")
+        raise HTTPException(
+            status_code=409, detail=f"Plan {req.plan_id} already running"
+        )
 
     # Set up state tracking
     stop_event = asyncio.Event()
@@ -338,7 +355,8 @@ async def execute(req: ExecuteRequestBody, request: Request):
     # Extract LangSmith distributed trace headers forwarded from Supervisor.
     # Only propagate recognised tracing headers to avoid forwarding arbitrary headers.
     trace_headers: dict[str, str] = {
-        k: v for k, v in request.headers.items()
+        k: v
+        for k, v in request.headers.items()
         if k.startswith("langsmith-") or k == "baggage"
     }
 
@@ -394,7 +412,11 @@ async def stop(plan_id: str, body: StopRequestBody | None = None):
     if stop_event is None:
         raise HTTPException(status_code=404, detail=f"No stop event for plan {plan_id}")
     stop_event.set()
-    logger.info("Stop flag set for plan_id=%s (reason: %s)", plan_id, (body.reason if body else ""))
+    logger.info(
+        "Stop flag set for plan_id=%s (reason: %s)",
+        plan_id,
+        (body.reason if body else ""),
+    )
     return {"plan_id": plan_id, "acknowledged": True}
 
 

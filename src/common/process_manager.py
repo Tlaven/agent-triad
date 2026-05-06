@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProcessHandle:
     """Tracks a single Executor subprocess."""
+
     plan_id: str
     process: Any
     base_url: str
@@ -84,9 +85,7 @@ class ExecutorProcessManager:
 
     @property
     def is_running(self) -> bool:
-        return any(
-            h.process.returncode is None for h in self._task_processes.values()
-        )
+        return any(h.process.returncode is None for h in self._task_processes.values())
 
     def get_task_handle(self, plan_id: str) -> ProcessHandle | None:
         """Get the process handle for a specific task."""
@@ -118,21 +117,25 @@ class ExecutorProcessManager:
 
         Uses asyncio.to_thread to avoid blocking the ASGI event loop.
         """
+
         def _sync_read() -> int | None:
             try:
                 text = port_file.read_text().strip()
                 return int(text) if text.isdigit() and int(text) > 0 else None
             except (OSError, ValueError):
                 return None
+
         return await asyncio.to_thread(_sync_read)
 
     async def _clear_port_file(self, port_file: Path) -> None:
         """Remove port file. Uses asyncio.to_thread to avoid blocking."""
+
         def _sync_unlink() -> None:
             try:
                 port_file.unlink(missing_ok=True)
             except OSError:
                 pass
+
         await asyncio.to_thread(_sync_unlink)
 
     # ------------------------------------------------------------------
@@ -158,7 +161,9 @@ class ExecutorProcessManager:
         """Spawn Executor subprocess with a Windows-compatible fallback."""
         try:
             return await asyncio.create_subprocess_exec(
-                sys.executable, "-m", "src.executor_agent",
+                sys.executable,
+                "-m",
+                "src.executor_agent",
                 env=env,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
@@ -193,9 +198,13 @@ class ExecutorProcessManager:
             try:
                 await handle.client.aclose()
             except Exception:
-                logger.exception("Error closing httpx client for dead plan_id=%s", plan_id)
+                logger.exception(
+                    "Error closing httpx client for dead plan_id=%s", plan_id
+                )
 
-    async def start_for_task(self, plan_id: str, ctx: Context, mailbox_url: str = "") -> ProcessHandle:
+    async def start_for_task(
+        self, plan_id: str, ctx: Context, mailbox_url: str = ""
+    ) -> ProcessHandle:
         """Start a dedicated Executor subprocess for a specific task.
 
         Args:
@@ -267,7 +276,9 @@ class ExecutorProcessManager:
                 if resp.status_code == 200:
                     logger.info(
                         "Executor ready for plan_id=%s (PID=%d, port=%d)",
-                        plan_id, process.pid, discovered_port,
+                        plan_id,
+                        process.pid,
+                        discovered_port,
                     )
                     handle = ProcessHandle(
                         plan_id=plan_id,
@@ -316,16 +327,20 @@ class ExecutorProcessManager:
         # Wait for exit
         try:
             await asyncio.wait_for(handle.process.wait(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Executor for %s didn't exit, terminating", handle.plan_id)
             handle.process.terminate()
             try:
                 await asyncio.wait_for(handle.process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 handle.process.kill()
                 await handle.process.wait()
 
-        logger.info("Executor stopped for plan_id=%s (PID=%d)", handle.plan_id, handle.process.pid)
+        logger.info(
+            "Executor stopped for plan_id=%s (PID=%d)",
+            handle.plan_id,
+            handle.process.pid,
+        )
         await self._clear_port_file(port_file)
 
         if handle.client and not handle.client.is_closed:
@@ -388,7 +403,9 @@ class _PopenProcessAdapter:
 
     def __init__(self, popen: subprocess.Popen) -> None:
         self._popen = popen
-        self.stdout = _AsyncStdoutReader(popen.stdout) if popen.stdout is not None else None
+        self.stdout = (
+            _AsyncStdoutReader(popen.stdout) if popen.stdout is not None else None
+        )
 
     @property
     def pid(self) -> int:

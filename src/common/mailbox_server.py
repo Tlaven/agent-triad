@@ -16,7 +16,7 @@ import json
 import logging
 import socket
 import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
@@ -64,13 +64,17 @@ class _InboxHandler(BaseHTTPRequestHandler):
         if not plan_id or not item_type:
             self.send_response(400)
             self.end_headers()
-            self.wfile.write(json.dumps({"error": "Missing plan_id or item_type"}).encode())
+            self.wfile.write(
+                json.dumps({"error": "Missing plan_id or item_type"}).encode()
+            )
             return
 
         if item_type not in ("completion", "status"):
             self.send_response(400)
             self.end_headers()
-            self.wfile.write(json.dumps({"error": f"Unknown item_type: {item_type}"}).encode())
+            self.wfile.write(
+                json.dumps({"error": f"Unknown item_type: {item_type}"}).encode()
+            )
             return
 
         item = MailboxItem(item_type=item_type, payload=payload)
@@ -106,7 +110,9 @@ class MailboxHTTPServer(threading.Thread):
         server.stop()    # stops the server and joins the thread
     """
 
-    def __init__(self, mailbox: Mailbox, port: int = 0, host: str = "127.0.0.1") -> None:
+    def __init__(
+        self, mailbox: Mailbox, port: int = 0, host: str = "127.0.0.1"
+    ) -> None:
         super().__init__(daemon=True, name="mailbox-http-server")
         self.mailbox = mailbox
         self._host = host
@@ -152,7 +158,8 @@ class MailboxHTTPServer(threading.Thread):
 
         logger.info(
             "MailboxHTTPServer started on %s (port=%d)",
-            self._base_url, actual_port,
+            self._base_url,
+            actual_port,
         )
 
         # Serve until stop requested

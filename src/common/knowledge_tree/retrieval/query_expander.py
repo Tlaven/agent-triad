@@ -45,7 +45,11 @@ def expand_query(
     prompt = _EXPANSION_PROMPT.format(query=query)
     try:
         response = llm.invoke([HumanMessage(content=prompt)])
-        text = response.content if isinstance(response.content, str) else str(response.content)
+        text = (
+            response.content
+            if isinstance(response.content, str)
+            else str(response.content)
+        )
     except Exception as e:
         logger.warning("Query expansion failed: %s", e)
         return [query]

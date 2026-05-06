@@ -1,7 +1,7 @@
 """SiliconFlow model integrations for ReAct agent."""
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 from langchain_siliconflow import ChatSiliconFlow
 
@@ -10,9 +10,9 @@ from ..utils import normalize_region
 
 def create_siliconflow_model(
     model_name: str,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
-    region: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    region: str | None = None,
     **kwargs: Any,
 ) -> ChatSiliconFlow:
     """Create a SiliconFlow model using ChatSiliconFlow.

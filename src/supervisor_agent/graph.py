@@ -9,7 +9,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Literal, cast
+from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import StateGraph
@@ -49,7 +49,10 @@ async def _build_executor_status_brief(state: State, ctx: Context) -> str:
         base_urls = pm.iter_active_base_urls()
     except Exception:
         if state.active_executor_tasks:
-            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            lines = [
+                f"- {pid}: {t.status}（本地记录）"
+                for pid, t in state.active_executor_tasks.items()
+            ]
             return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
         return ""
 
@@ -71,18 +74,25 @@ async def _build_executor_status_brief(state: State, ctx: Context) -> str:
                     continue
     except Exception:
         if state.active_executor_tasks:
-            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            lines = [
+                f"- {pid}: {t.status}（本地记录）"
+                for pid, t in state.active_executor_tasks.items()
+            ]
             return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
         return ""
 
     if not server_tasks and not any_tasks_response and base_urls:
         if state.active_executor_tasks:
-            lines = [f"- {pid}: {t.status}（本地记录）" for pid, t in state.active_executor_tasks.items()]
+            lines = [
+                f"- {pid}: {t.status}（本地记录）"
+                for pid, t in state.active_executor_tasks.items()
+            ]
             return "Executor 服务不可达，本地记录的任务：\n" + "\n".join(lines)
         return ""
 
     # Also check Mailbox for completed results not yet consumed
     from src.common.mailbox import get_mailbox
+
     mailbox_lines: list[str] = []
     try:
         mb = get_mailbox()
@@ -189,7 +199,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
 
 async def call_model(
     state: State, runtime: Runtime[Context]
-) -> Dict[str, List[AIMessage]]:
+) -> dict[str, list[AIMessage]]:
     """调用 LLM 支持 Agent。
     负责准备提示、初始化模型并处理响应。
     """
@@ -286,7 +296,9 @@ async def call_model(
         for i in range(len(llm_messages) - 1, -1, -1):
             msg = llm_messages[i]
             if isinstance(msg, HumanMessage):
-                original = msg.content if isinstance(msg.content, str) else str(msg.content)
+                original = (
+                    msg.content if isinstance(msg.content, str) else str(msg.content)
+                )
                 augmented = f"{state.kt_context}\n\n{original}"
                 llm_messages[i] = HumanMessage(content=augmented, id=msg.id)
                 break
@@ -324,9 +336,7 @@ async def call_model(
     return {"messages": [response], "supervisor_decision": decision}
 
 
-async def dynamic_tools_node(
-    state: State, runtime: Runtime[Context]
-) -> Dict:
+async def dynamic_tools_node(state: State, runtime: Runtime[Context]) -> dict:
     """动态执行工具，并同步更新 PlannerSession 状态。
 
     - call_planner 执行后：将新 plan_json 写入 planner_session
@@ -344,12 +354,12 @@ async def dynamic_tools_node(
     # Flush unified poller after tool execution -> write completions to Mailbox
     await _force_poll_active_tasks(runtime.context)
 
-    tool_messages: List[ToolMessage] = result.get("messages", [])
+    tool_messages: list[ToolMessage] = result.get("messages", [])
     id_to_name = _build_id_to_name(state)
     id_to_call = _build_id_to_call(state)
 
-    sanitized_tool_messages: List[ToolMessage] = []
-    updates: Dict = {"messages": sanitized_tool_messages}
+    sanitized_tool_messages: list[ToolMessage] = []
+    updates: dict = {"messages": sanitized_tool_messages}
 
     for tm in tool_messages:
         if not isinstance(tm, ToolMessage):
@@ -390,16 +400,25 @@ async def dynamic_tools_node(
             if new_plan_id:
                 tool_call = id_to_call.get(tm.tool_call_id, {})
                 args = tool_call.get("args", {}) if isinstance(tool_call, dict) else {}
-                task_core = str(args.get("task_core", "")).strip() if isinstance(args, dict) else ""
+                task_core = (
+                    str(args.get("task_core", "")).strip()
+                    if isinstance(args, dict)
+                    else ""
+                )
                 pid_history = list(existing_history.get(new_plan_id, []))
-                pid_history.append({"role": "user", "content": task_core or "（空 task_core）"})
+                pid_history.append(
+                    {"role": "user", "content": task_core or "（空 task_core）"}
+                )
                 pid_history.append({"role": "assistant", "content": new_plan_json})
                 existing_history[new_plan_id] = pid_history
                 existing_last_output[new_plan_id] = new_plan_json
                 if isinstance(new_version, int):
                     existing_last_version[new_plan_id] = new_version
 
-                if state.planner_session is not None and (state.planner_session.plan_json or "").strip():
+                if (
+                    state.planner_session is not None
+                    and (state.planner_session.plan_json or "").strip()
+                ):
                     old_plan_json = state.planner_session.plan_json.strip()
                     old_plan_id, old_version = _parse_plan_meta(old_plan_json)
                     if (
@@ -418,25 +437,37 @@ async def dynamic_tools_node(
                 plan_json=new_plan_json,
                 planner_reasoning=planner_reasoning,
                 last_executor_status=(
-                    state.planner_session.last_executor_status if state.planner_session else None
+                    state.planner_session.last_executor_status
+                    if state.planner_session
+                    else None
                 ),
                 last_executor_error=(
-                    state.planner_session.last_executor_error if state.planner_session else None
+                    state.planner_session.last_executor_error
+                    if state.planner_session
+                    else None
                 ),
                 last_executor_summary=(
-                    state.planner_session.last_executor_summary if state.planner_session else None
+                    state.planner_session.last_executor_summary
+                    if state.planner_session
+                    else None
                 ),
                 planner_history_by_plan_id=existing_history,
                 planner_last_version_by_plan_id=existing_last_version,
                 planner_last_output_by_plan_id=existing_last_output,
                 plan_archive_by_plan_id=existing_archive,
             )
-            logger.info("PlannerSession 已更新（call_planner），session_id=%s", session_id)
+            logger.info(
+                "PlannerSession 已更新（call_planner），session_id=%s", session_id
+            )
 
         elif tool_name == "call_executor":
             if "[EXECUTOR_RESULT]" in content:
                 # 同步完成或异步派发失败 → 完整状态更新
-                updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+                updates.update(
+                    _process_executor_completion(
+                        state, content, tm, sanitized_tool_messages
+                    )
+                )
                 # Record in executor_task_history
                 meta_plan_id = _extract_plan_id_from_meta(content)
                 exec_status, _ = _extract_executor_status(content)
@@ -454,17 +485,29 @@ async def dynamic_tools_node(
                     _try_auto_ingest_executor_result(content, runtime.context)
             elif "[EXECUTOR_DISPATCH]" in content:
                 # 异步派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
-                clean_content = re.sub(r'\n?\[EXECUTOR_DISPATCH\]\s*\{.*?\}', '', content, flags=re.DOTALL).strip()
-                sanitized_tool_messages.append(tm.model_copy(update={"content": clean_content or "Executor 已异步派发。"}))
+                clean_content = re.sub(
+                    r"\n?\[EXECUTOR_DISPATCH\]\s*\{.*?\}", "", content, flags=re.DOTALL
+                ).strip()
+                sanitized_tool_messages.append(
+                    tm.model_copy(
+                        update={"content": clean_content or "Executor 已异步派发。"}
+                    )
+                )
                 dispatched_pid = _extract_dispatched_plan_id(content)
                 if dispatched_pid:
-                    new_tasks = dict(updates.get("active_executor_tasks", state.active_executor_tasks))
+                    new_tasks = dict(
+                        updates.get(
+                            "active_executor_tasks", state.active_executor_tasks
+                        )
+                    )
                     new_tasks[dispatched_pid] = ActiveExecutorTask(
                         plan_id=dispatched_pid,
                         status="dispatched",
                     )
                     updates["active_executor_tasks"] = new_tasks
-                    logger.info("Async executor dispatch recorded, plan_id=%s", dispatched_pid)
+                    logger.info(
+                        "Async executor dispatch recorded, plan_id=%s", dispatched_pid
+                    )
                 # Record in executor_task_history
                 if dispatched_pid:
                     history = dict(state.executor_task_history)
@@ -484,7 +527,11 @@ async def dynamic_tools_node(
 
             if action_arg == "get_result" and "[EXECUTOR_RESULT]" in content:
                 # get_result 与同步 call_executor 完成路径共用处理逻辑
-                updates.update(_process_executor_completion(state, content, tm, sanitized_tool_messages))
+                updates.update(
+                    _process_executor_completion(
+                        state, content, tm, sanitized_tool_messages
+                    )
+                )
                 detail_arg = str(args.get("detail", "overview")).strip().lower()
                 if detail_arg == "full":
                     ps = updates.get("planner_session")
@@ -519,7 +566,9 @@ async def dynamic_tools_node(
                 if "任务运行中" in content:
                     target_pid = str(args.get("plan_id", "")).strip()
                     if target_pid:
-                        base_tasks = updates.get("active_executor_tasks", state.active_executor_tasks)
+                        base_tasks = updates.get(
+                            "active_executor_tasks", state.active_executor_tasks
+                        )
                         task = base_tasks.get(target_pid)
                         if task and task.status == "dispatched":
                             new_tasks = dict(base_tasks)
@@ -557,7 +606,7 @@ def _trim_task_history(history: dict) -> dict:
     return history
 
 
-def _build_id_to_name(state: State) -> Dict[str, str]:
+def _build_id_to_name(state: State) -> dict[str, str]:
     """从最后一条 AIMessage 中构建 tool_call_id → tool_name 的映射。"""
     if not state.messages:
         return {}
@@ -565,20 +614,18 @@ def _build_id_to_name(state: State) -> Dict[str, str]:
     if not isinstance(last_ai, AIMessage) or not last_ai.tool_calls:
         return {}
     return {
-        tc["id"]: tc["name"]
-        for tc in last_ai.tool_calls
-        if "id" in tc and "name" in tc
+        tc["id"]: tc["name"] for tc in last_ai.tool_calls if "id" in tc and "name" in tc
     }
 
 
-def _build_id_to_call(state: State) -> Dict[str, dict]:
+def _build_id_to_call(state: State) -> dict[str, dict]:
     """从最后一条 AIMessage 中构建 tool_call_id -> tool_call 映射。"""
     if not state.messages:
         return {}
     last_ai = state.messages[-1]
     if not isinstance(last_ai, AIMessage) or not last_ai.tool_calls:
         return {}
-    out: Dict[str, dict] = {}
+    out: dict[str, dict] = {}
     for tc in last_ai.tool_calls:
         if "id" in tc:
             out[tc["id"]] = tc
@@ -597,7 +644,7 @@ def _split_planner_output(content: str) -> tuple[str, str]:
     )
     if m:
         reasoning = m.group(1).strip()
-        remaining = content[:m.start()] + content[m.end():]
+        remaining = content[: m.start()] + content[m.end() :]
         return reasoning, remaining.strip()
     return "", content.strip()
 
@@ -621,7 +668,8 @@ def _extract_updated_plan_from_executor(content: str) -> str | None:
     """
     import json as _json
     import re as _re
-    match = _re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, _re.DOTALL)
+
+    match = _re.search(r"\[EXECUTOR_RESULT\]\s*(\{.*\})", content, _re.DOTALL)
     if not match:
         return None
     try:
@@ -640,7 +688,8 @@ def _extract_executor_status(content: str) -> tuple[str | None, str | None]:
     """
     import json as _json
     import re as _re
-    match = _re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, _re.DOTALL)
+
+    match = _re.search(r"\[EXECUTOR_RESULT\]\s*(\{.*\})", content, _re.DOTALL)
     if not match:
         return None, None
     try:
@@ -654,7 +703,8 @@ def _extract_snapshot_json(content: str) -> str | None:
     """从 call_executor 返回中提取 snapshot_json。"""
     import json as _json
     import re as _re
-    match = _re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, _re.DOTALL)
+
+    match = _re.search(r"\[EXECUTOR_RESULT\]\s*(\{.*\})", content, _re.DOTALL)
     if not match:
         return None
     try:
@@ -673,7 +723,7 @@ def _extract_executor_summary(content: str) -> str:
 
 def _extract_dispatched_plan_id(content: str) -> str | None:
     """从 [EXECUTOR_DISPATCH] 标记中提取 plan_id。"""
-    match = re.search(r'\[EXECUTOR_DISPATCH\]\s*(\{.*?\})', content, re.DOTALL)
+    match = re.search(r"\[EXECUTOR_DISPATCH\]\s*(\{.*?\})", content, re.DOTALL)
     if not match:
         return None
     try:
@@ -685,7 +735,7 @@ def _extract_dispatched_plan_id(content: str) -> str | None:
 
 def _extract_plan_id_from_meta(content: str) -> str | None:
     """从 [EXECUTOR_RESULT] meta JSON 中提取 plan_id（含 manage_executor(action="get_result") 返回）。"""
-    match = re.search(r'\[EXECUTOR_RESULT\]\s*(\{.*\})', content, re.DOTALL)
+    match = re.search(r"\[EXECUTOR_RESULT\]\s*(\{.*\})", content, re.DOTALL)
     if not match:
         return None
     try:
@@ -697,7 +747,7 @@ def _extract_plan_id_from_meta(content: str) -> str | None:
 
 def _extract_registry_updates(content: str) -> dict[str, ExecutorTaskRecord]:
     """从 [EXECUTOR_REGISTRY_UPDATE] 标记中提取任务记录更新。"""
-    match = re.search(r'\[EXECUTOR_REGISTRY_UPDATE\]\s*(\[.*\])', content, re.DOTALL)
+    match = re.search(r"\[EXECUTOR_REGISTRY_UPDATE\]\s*(\[.*\])", content, re.DOTALL)
     if not match:
         return {}
     try:
@@ -718,7 +768,7 @@ def _extract_registry_updates(content: str) -> dict[str, ExecutorTaskRecord]:
 
 
 def _append_full_executor_detail_to_last_tool_message(
-    sanitized_tool_messages: List[ToolMessage],
+    sanitized_tool_messages: list[ToolMessage],
     full_output: str,
 ) -> None:
     """在 manage_executor(action="get_result", detail="full") 且含 [EXECUTOR_RESULT] 时，把步骤级详情拼入给 LLM 的 ToolMessage。"""
@@ -728,8 +778,10 @@ def _append_full_executor_detail_to_last_tool_message(
     if not isinstance(last, ToolMessage):
         return
     old = last.content if isinstance(last.content, str) else str(last.content)
-    hint_legacy = "\n\n（如需查看完整的步骤级执行详情，请调用 get_executor_full_output）"
-    hint_new = "\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=…, detail=\"full\")）"
+    hint_legacy = (
+        "\n\n（如需查看完整的步骤级执行详情，请调用 get_executor_full_output）"
+    )
+    hint_new = '\n\n（如需步骤级执行详情，可调用 manage_executor(action="get_result", plan_id=…, detail="full")）'
     body = old.replace(hint_legacy, "").replace(hint_new, "").rstrip()
     new_content = f"{body}\n\n{(full_output or '').strip()}"
     sanitized_tool_messages[-1] = last.model_copy(update={"content": new_content})
@@ -780,8 +832,8 @@ def _process_executor_completion(
     state: State,
     content: str,
     tm: ToolMessage,
-    sanitized_tool_messages: List[ToolMessage],
-) -> Dict:
+    sanitized_tool_messages: list[ToolMessage],
+) -> dict:
     """处理 Executor 完成结果（call_executor 同步完成或 manage_executor(action="get_result")）。
 
     返回 updates dict 供 dynamic_tools_node 合并。
@@ -795,7 +847,9 @@ def _process_executor_completion(
     )
     public_feedback = _build_executor_feedback_for_llm(content, exec_status, exec_error)
     sanitized_tool_messages.append(tm.model_copy(update={"content": public_feedback}))
-    return _build_executor_updates(state, updated_plan, exec_status, exec_error, exec_summary, full_output)
+    return _build_executor_updates(
+        state, updated_plan, exec_status, exec_error, exec_summary, full_output
+    )
 
 
 def _build_executor_updates(
@@ -805,7 +859,7 @@ def _build_executor_updates(
     exec_error: str | None,
     exec_summary: str,
     full_output: str,
-) -> Dict:
+) -> dict:
     """从 Executor 完成结果构建 state updates dict。"""
     next_replan_count = state.replan_count
     if exec_status == "failed":
@@ -817,7 +871,9 @@ def _build_executor_updates(
 
     if state.planner_session is not None:
         session_id = state.planner_session.session_id
-        next_plan_json = updated_plan if updated_plan else state.planner_session.plan_json
+        next_plan_json = (
+            updated_plan if updated_plan else state.planner_session.plan_json
+        )
     else:
         session_id = f"plan_{uuid.uuid4().hex[:8]}"
         next_plan_json = updated_plan
@@ -932,13 +988,18 @@ def _build_executor_feedback_for_llm(
 ) -> str:
     """构造给 Supervisor LLM 的精简反馈，避免注入大体量 updated_plan_json。"""
     marker = "[EXECUTOR_RESULT]"
-    summary_text = content.split(marker, 1)[0].strip() if marker in content else content.strip()
-    hint = "\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）"
+    summary_text = (
+        content.split(marker, 1)[0].strip() if marker in content else content.strip()
+    )
+    hint = '\n\n（如需步骤级执行详情，可调用 manage_executor(action="get_result", plan_id=当前计划顶层 id, detail="full")）'
     if status == "completed":
         return summary_text + hint
     if status == "failed":
         detail = error_detail or "未知错误"
-        return f"Executor 执行结果：failed\n失败原因：{detail}\n摘要：{summary_text}" + hint
+        return (
+            f"Executor 执行结果：failed\n失败原因：{detail}\n摘要：{summary_text}"
+            + hint
+        )
     if status == "paused":
         return f"Executor 执行暂停（checkpoint）：\n{summary_text}" + hint
     return summary_text
@@ -946,13 +1007,21 @@ def _build_executor_feedback_for_llm(
 
 def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
     """根据本轮输出推断结构化决策（mode/reason/confidence）。"""
-    tool_names = [tc.get("name", "") for tc in response.tool_calls] if response.tool_calls else []
+    tool_names = (
+        [tc.get("name", "") for tc in response.tool_calls]
+        if response.tool_calls
+        else []
+    )
     if not tool_names:
         return SupervisorDecision(mode=1, reason="无需工具即可回答", confidence=0.85)
     if "call_planner" in tool_names:
-        return SupervisorDecision(mode=3, reason="检测到多步规划需求，先规划后执行", confidence=0.8)
+        return SupervisorDecision(
+            mode=3, reason="检测到多步规划需求，先规划后执行", confidence=0.8
+        )
     if "call_executor" in tool_names or "manage_executor" in tool_names:
-        return SupervisorDecision(mode=2, reason="目标明确，直接工具执行", confidence=0.75)
+        return SupervisorDecision(
+            mode=2, reason="目标明确，直接工具执行", confidence=0.75
+        )
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
 
 
@@ -965,7 +1034,9 @@ def _inject_reasoning_for_visible_mode(response: AIMessage) -> AIMessage:
     reasoning = extract_reasoning_text(response)
     if not reasoning:
         return response
-    answer = response.content if isinstance(response.content, str) else str(response.content)
+    answer = (
+        response.content if isinstance(response.content, str) else str(response.content)
+    )
     decorated = f"[思考过程]\n{reasoning}\n\n[最终回答]\n{answer}".strip()
     return response.model_copy(update={"content": decorated})
 
@@ -986,9 +1057,7 @@ def route_model_output(state: State) -> Literal["__end__", "tools"]:
     """根据模型输出决定下一个节点。"""
     last_message = state.messages[-1]
     if not isinstance(last_message, AIMessage):
-        raise ValueError(
-            f"路由时期望 AIMessage，但收到 {type(last_message).__name__}"
-        )
+        raise ValueError(f"路由时期望 AIMessage，但收到 {type(last_message).__name__}")
     if not last_message.tool_calls:
         return "__end__"
     return "tools"

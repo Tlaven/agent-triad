@@ -78,18 +78,24 @@ def rag_search(
     # 路径 3: 目录锚点扩展（结构信号）
     # 找到与查询匹配的目录锚点，将同目录节点加入 RRF 候选
     matching_anchors = vector_store.find_matching_anchors(
-        query_vector, threshold=anchor_boost_threshold, top_k=3,
+        query_vector,
+        threshold=anchor_boost_threshold,
+        top_k=3,
     )
     for anchor, anchor_score in matching_anchors:
         dir_files = md_store.get_directory_files(anchor.directory)
         for rank, file_id in enumerate(dir_files):
-            rrf_scores[file_id] = rrf_scores.get(file_id, 0.0) + 1.0 / (k_rrf + rank + 1)
+            rrf_scores[file_id] = rrf_scores.get(file_id, 0.0) + 1.0 / (
+                k_rrf + rank + 1
+            )
             # 锚点扩展新增的节点（不在 content/title 路径中）使用锚点相似度
             if file_id not in best_similarities:
                 best_similarities[file_id] = anchor_score
 
     # RRF 选出候选集（取 top_k）
-    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[:top_k]
+    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[
+        :top_k
+    ]
 
     # 加载完整节点
     results: list[tuple[KnowledgeNode, float]] = []
@@ -144,8 +150,12 @@ def multi_query_rag_search(
     for query_text in queries:
         query_vec = embedder(query_text)
         per_results = rag_search(
-            query_vec, vector_store, md_store, embedder,
-            top_k=top_k * 2, threshold=threshold,
+            query_vec,
+            vector_store,
+            md_store,
+            embedder,
+            top_k=top_k * 2,
+            threshold=threshold,
         )
         for rank, (node, score) in enumerate(per_results):
             nid = node.node_id
@@ -153,7 +163,9 @@ def multi_query_rag_search(
             best_similarities[nid] = max(best_similarities.get(nid, 0.0), score)
 
     # RRF 排序 + 加载节点
-    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[:top_k]
+    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[
+        :top_k
+    ]
     results: list[tuple[KnowledgeNode, float]] = []
     for node_id in sorted_ids:
         node = md_store.read_node(node_id)
@@ -162,6 +174,10 @@ def multi_query_rag_search(
             results.append((node, best_similarities[node_id]))
 
     results.sort(key=lambda x: x[1], reverse=True)
-    logger.debug("Multi-query RAG: %d queries → %d unique candidates → %d results",
-                 len(queries), len(rrf_scores), len(results))
+    logger.debug(
+        "Multi-query RAG: %d queries → %d unique candidates → %d results",
+        len(queries),
+        len(rrf_scores),
+        len(results),
+    )
     return results

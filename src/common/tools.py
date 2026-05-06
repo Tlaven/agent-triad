@@ -44,16 +44,22 @@ def list_workspace_entries(
     root_dir: str = "",
 ) -> str:
     """列出工作区内目录项（只读）。"""
-    effective_root_dir = (root_dir or _filesystem_default_root_dir).strip() or "workspace/agent"
+    effective_root_dir = (
+        root_dir or _filesystem_default_root_dir
+    ).strip() or "workspace/agent"
     root = _resolve_filesystem_root(effective_root_dir)
     try:
         base = _resolve_in_root(root, relative_path)
     except ValueError as e:
         return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2)
     if not base.exists():
-        return json.dumps({"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2
+        )
     if not base.is_dir():
-        return json.dumps({"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2
+        )
 
     limit = max(1, min(int(max_entries), 500))
     items: list[dict[str, object]] = []
@@ -69,7 +75,12 @@ def list_workspace_entries(
             }
         )
     return json.dumps(
-        {"ok": True, "root": str(root), "base": base.relative_to(root).as_posix(), "entries": items},
+        {
+            "ok": True,
+            "root": str(root),
+            "base": base.relative_to(root).as_posix(),
+            "entries": items,
+        },
         ensure_ascii=False,
         indent=2,
     )
@@ -82,16 +93,22 @@ def read_workspace_text_file(
     root_dir: str = "",
 ) -> str:
     """读取工作区内文本文件（只读）。"""
-    effective_root_dir = (root_dir or _filesystem_default_root_dir).strip() or "workspace/agent"
+    effective_root_dir = (
+        root_dir or _filesystem_default_root_dir
+    ).strip() or "workspace/agent"
     root = _resolve_filesystem_root(effective_root_dir)
     try:
         file_path = _resolve_in_root(root, relative_path)
     except ValueError as e:
         return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2)
     if not file_path.exists():
-        return json.dumps({"ok": False, "error": "文件不存在"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "文件不存在"}, ensure_ascii=False, indent=2
+        )
     if not file_path.is_file():
-        return json.dumps({"ok": False, "error": "目标路径不是文件"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不是文件"}, ensure_ascii=False, indent=2
+        )
 
     limit = max(256, min(int(max_chars), 100_000))
     content = file_path.read_text(encoding="utf-8", errors="replace")
@@ -125,16 +142,22 @@ def search_files(
         max_results: 最大返回条目数。
         root_dir: 工作区根目录（通常由系统注入）。
     """
-    effective_root_dir = (root_dir or _filesystem_default_root_dir).strip() or "workspace/agent"
+    effective_root_dir = (
+        root_dir or _filesystem_default_root_dir
+    ).strip() or "workspace/agent"
     root = _resolve_filesystem_root(effective_root_dir)
     try:
         base = _resolve_in_root(root, relative_path)
     except ValueError as e:
         return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2)
     if not base.exists():
-        return json.dumps({"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2
+        )
     if not base.is_dir():
-        return json.dumps({"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2
+        )
 
     limit = max(1, min(int(max_results), 200))
     matches: list[dict[str, str]] = []
@@ -144,7 +167,13 @@ def search_files(
         rel = p.relative_to(root).as_posix()
         matches.append({"relative_path": rel, "type": "dir" if p.is_dir() else "file"})
     return json.dumps(
-        {"ok": True, "root": str(root), "pattern": pattern, "matches": matches, "count": len(matches)},
+        {
+            "ok": True,
+            "root": str(root),
+            "pattern": pattern,
+            "matches": matches,
+            "count": len(matches),
+        },
         ensure_ascii=False,
         indent=2,
     )
@@ -167,19 +196,25 @@ def grep_content(
         max_results: 最大返回匹配数。
         root_dir: 工作区根目录。
     """
-    effective_root_dir = (root_dir or _filesystem_default_root_dir).strip() or "workspace/agent"
+    effective_root_dir = (
+        root_dir or _filesystem_default_root_dir
+    ).strip() or "workspace/agent"
     root = _resolve_filesystem_root(effective_root_dir)
     try:
         base = _resolve_in_root(root, relative_path)
     except ValueError as e:
         return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2)
     if not base.exists():
-        return json.dumps({"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2
+        )
 
     try:
         regex = re.compile(pattern, re.IGNORECASE)
     except re.error as e:
-        return json.dumps({"ok": False, "error": f"正则表达式无效: {e}"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": f"正则表达式无效: {e}"}, ensure_ascii=False, indent=2
+        )
 
     limit = max(1, min(int(max_results), 100))
     results: list[dict[str, object]] = []
@@ -194,17 +229,25 @@ def grep_content(
             m = regex.search(line)
             if m:
                 rel = fp.relative_to(root).as_posix()
-                results.append({
-                    "file": rel,
-                    "line": line_no,
-                    "match": line.strip()[:200],
-                })
+                results.append(
+                    {
+                        "file": rel,
+                        "line": line_no,
+                        "match": line.strip()[:200],
+                    }
+                )
                 if len(results) >= limit:
                     break
         if len(results) >= limit:
             break
     return json.dumps(
-        {"ok": True, "root": str(root), "pattern": pattern, "results": results, "count": len(results)},
+        {
+            "ok": True,
+            "root": str(root),
+            "pattern": pattern,
+            "results": results,
+            "count": len(results),
+        },
         ensure_ascii=False,
         indent=2,
     )
@@ -225,16 +268,22 @@ def read_file_structure(
         max_entries: 最大返回条目数。
         root_dir: 工作区根目录。
     """
-    effective_root_dir = (root_dir or _filesystem_default_root_dir).strip() or "workspace/agent"
+    effective_root_dir = (
+        root_dir or _filesystem_default_root_dir
+    ).strip() or "workspace/agent"
     root = _resolve_filesystem_root(effective_root_dir)
     try:
         base = _resolve_in_root(root, relative_path)
     except ValueError as e:
         return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False, indent=2)
     if not base.exists():
-        return json.dumps({"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不存在"}, ensure_ascii=False, indent=2
+        )
     if not base.is_dir():
-        return json.dumps({"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2)
+        return json.dumps(
+            {"ok": False, "error": "目标路径不是目录"}, ensure_ascii=False, indent=2
+        )
 
     depth_limit = max(1, min(int(max_depth), 6))
     entry_limit = max(1, min(int(max_entries), 500))
@@ -247,7 +296,9 @@ def read_file_structure(
         if depth > depth_limit or count >= entry_limit:
             return
         try:
-            entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+            entries = sorted(
+                directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())
+            )
         except PermissionError:
             return
         for entry in entries:
@@ -277,7 +328,7 @@ def read_file_structure(
     )
 
 
-def apply_context_workspace_root(context: "Context" | None) -> None:
+def apply_context_workspace_root(context: Context | None) -> None:
     """从 Context 同步 `list_workspace_entries` / `read_workspace_text_file` 使用的默认根目录。"""
     if context is None:
         return

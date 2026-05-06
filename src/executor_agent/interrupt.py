@@ -15,7 +15,6 @@ import logging
 import subprocess
 import threading
 import time
-from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +36,7 @@ def get_current_plan_id() -> str:
 def clear_current_plan_id() -> None:
     _current_plan_id.plan_id = ""
 
+
 # ---------------------------------------------------------------------------
 # Stop event access
 # ---------------------------------------------------------------------------
@@ -51,6 +51,7 @@ def _get_stop_event(plan_id: str):
         return None
     try:
         from src.executor_agent.server import _stop_events
+
         return _stop_events.get(plan_id)
     except ImportError:
         return None
@@ -120,7 +121,9 @@ def run_with_interrupt_check(
         while proc.poll() is None:
             # Check interrupt
             if stop_event and stop_event.is_set():
-                logger.info("Interrupt detected for plan_id=%s, terminating subprocess", pid)
+                logger.info(
+                    "Interrupt detected for plan_id=%s, terminating subprocess", pid
+                )
                 proc.terminate()
                 try:
                     proc.wait(timeout=5)

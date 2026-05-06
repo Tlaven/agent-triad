@@ -4,8 +4,9 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated, Any, Callable, List, Literal
+from typing import Annotated, Any, Literal
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
@@ -160,11 +161,15 @@ def _build_call_planner_tool(runtime_context: Context):
         if err:
             return err
 
-        previous_plan_json = state.planner_session.plan_json if state.planner_session else None
+        previous_plan_json = (
+            state.planner_session.plan_json if state.planner_session else None
+        )
         normalized_pid = _normalize_plan_id_arg(plan_id)
         planner_history_messages = None
         if normalized_pid and state.planner_session is not None:
-            planner_history_messages = state.planner_session.planner_history_by_plan_id.get(normalized_pid)
+            planner_history_messages = (
+                state.planner_session.planner_history_by_plan_id.get(normalized_pid)
+            )
 
         planner_output: PlannerOutput = await run_planner(
             task_core,
@@ -173,21 +178,29 @@ def _build_call_planner_tool(runtime_context: Context):
             planner_history_messages=planner_history_messages,
             context=runtime_context,
         )
-        normalized = _normalize_plan_json(planner_output.plan_json, previous_plan_json=previous_plan_json)
+        normalized = _normalize_plan_json(
+            planner_output.plan_json, previous_plan_json=previous_plan_json
+        )
 
-        logger.info("Planner 生成计划，session_id=%s，长度=%d", session_id, len(normalized))
+        logger.info(
+            "Planner 生成计划，session_id=%s，长度=%d", session_id, len(normalized)
+        )
 
         # 组装返回：reasoning + plan_json，让 Supervisor 能看到 Planner 的分析推理
         parts = []
         if planner_output.reasoning.strip():
-            parts.append(f"[PLANNER_REASONING]\n{planner_output.reasoning.strip()}\n[/PLANNER_REASONING]")
+            parts.append(
+                f"[PLANNER_REASONING]\n{planner_output.reasoning.strip()}\n[/PLANNER_REASONING]"
+            )
         parts.append(normalized)
         return "\n\n".join(parts)
 
     return call_planner
 
 
-def _session_plan_id_for_detail_read(planner_session: PlannerSession | None) -> str | None:
+def _session_plan_id_for_detail_read(
+    planner_session: PlannerSession | None,
+) -> str | None:
     """从 session.plan_json 读取顶层 plan_id，供 detail=full 缓存读取校验。"""
     if planner_session is None or not (planner_session.plan_json or "").strip():
         return None
@@ -224,7 +237,10 @@ def _build_call_executor_tool(runtime_context: Context):
             return "错误：call_executor 不能同时传 task_description 和 plan_id。Mode2/Mode3 二选一。"
 
         if pid is not None:
-            if state.planner_session is None or not (state.planner_session.plan_json or "").strip():
+            if (
+                state.planner_session is None
+                or not (state.planner_session.plan_json or "").strip()
+            ):
                 return "错误：已指定 plan_id，但当前没有可执行的计划。请先调用 call_planner。"
             try:
                 plan_obj = json.loads(state.planner_session.plan_json or "")
@@ -273,20 +289,30 @@ def _build_call_executor_tool(runtime_context: Context):
         except Exception as e:
             error_detail = f"V3 基础设施启动失败：{e}"
             updated_plan_json = _mark_plan_steps_failed(plan_json, error_detail)
-            meta = {"status": "failed", "error_detail": error_detail,
-                    "updated_plan_json": updated_plan_json, "snapshot_json": ""}
+            meta = {
+                "status": "failed",
+                "error_detail": error_detail,
+                "updated_plan_json": updated_plan_json,
+                "snapshot_json": "",
+            }
             meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
             return f"Executor 基础设施错误：{error_detail}\n\n{meta_line}"
 
         # Start per-task Executor process
         try:
-            handle = await pm.start_for_task(actual_plan_id, runtime_context, mailbox_url=mailbox_url)
+            handle = await pm.start_for_task(
+                actual_plan_id, runtime_context, mailbox_url=mailbox_url
+            )
             base_url = handle.base_url
         except Exception as e:
             error_detail = f"Executor 进程启动失败：{type(e).__name__}: {e}"
             updated_plan_json = _mark_plan_steps_failed(plan_json, error_detail)
-            meta = {"status": "failed", "error_detail": error_detail,
-                    "updated_plan_json": updated_plan_json, "snapshot_json": ""}
+            meta = {
+                "status": "failed",
+                "error_detail": error_detail,
+                "updated_plan_json": updated_plan_json,
+                "snapshot_json": "",
+            }
             meta_line = f"[EXECUTOR_RESULT] {json.dumps(meta, ensure_ascii=False)}"
             return f"Executor 启动失败：{error_detail}\n\n{meta_line}"
 
@@ -295,6 +321,7 @@ def _build_call_executor_tool(runtime_context: Context):
         trace_headers: dict[str, str] = {}
         try:
             from langsmith.run_helpers import get_current_run_tree
+
             run_tree = get_current_run_tree()
             if run_tree is not None:
                 trace_headers.update(run_tree.to_headers())
@@ -344,9 +371,14 @@ def _build_call_executor_tool(runtime_context: Context):
 
         if wait_for_result:
             # 默认路径：阻塞等待结果，直接返回 [EXECUTOR_RESULT]，省去额外工具调用
-            logger.info("call_executor wait_for_result=True，等待 plan_id=%s 完成", actual_plan_id)
+            logger.info(
+                "call_executor wait_for_result=True，等待 plan_id=%s 完成",
+                actual_plan_id,
+            )
             return await _wait_for_executor_result(
-                actual_plan_id, plan_json, runtime_context,
+                actual_plan_id,
+                plan_json,
+                runtime_context,
                 timeout=runtime_context.executor_wait_timeout,
             )
 
@@ -360,11 +392,12 @@ def _build_call_executor_tool(runtime_context: Context):
             f"\n[EXECUTOR_DISPATCH] {dispatch_meta}"
         )
 
-
     return call_executor
 
 
-async def _stop_executor_impl(plan_id: str, reason: str, runtime_context: Context) -> str:
+async def _stop_executor_impl(
+    plan_id: str, reason: str, runtime_context: Context
+) -> str:
     """请求 Executor 停止执行指定计划（优雅退出，非强制终止）。"""
     import httpx
 
@@ -374,7 +407,9 @@ async def _stop_executor_impl(plan_id: str, reason: str, runtime_context: Contex
         infra = await v3_manager.ensure_started(runtime_context)
         base_url = infra.process_manager.get_task_base_url(plan_id)
         if not base_url:
-            return f"plan_id={plan_id} 对应的 Executor 进程未运行（可能已完成或不存在）。"
+            return (
+                f"plan_id={plan_id} 对应的 Executor 进程未运行（可能已完成或不存在）。"
+            )
     except Exception as e:
         return f"错误：无法获取 Executor 信息：{e}"
 
@@ -507,7 +542,9 @@ async def _fetch_executor_result_directly(
                 error_detail = None
                 if status == "failed" and not (updated_plan_json or "").strip():
                     fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
-                    updated_plan_json = _mark_plan_steps_failed(task_plan_json, fallback_reason)
+                    updated_plan_json = _mark_plan_steps_failed(
+                        task_plan_json, fallback_reason
+                    )
                     error_detail = fallback_reason
                 meta = {
                     "status": status,
@@ -591,15 +628,23 @@ async def _wait_for_executor_result(
     if probe in ("completed", "failed", "stopped"):
         direct = await _fetch_executor_result_directly(pid, plan_json_cached, ctx)
         if direct is not None:
-            logger.info("_wait_for_executor_result 直接获取终态结果（回调丢失），plan_id=%s", pid)
+            logger.info(
+                "_wait_for_executor_result 直接获取终态结果（回调丢失），plan_id=%s",
+                pid,
+            )
             return direct
 
     # ---- 任务确认存在且运行中，等待 Mailbox（由统一 poller 写入） ----
     try:
         infra = await _v3_manager.ensure_started(ctx)
         if infra.poller:
-            base_url_for_task = infra.process_manager.get_task_base_url(pid) or infra.process_manager.base_url
-            infra.poller.register(pid, plan_json_cached, executor_base_url=base_url_for_task or None)
+            base_url_for_task = (
+                infra.process_manager.get_task_base_url(pid)
+                or infra.process_manager.base_url
+            )
+            infra.poller.register(
+                pid, plan_json_cached, executor_base_url=base_url_for_task or None
+            )
     except asyncio.CancelledError:
         raise
     except Exception:
@@ -671,7 +716,9 @@ def _format_completion_result(
     snapshot_json = payload.get("snapshot_json", "")
     error_detail = None
     if status == "failed" and not (updated_plan_json or "").strip():
-        fallback_reason = "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+        fallback_reason = (
+            "Executor 失败且未返回 updated_plan_json，已由 Supervisor 侧兜底补全。"
+        )
         updated_plan_json = _mark_plan_steps_failed(plan_json_cached, fallback_reason)
         error_detail = fallback_reason
     meta = {
@@ -686,7 +733,10 @@ def _format_completion_result(
 
 
 async def _get_executor_result_impl(
-    state: State, plan_id: str, detail: str, runtime_context: Context,
+    state: State,
+    plan_id: str,
+    detail: str,
+    runtime_context: Context,
 ) -> str:
     """获取 Executor 任务结果或步骤级详情。"""
     pid = _normalize_plan_id_arg(plan_id)
@@ -710,16 +760,21 @@ async def _get_executor_result_impl(
             else None
         )
         if not (full or "").strip():
-            return "当前没有可查看的 Executor 完整输出（请先完成一次执行并收到概览结果）。"
+            return (
+                "当前没有可查看的 Executor 完整输出（请先完成一次执行并收到概览结果）。"
+            )
         return full.strip()
 
     if pid not in state.active_executor_tasks:
-        return f"错误：plan_id={pid} 不在活跃任务列表中。请先调用 call_executor 派发任务。"
+        return (
+            f"错误：plan_id={pid} 不在活跃任务列表中。请先调用 call_executor 派发任务。"
+        )
 
     # Retrieve cached plan_json from unified poller (not stored in Graph State)
     plan_json_cached = ""
     try:
         from src.supervisor_agent.v3_lifecycle import v3_manager as _v3_manager
+
         _infra_early = await _v3_manager.ensure_started(runtime_context)
         if _infra_early.poller:
             plan_json_cached = _infra_early.poller.get_plan_json(pid)
@@ -727,7 +782,9 @@ async def _get_executor_result_impl(
         pass
 
     return await _wait_for_executor_result(
-        pid, plan_json_cached, runtime_context,
+        pid,
+        plan_json_cached,
+        runtime_context,
         timeout=runtime_context.executor_wait_timeout,
     )
 
@@ -743,7 +800,11 @@ def _mark_plan_steps_failed(plan_json: str, error_detail: str) -> str:
 
     steps = data if isinstance(data, list) else data.get("steps", [])
     for step in steps:
-        if isinstance(step, dict) and step.get("status") in ("pending", "running", None):
+        if isinstance(step, dict) and step.get("status") in (
+            "pending",
+            "running",
+            None,
+        ):
             step["status"] = "failed"
             step["failure_reason"] = f"Executor 异常中断：{error_detail}"
 
@@ -911,16 +972,22 @@ async def _list_executor_tasks_impl(state: State, runtime_context: Context) -> s
                 dt = datetime.fromisoformat(last_updated)
                 display_time = _relative_time_ago(dt)
             except (ValueError, OSError):
-                display_time = last_updated[-8:] if len(last_updated) >= 8 else last_updated
+                display_time = (
+                    last_updated[-8:] if len(last_updated) >= 8 else last_updated
+                )
 
         q_mark = "✅" if queryable else "❌"
-        rows.append(f"  {pid}  | {probed_status:<10} | {q_mark}      | {display_time}  | {note}")
-        updates.append({
-            "plan_id": pid,
-            "status": probed_status,
-            "queryable": queryable,
-            "last_updated": last_updated,
-        })
+        rows.append(
+            f"  {pid}  | {probed_status:<10} | {q_mark}      | {display_time}  | {note}"
+        )
+        updates.append(
+            {
+                "plan_id": pid,
+                "status": probed_status,
+                "queryable": queryable,
+                "last_updated": last_updated,
+            }
+        )
 
     lines = [
         f"Executor 任务注册表 ({len(history)} 个任务)：\n",
@@ -930,8 +997,8 @@ async def _list_executor_tasks_impl(state: State, runtime_context: Context) -> s
     lines.extend(rows)
     lines.append("")
     lines.append(
-        "请使用 manage_executor(action=\"get_result\", plan_id=...) 查询可查询任务的结果；"
-        "步骤级详情在任务已结束后使用 detail=\"full\"。不可查询的任务需要重新规划。"
+        '请使用 manage_executor(action="get_result", plan_id=...) 查询可查询任务的结果；'
+        '步骤级详情在任务已结束后使用 detail="full"。不可查询的任务需要重新规划。'
     )
 
     updates_json = json.dumps(updates, ensure_ascii=False)
@@ -959,17 +1026,19 @@ def _build_manage_executor_tool(runtime_context: Context):
         """
         if action == "stop":
             if not plan_id:
-                return '错误：stop 需要 plan_id。'
+                return "错误：stop 需要 plan_id。"
             return await _stop_executor_impl(plan_id, reason, runtime_context)
 
         elif action == "get_result":
             if not plan_id:
-                return '错误：get_result 需要 plan_id。'
-            return await _get_executor_result_impl(state, plan_id, detail, runtime_context)
+                return "错误：get_result 需要 plan_id。"
+            return await _get_executor_result_impl(
+                state, plan_id, detail, runtime_context
+            )
 
         elif action == "check_progress":
             if not plan_id:
-                return '错误：check_progress 需要 plan_id。'
+                return "错误：check_progress 需要 plan_id。"
             return await _check_executor_progress_impl(plan_id, runtime_context)
 
         elif action == "list_tasks":
@@ -981,7 +1050,7 @@ def _build_manage_executor_tool(runtime_context: Context):
     return manage_executor
 
 
-async def get_tools(runtime_context: Context | None = None) -> List[Callable[..., Any]]:
+async def get_tools(runtime_context: Context | None = None) -> list[Callable[..., Any]]:
     """主 ReAct 循环返回的工具集。"""
     if runtime_context is None:
         runtime_context = Context()
@@ -995,6 +1064,7 @@ async def get_tools(runtime_context: Context | None = None) -> List[Callable[...
     # V4 知识树工具（条件注册）
     if runtime_context.enable_knowledge_tree:
         from src.common.knowledge_tree import build_knowledge_tree_tools
+
         kt_tools = build_knowledge_tree_tools(runtime_context)
         tools.extend(kt_tools)
         logger.info("Knowledge tree tools registered (%d tools)", len(kt_tools))

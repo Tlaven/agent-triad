@@ -6,7 +6,7 @@ V4: 简化的 RetrievalLog，RAG 为主检索路径。
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -18,7 +18,9 @@ class RetrievalLog:
     query_id: str
     query_text: str
     query_vector: list[float] | None = None
-    rag_results: list[tuple[str, float]] = field(default_factory=list)  # (path, similarity)
+    rag_results: list[tuple[str, float]] = field(
+        default_factory=list
+    )  # (path, similarity)
     agent_satisfaction: bool | None = None
     agent_feedback: str | None = None
     manual_search_triggered: bool = False  # Agent 是否触发了手动搜索
@@ -29,7 +31,7 @@ class RetrievalLog:
         return cls(
             query_id=uuid4().hex[:12],
             query_text=query_text,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
     def to_dict(self) -> dict[str, Any]:

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -269,9 +269,7 @@ class InMemoryVectorStore(BaseVectorStore):
         """获取指定目录下所有文件的 embedding。"""
         prefix = directory.rstrip("/") + "/"
         return {
-            nid: emb
-            for nid, emb in self._embeddings.items()
-            if nid.startswith(prefix)
+            nid: emb for nid, emb in self._embeddings.items() if nid.startswith(prefix)
         }
 
 

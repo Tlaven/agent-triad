@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -104,13 +104,19 @@ class OverlayStore:
         self._edges.append(edge)
         self._save()
 
-    def remove_edge(self, source_path: str, target_path: str, relation: str = "related") -> bool:
+    def remove_edge(
+        self, source_path: str, target_path: str, relation: str = "related"
+    ) -> bool:
         """移除指定关联边。"""
         before = len(self._edges)
         self._edges = [
             e
             for e in self._edges
-            if not (e.source_path == source_path and e.target_path == target_path and e.relation == relation)
+            if not (
+                e.source_path == source_path
+                and e.target_path == target_path
+                and e.relation == relation
+            )
         ]
         if len(self._edges) < before:
             self._save()
@@ -130,7 +136,9 @@ class OverlayStore:
     def remove_all_for(self, path: str) -> int:
         """移除与指定文件相关的所有边，返回移除数量。"""
         before = len(self._edges)
-        self._edges = [e for e in self._edges if e.source_path != path and e.target_path != path]
+        self._edges = [
+            e for e in self._edges if e.source_path != path and e.target_path != path
+        ]
         removed = before - len(self._edges)
         if removed:
             self._save()

@@ -7,9 +7,9 @@ V4: 通过目录锚点定位放置目录。
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Callable
+from datetime import UTC, datetime
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
@@ -18,7 +18,6 @@ from src.common.knowledge_tree.storage.sync import _refresh_anchor
 from src.common.knowledge_tree.storage.vector_store import (
     BaseVectorStore,
     DirectoryAnchor,
-    compute_anchor_vector,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,7 +116,7 @@ def ingest_nodes(
                     directory=dir_name,
                     anchor_vector=node.embedding,
                     file_count=1,
-                    last_updated=datetime.now(timezone.utc).isoformat(),
+                    last_updated=datetime.now(UTC).isoformat(),
                 )
                 vector_store.upsert_anchor(anchor)
 
@@ -153,7 +152,9 @@ def ingest_nodes(
 def _sanitize_filename(title: str) -> str:
     """从标题生成安全的文件名。"""
     # 移除不安全字符
-    safe = "".join(c if c.isalnum() or c in ("_", "-", " ", ".") else "_" for c in title)
+    safe = "".join(
+        c if c.isalnum() or c in ("_", "-", " ", ".") else "_" for c in title
+    )
     safe = safe.strip()[:40]  # 限制长度
     return safe or "untitled"
 

@@ -10,11 +10,15 @@ from __future__ import annotations
 import json
 import logging
 import time as _time
-from pathlib import Path
-from typing import Any, Callable, Union
+from collections.abc import Callable
+
+# Path used transitively via storage modules
+from typing import Any
 
 from src.common.knowledge_tree.bootstrap import (
-    BootstrapReport,
+    BootstrapReport as BootstrapReport,
+)
+from src.common.knowledge_tree.bootstrap import (
     bootstrap_from_directory,
 )
 from src.common.knowledge_tree.config import KnowledgeTreeConfig
@@ -37,7 +41,7 @@ _kt_cache: dict[str, KnowledgeTree] = {}
 
 
 def get_or_create_kt(
-    ctx_or_config: Union[Any, KnowledgeTreeConfig],
+    ctx_or_config: Any | KnowledgeTreeConfig,
 ) -> KnowledgeTree:
     """从全局缓存获取或创建 KnowledgeTree 实例。
 
@@ -71,12 +75,16 @@ def get_or_create_kt(
             result = kt.bootstrap()
             elapsed = _time.perf_counter() - t0
             if result.get("ok") and not result.get("skipped"):
-                logger.info("Auto-bootstrapped knowledge tree (%.2fs): %s", elapsed, result)
+                logger.info(
+                    "Auto-bootstrapped knowledge tree (%.2fs): %s", elapsed, result
+                )
             else:
                 logger.debug("KT init (%.2fs): bootstrap skipped", elapsed)
         except Exception as e:
             elapsed = _time.perf_counter() - t0
-            logger.warning("Auto-bootstrap failed (%.2fs, tree starts empty): %s", elapsed, e)
+            logger.warning(
+                "Auto-bootstrap failed (%.2fs, tree starts empty): %s", elapsed, e
+            )
     else:
         logger.debug("KT init: no seed directory at %s", config.markdown_root)
     _kt_cache[cache_key] = kt
@@ -108,7 +116,10 @@ class KnowledgeTree:
             from src.common.knowledge_tree.embedding.semantic import (
                 create_semantic_embedder,
             )
-            semantic = create_semantic_embedder(config.embedding_model, config.embedding_dimension)
+
+            semantic = create_semantic_embedder(
+                config.embedding_model, config.embedding_dimension
+            )
             if semantic is not None:
                 self.embedder = semantic
                 # 语义 embedder 使用更高阈值
@@ -122,7 +133,9 @@ class KnowledgeTree:
                 self.embedder = _default_embedder(config.embedding_dimension)
 
         # 两层存储
-        self.md_store = MarkdownStore(config.markdown_root, on_change=self._on_fs_change)
+        self.md_store = MarkdownStore(
+            config.markdown_root, on_change=self._on_fs_change
+        )
         self.vector_store = InMemoryVectorStore(dimension=config.embedding_dimension)
 
         # Overlay JSON
@@ -143,7 +156,9 @@ class KnowledgeTree:
 
             _refresh_anchor(directory, self.md_store, self.vector_store)
 
-    def retrieve(self, query: str) -> tuple[list[tuple[KnowledgeNode, float]], RetrievalLog]:
+    def retrieve(
+        self, query: str
+    ) -> tuple[list[tuple[KnowledgeNode, float]], RetrievalLog]:
         """RAG 向量检索（主检索路径）。
 
         Args:
@@ -175,7 +190,7 @@ class KnowledgeTree:
 
         self._retrieval_logs.append(log)
         if len(self._retrieval_logs) > self._max_retrieval_logs:
-            self._retrieval_logs = self._retrieval_logs[-self._max_retrieval_logs:]
+            self._retrieval_logs = self._retrieval_logs[-self._max_retrieval_logs :]
         return results, log
 
     def status(self) -> dict[str, Any]:
@@ -195,7 +210,9 @@ class KnowledgeTree:
             "anchor_directories": [a.directory for a in anchors if a.directory],
         }
 
-    def record_feedback(self, query_id: str, satisfaction: bool, feedback: str = "") -> None:
+    def record_feedback(
+        self, query_id: str, satisfaction: bool, feedback: str = ""
+    ) -> None:
         """记录 Agent 对检索结果的反馈。"""
         for log in self._retrieval_logs:
             if log.query_id == query_id:
@@ -313,6 +330,7 @@ def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
     注意：此 embedder 的余弦相似度低于语义嵌入，
     检索阈值应适当降低（建议 0.15-0.30）。
     """
+
     def _stable_hash(s: str) -> int:
         """稳定的字符串哈希（跨 Python 版本一致）。"""
         h = 5381
@@ -337,6 +355,7 @@ def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
         if mag > 0:
             vec = [x / mag for x in vec]
         return vec
+
     return embed
 
 
@@ -359,14 +378,18 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
     def _sync_retrieve(query: str) -> str:
         results, log = get_or_create_kt(config).retrieve(query)
         if not results:
-            return json.dumps({
-                "ok": False,
-                "message": "No results found",
-                "query_id": log.query_id,
-            })
+            return json.dumps(
+                {
+                    "ok": False,
+                    "message": "No results found",
+                    "query_id": log.query_id,
+                }
+            )
         top_node, top_score = results[0]
         # 质量标记：帮助 Supervisor 判断检索结果的可信度
-        quality = "high" if top_score >= 0.5 else ("medium" if top_score >= 0.25 else "low")
+        quality = (
+            "high" if top_score >= 0.5 else ("medium" if top_score >= 0.25 else "low")
+        )
         response = {
             "ok": True,
             "source": "rag",
@@ -387,13 +410,16 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
 
     def _sync_ingest(text: str, trigger: str, source: str) -> str:
         report = get_or_create_kt(config).ingest(text, trigger=trigger, source=source)
-        return json.dumps({
-            "ok": True,
-            "nodes_ingested": report.nodes_ingested,
-            "nodes_deduplicated": report.nodes_deduplicated,
-            "nodes_filtered": report.nodes_filtered,
-            "errors": report.errors,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "nodes_ingested": report.nodes_ingested,
+                "nodes_deduplicated": report.nodes_deduplicated,
+                "nodes_filtered": report.nodes_filtered,
+                "errors": report.errors,
+            },
+            ensure_ascii=False,
+        )
 
     def _sync_status() -> str:
         kt = get_or_create_kt(config)
@@ -408,18 +434,23 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             nodes = [n for n in nodes if n.directory == directory]
         items = []
         for n in nodes:
-            items.append({
-                "node_id": n.node_id,
-                "title": n.title,
-                "directory": n.directory,
-                "created_at": n.created_at,
-                "content_preview": n.content[:80] if n.content else "",
-            })
-        return json.dumps({
-            "ok": True,
-            "total": len(items),
-            "items": items,
-        }, ensure_ascii=False)
+            items.append(
+                {
+                    "node_id": n.node_id,
+                    "title": n.title,
+                    "directory": n.directory,
+                    "created_at": n.created_at,
+                    "content_preview": n.content[:80] if n.content else "",
+                }
+            )
+        return json.dumps(
+            {
+                "ok": True,
+                "total": len(items),
+                "items": items,
+            },
+            ensure_ascii=False,
+        )
 
     # -- async 工具 --
 

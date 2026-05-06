@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,9 @@ def create_semantic_embedder(
             "Falling back to hash embedder. "
             "To cache the model: run `python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('%s')\"` "
             "with a working network connection.",
-            model_name, e, model_name,
+            model_name,
+            e,
+            model_name,
         )
         return None
 
@@ -58,7 +60,9 @@ def create_semantic_embedder(
     if actual_dim != dimension:
         logger.info(
             "Embedding model '%s' outputs %d-dim vectors (config says %d). Using actual dimension.",
-            model_name, actual_dim, dimension,
+            model_name,
+            actual_dim,
+            dimension,
         )
 
     lock = threading.Lock()

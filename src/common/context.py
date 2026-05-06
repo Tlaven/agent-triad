@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Annotated, Any, Mapping
+from typing import Annotated, Any
 
 from .context_model_defaults import DEFAULT_SUPERVISOR_MODEL, MODEL_DEFAULTS
 
@@ -16,13 +17,15 @@ class Context:
     环境变量仅在 `__post_init__` 中用于填充默认字段，各 Agent 节点只读 `runtime.context`，不直接读 `os.environ`。
     """
 
-    supervisor_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
-        default=MODEL_DEFAULTS["supervisor_model"],
-        metadata={
-            "description": "The name of the language model to use for the supervisor agent. "
-            "Should be in the form: provider:model-name.",
-            "json_schema_extra": {"langgraph_nodes": ["call_model"]},
-        },
+    supervisor_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = (
+        field(
+            default=MODEL_DEFAULTS["supervisor_model"],
+            metadata={
+                "description": "The name of the language model to use for the supervisor agent. "
+                "Should be in the form: provider:model-name.",
+                "json_schema_extra": {"langgraph_nodes": ["call_model"]},
+            },
+        )
     )
 
     planner_model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
@@ -246,22 +249,22 @@ class Context:
         default=180.0,
         metadata={
             "description": "Wall-clock timeout in seconds for a single Executor LLM call. "
-                           "Exceeding this terminates the executor process. 0 disables.",
+            "Exceeding this terminates the executor process. 0 disables.",
         },
     )
     executor_tool_timeout: float = field(
         default=300.0,
         metadata={
             "description": "Wall-clock timeout in seconds for Executor tools_node execution. "
-                           "Exceeding this returns a timeout warning to the LLM. 0 disables.",
+            "Exceeding this returns a timeout warning to the LLM. 0 disables.",
         },
     )
     executor_wait_timeout: float = field(
         default=300.0,
         metadata={
             "description": "Wall-clock timeout in seconds for Supervisor to wait for Executor "
-                           "result (call_executor wait_for_result=True / manage_executor). "
-                           "Should be > executor_call_model_timeout to avoid premature kills.",
+            "result (call_executor wait_for_result=True / manage_executor). "
+            "Should be > executor_call_model_timeout to avoid premature kills.",
         },
     )
 
@@ -284,7 +287,9 @@ class Context:
     )
     kt_rag_similarity_threshold: float = field(
         default=0.15,
-        metadata={"description": "Similarity threshold for RAG retrieval. Lower for hash embedder (0.15), higher for semantic embedder (0.7)."},
+        metadata={
+            "description": "Similarity threshold for RAG retrieval. Lower for hash embedder (0.15), higher for semantic embedder (0.7)."
+        },
     )
     kt_embedding_model: str = field(
         default="BAAI/bge-small-zh-v1.5",
@@ -310,11 +315,15 @@ class Context:
     )
     kt_dedup_threshold: float = field(
         default=0.95,
-        metadata={"description": "Cosine similarity threshold for deduplication (skip if above)."},
+        metadata={
+            "description": "Cosine similarity threshold for deduplication (skip if above)."
+        },
     )
     kt_ingest_attach_threshold: float = field(
         default=0.7,
-        metadata={"description": "Similarity threshold to attach to existing directory vs create new."},
+        metadata={
+            "description": "Similarity threshold to attach to existing directory vs create new."
+        },
     )
 
     # --- V4: Knowledge Tree — P2 混合向量 ---
@@ -330,7 +339,9 @@ class Context:
     # --- V4: Knowledge Tree — P3 优化闭环 ---
     kt_optimization_window: int = field(
         default=3600,
-        metadata={"description": "Time window in seconds for optimization frequency cap."},
+        metadata={
+            "description": "Time window in seconds for optimization frequency cap."
+        },
     )
     kt_max_optimizations_per_window: int = field(
         default=10,
@@ -338,7 +349,9 @@ class Context:
     )
     kt_total_failure_threshold: int = field(
         default=3,
-        metadata={"description": "Total retrieval failure count threshold per query pattern."},
+        metadata={
+            "description": "Total retrieval failure count threshold per query pattern."
+        },
     )
     kt_rag_false_positive_threshold: int = field(
         default=3,
@@ -416,7 +429,10 @@ class Context:
         )
         if supervisor_tv_field is None:
             return
-        if getattr(self, "supervisor_thinking_visibility") == supervisor_tv_field.default:
+        if (
+            getattr(self, "supervisor_thinking_visibility")
+            == supervisor_tv_field.default
+        ):
             self.supervisor_thinking_visibility = legacy_tv.strip()
 
     def get_agent_llm_kwargs(self, agent: str) -> dict[str, Any]:
@@ -431,10 +447,30 @@ class Context:
 
         kwargs: dict[str, Any] = {}
         sampling_rules = (
-            ("temperature", -1.0, lambda value: isinstance(value, (int, float)) and value >= 0, float),
-            ("top_p", -1.0, lambda value: isinstance(value, (int, float)) and value >= 0, float),
-            ("max_tokens", 0, lambda value: isinstance(value, int) and value > 0, lambda value: value),
-            ("seed", -1, lambda value: isinstance(value, int) and value >= 0, lambda value: value),
+            (
+                "temperature",
+                -1.0,
+                lambda value: isinstance(value, (int, float)) and value >= 0,
+                float,
+            ),
+            (
+                "top_p",
+                -1.0,
+                lambda value: isinstance(value, (int, float)) and value >= 0,
+                float,
+            ),
+            (
+                "max_tokens",
+                0,
+                lambda value: isinstance(value, int) and value > 0,
+                lambda value: value,
+            ),
+            (
+                "seed",
+                -1,
+                lambda value: isinstance(value, int) and value >= 0,
+                lambda value: value,
+            ),
         )
         for param_name, default_value, validator, converter in sampling_rules:
             value = getattr(self, f"{prefix}_{param_name}", default_value)

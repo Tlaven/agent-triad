@@ -87,4 +87,3 @@ def get_planner_system_prompt(executor_capabilities: str) -> str:
     return _PLANNER_SYSTEM_PROMPT_TEMPLATE.replace(
         "{executor_capabilities}", executor_capabilities
     )
-

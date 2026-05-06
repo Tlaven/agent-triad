@@ -1,7 +1,8 @@
 """MCP 客户端设置和管理模块，用于 LangGraph ReAct Agent。"""
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from langchain_mcp_adapters.client import (  # type: ignore[import-untyped]
     MultiServerMCPClient,
@@ -10,8 +11,8 @@ from langchain_mcp_adapters.client import (  # type: ignore[import-untyped]
 logger = logging.getLogger(__name__)
 
 # 全局 MCP 客户端和工具缓存
-_mcp_client: Optional[MultiServerMCPClient] = None
-_mcp_tools_cache: Dict[str, List[Callable[..., Any]]] = {}
+_mcp_client: MultiServerMCPClient | None = None
+_mcp_tools_cache: dict[str, list[Callable[..., Any]]] = {}
 
 # MCP 服务器配置
 MCP_SERVERS = {
@@ -28,8 +29,8 @@ MCP_SERVERS = {
 
 
 async def get_mcp_client(
-    server_configs: Optional[Dict[str, Any]] = None,
-) -> Optional[MultiServerMCPClient]:
+    server_configs: dict[str, Any] | None = None,
+) -> MultiServerMCPClient | None:
     """获取或初始化 MCP 客户端。
 
     如果传入了 server_configs，则为指定的服务器创建一个新的客户端。
@@ -51,14 +52,16 @@ async def get_mcp_client(
     if _mcp_client is None:
         try:
             _mcp_client = MultiServerMCPClient(MCP_SERVERS)  # pyright: ignore[reportArgumentType]
-            logger.info(f"已初始化全局 MCP 客户端，包含服务器: {list(MCP_SERVERS.keys())}")
+            logger.info(
+                f"已初始化全局 MCP 客户端，包含服务器: {list(MCP_SERVERS.keys())}"
+            )
         except Exception as e:
             logger.error(f"初始化全局 MCP 客户端失败: {e}")
             return None
     return _mcp_client
 
 
-async def get_mcp_tools(server_name: str) -> List[Callable[..., Any]]:
+async def get_mcp_tools(server_name: str) -> list[Callable[..., Any]]:
     """获取指定 MCP 服务器的工具，会在必要时初始化客户端。"""
     global _mcp_tools_cache
 
@@ -82,7 +85,7 @@ async def get_mcp_tools(server_name: str) -> List[Callable[..., Any]]:
 
         # 获取该服务器的所有工具
         all_tools = await client.get_tools()
-        tools = cast(List[Callable[..., Any]], all_tools)
+        tools = cast(list[Callable[..., Any]], all_tools)
 
         _mcp_tools_cache[server_name] = tools
         logger.info(f"已从 MCP 服务器 '{server_name}' 加载 {len(tools)} 个工具")
@@ -93,12 +96,12 @@ async def get_mcp_tools(server_name: str) -> List[Callable[..., Any]]:
         return []
 
 
-async def get_deepwiki_tools() -> List[Callable[..., Any]]:
+async def get_deepwiki_tools() -> list[Callable[..., Any]]:
     """获取 DeepWiki MCP 工具。"""
     return await get_mcp_tools("deepwiki")
 
 
-async def get_all_mcp_tools() -> List[Callable[..., Any]]:
+async def get_all_mcp_tools() -> list[Callable[..., Any]]:
     """获取所有已配置 MCP 服务器的全部工具。"""
     all_tools = []
     for server_name in MCP_SERVERS.keys():
@@ -107,7 +110,7 @@ async def get_all_mcp_tools() -> List[Callable[..., Any]]:
     return all_tools
 
 
-async def get_readonly_mcp_tools(context: Any = None) -> List[Callable[..., Any]]:
+async def get_readonly_mcp_tools(context: Any = None) -> list[Callable[..., Any]]:
     """获取共享的只读 MCP 工具（Planner 和 Executor 均可绑定这些工具）。
 
     当前仅聚合外部 MCP（例如 DeepWiki）。
@@ -116,13 +119,13 @@ async def get_readonly_mcp_tools(context: Any = None) -> List[Callable[..., Any]
     if context is None:
         return await get_all_mcp_tools()
 
-    tools: List[Callable[..., Any]] = []
+    tools: list[Callable[..., Any]] = []
     if bool(getattr(context, "enable_deepwiki", False)):
         tools.extend(await get_deepwiki_tools())
     return tools
 
 
-def add_mcp_server(name: str, config: Dict[str, Any]) -> None:
+def add_mcp_server(name: str, config: dict[str, Any]) -> None:
     """添加一个新的 MCP 服务器配置。"""
     MCP_SERVERS[name] = config
     # 清空客户端缓存，强制使用新配置重新初始化

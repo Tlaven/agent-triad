@@ -56,7 +56,7 @@ class ExecutorPoller:
 
     def __init__(
         self,
-        mailbox: "Mailbox",
+        mailbox: Mailbox,
         interval: float = 1.5,
         max_concurrent: int = 5,
         max_staleness: float = 300.0,
@@ -93,9 +93,7 @@ class ExecutorPoller:
         """Launch the background polling loop (idempotent)."""
         if self._task is not None and not self._task.done():
             return
-        self._task = asyncio.create_task(
-            self._poll_loop(), name="executor-poller"
-        )
+        self._task = asyncio.create_task(self._poll_loop(), name="executor-poller")
         logger.info("ExecutorPoller started (interval=%.1fs)", self._interval)
 
     async def stop(self) -> None:
@@ -180,7 +178,7 @@ class ExecutorPoller:
                         await asyncio.wait_for(
                             self._force_event.wait(), timeout=self._interval
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pass
                     self._force_event.clear()
 
@@ -233,7 +231,9 @@ class ExecutorPoller:
             logger.warning(
                 "ExecutorPoller: plan_id=%s registration stale (%.0fs > %.0fs), "
                 "auto-unregistering with synthetic failure",
-                plan_id, age, self._max_staleness,
+                plan_id,
+                age,
+                self._max_staleness,
             )
             await self._post_synthetic_failure(
                 plan_id, "Executor registration timed out (stale)"
@@ -246,7 +246,8 @@ class ExecutorPoller:
             logger.warning(
                 "ExecutorPoller: plan_id=%s exceeded %d consecutive failures, "
                 "auto-unregistering with synthetic failure",
-                plan_id, reg.consecutive_failures,
+                plan_id,
+                reg.consecutive_failures,
             )
             await self._post_synthetic_failure(
                 plan_id, "Executor unreachable (consecutive poll failures)"
@@ -292,7 +293,9 @@ class ExecutorPoller:
                 )
 
     async def _post_synthetic_failure(
-        self, plan_id: str, reason: str,
+        self,
+        plan_id: str,
+        reason: str,
     ) -> None:
         """Post synthetic failure to Mailbox for stale or unreachable plan."""
         from src.common.mailbox import MailboxItem
@@ -323,5 +326,6 @@ class ExecutorPoller:
         )
         logger.info(
             "ExecutorPoller: synthetic failure posted for plan_id=%s: %s",
-            plan_id, reason,
+            plan_id,
+            reason,
         )

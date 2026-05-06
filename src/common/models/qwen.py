@@ -1,7 +1,7 @@
 """Qwen model integrations for ReAct agent."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 from langchain_qwq import ChatQwen, ChatQwQ
 
@@ -10,11 +10,11 @@ from ..utils import normalize_region
 
 def create_qwen_model(
     model_name: str,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
-    region: Optional[str] = None,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    region: str | None = None,
     **kwargs: Any,
-) -> Union[ChatQwQ, ChatQwen]:
+) -> ChatQwQ | ChatQwen:
     """Create a Qwen model with proper configuration.
 
     Args:

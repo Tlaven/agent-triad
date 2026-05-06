@@ -7,8 +7,8 @@ V4: 目录层级 = 树结构。每个 Markdown 文件是一个知识节点，
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
-from typing import Callable
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 
@@ -36,7 +36,9 @@ class MarkdownStore:
             self.root.mkdir(parents=True, exist_ok=True)
             self._initialized = True
 
-    def _safe_relative_path(self, relative_id: str, *, allow_empty: bool = False) -> Path:
+    def _safe_relative_path(
+        self, relative_id: str, *, allow_empty: bool = False
+    ) -> Path:
         """将知识树相对 ID 解析为 root 内路径，拒绝越界和平台相关分隔符。"""
         if "\\" in relative_id:
             raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")
@@ -44,7 +46,9 @@ class MarkdownStore:
         posix_path = PurePosixPath(relative_id)
         if not allow_empty and (not relative_id or str(posix_path) == "."):
             raise ValueError("Knowledge tree path must not be empty")
-        if posix_path.is_absolute() or any(part in {"..", ""} for part in posix_path.parts):
+        if posix_path.is_absolute() or any(
+            part in {"..", ""} for part in posix_path.parts
+        ):
             raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")
         if any(":" in part for part in posix_path.parts):
             raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")

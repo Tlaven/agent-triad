@@ -6,7 +6,7 @@ import operator
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Annotated, Any, List, Literal, cast
+from typing import Annotated, Any, Literal, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
@@ -20,23 +20,28 @@ from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.tools import apply_context_workspace_root
 from src.common.utils import invoke_chat_model, load_chat_model
-
-from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
-from src.executor_agent.tools import get_executor_tools
 from src.executor_agent.interrupt import (
-    set_current_plan_id,
-    clear_current_plan_id,
     INTERRUPT_PROMPT,
+    clear_current_plan_id,
+    set_current_plan_id,
 )
+from src.executor_agent.prompts import (
+    get_executor_system_prompt,
+    get_reflection_system_prompt,
+)
+from src.executor_agent.tools import get_executor_tools
 
 logger = logging.getLogger(__name__)
 
 
 # ==================== State ====================
 
+
 @dataclass
 class ExecutorState:
-    messages: Annotated[List[BaseMessage], lambda x, y: x + y] = field(default_factory=list)
+    messages: Annotated[list[BaseMessage], lambda x, y: x + y] = field(
+        default_factory=list
+    )
     is_last_step: IsLastStep = field(default=False)  # type: ignore[assignment]
     tool_rounds: Annotated[int, operator.add] = 0
     reflection_interval: int = 0
@@ -44,6 +49,7 @@ class ExecutorState:
 
 
 # ==================== 返回值结构体 ====================
+
 
 @dataclass
 class ExecutorResult:
@@ -73,7 +79,10 @@ async def _load_executor_tools(ctx: Context) -> list[object]:
 
 # ==================== 节点 ====================
 
-async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
+
+async def call_executor(
+    state: ExecutorState, runtime: Runtime[Context]
+) -> dict[str, Any]:
     """Executor 核心节点：ReAct 循环的 LLM 调用。
 
     在子进程服务模式下：每次调用 LLM 前检查停止标志；若已设置则返回
@@ -84,17 +93,22 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
     if plan_id:
         try:
             from src.executor_agent.server import _stop_events
+
             stop_event = _stop_events.get(plan_id)
             if stop_event and stop_event.is_set():
-                logger.info("Stop flag detected for plan_id=%s, exiting gracefully", plan_id)
+                logger.info(
+                    "Stop flag detected for plan_id=%s, exiting gracefully", plan_id
+                )
                 return {
                     "messages": [
                         AIMessage(
-                            content=json.dumps({
-                                "status": "failed",
-                                "summary": "Executor stopped by Supervisor",
-                                "updated_plan": {},
-                            })
+                            content=json.dumps(
+                                {
+                                    "status": "failed",
+                                    "summary": "Executor stopped by Supervisor",
+                                    "updated_plan": {},
+                                }
+                            )
                         )
                     ]
                 }
@@ -116,7 +130,10 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
             response = await asyncio.wait_for(
                 invoke_chat_model(
                     model,
-                    [{"role": "system", "content": executor_system_prompt}, *state.messages],
+                    [
+                        {"role": "system", "content": executor_system_prompt},
+                        *state.messages,
+                    ],
                     enable_streaming=runtime.context.enable_llm_streaming,
                 ),
                 timeout=llm_timeout,
@@ -124,13 +141,18 @@ async def call_executor(state: ExecutorState, runtime: Runtime[Context]) -> dict
         else:
             response = await invoke_chat_model(
                 model,
-                [{"role": "system", "content": executor_system_prompt}, *state.messages],
+                [
+                    {"role": "system", "content": executor_system_prompt},
+                    *state.messages,
+                ],
                 enable_streaming=runtime.context.enable_llm_streaming,
             )
         response = cast(AIMessage, response)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Executor LLM call timed out (%.0fs), aborting", llm_timeout)
-        raise RuntimeError(f"Executor LLM 调用超时（{llm_timeout:.0f}秒），进程将被终止")
+        raise RuntimeError(
+            f"Executor LLM 调用超时（{llm_timeout:.0f}秒），进程将被终止"
+        )
 
     # 达到最大步数时强制终止工具调用
     if state.is_last_step and response.tool_calls:
@@ -171,8 +193,11 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
                     tool_node.ainvoke(state),
                     timeout=tool_timeout,
                 )
-            except asyncio.TimeoutError:
-                logger.warning("Executor tools_node timed out (%.0fs), returning partial", tool_timeout)
+            except TimeoutError:
+                logger.warning(
+                    "Executor tools_node timed out (%.0fs), returning partial",
+                    tool_timeout,
+                )
                 # Return timeout warning as a ToolMessage so the LLM can summarize
                 last_ai = None
                 for m in reversed(state.messages):
@@ -182,16 +207,20 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
                 out_msgs: list[BaseMessage] = []
                 if last_ai and last_ai.tool_calls:
                     for tc in last_ai.tool_calls:
-                        out_msgs.append(ToolMessage(
-                            content=f"[工具执行超时] 工具 {tc.get('name', '?')} 执行超过 {tool_timeout:.0f} 秒被强制中断。"
-                                    f"请根据已获取的部分信息输出执行摘要。",
-                            tool_call_id=tc.get("id", ""),
-                        ))
+                        out_msgs.append(
+                            ToolMessage(
+                                content=f"[工具执行超时] 工具 {tc.get('name', '?')} 执行超过 {tool_timeout:.0f} 秒被强制中断。"
+                                f"请根据已获取的部分信息输出执行摘要。",
+                                tool_call_id=tc.get("id", ""),
+                            )
+                        )
                 if not out_msgs:
-                    out_msgs.append(HumanMessage(
-                        content=f"[系统超时] 工具执行总耗时超过 {tool_timeout:.0f} 秒。"
-                                f"请立即停止调用工具，根据已有信息输出执行摘要。"
-                    ))
+                    out_msgs.append(
+                        HumanMessage(
+                            content=f"[系统超时] 工具执行总耗时超过 {tool_timeout:.0f} 秒。"
+                            f"请立即停止调用工具，根据已有信息输出执行摘要。"
+                        )
+                    )
                 return {"messages": out_msgs, "tool_rounds": 1}
         else:
             result = await tool_node.ainvoke(state)
@@ -213,10 +242,12 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
 
     # If a tool was interrupted, inject stop prompt so LLM terminates naturally
     if has_interrupt:
-        out.append(HumanMessage(
-            content="[系统中断] Supervisor 已发出停止指令。请立即停止调用任何工具，"
-                    "根据已有信息输出执行摘要，包含 status 字段为 stopped。"
-        ))
+        out.append(
+            HumanMessage(
+                content="[系统中断] Supervisor 已发出停止指令。请立即停止调用任何工具，"
+                "根据已有信息输出执行摘要，包含 status 字段为 stopped。"
+            )
+        )
 
     return {"messages": out, "tool_rounds": 1}
 
@@ -224,9 +255,7 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
 def route_executor_output(state: ExecutorState) -> Literal["__end__", "tools"]:
     last_message = state.messages[-1]
     if not isinstance(last_message, AIMessage):
-        raise ValueError(
-            f"路由时期望 AIMessage，但收到 {type(last_message).__name__}"
-        )
+        raise ValueError(f"路由时期望 AIMessage，但收到 {type(last_message).__name__}")
     if not last_message.tool_calls:
         return "__end__"
     return "tools"
@@ -241,7 +270,9 @@ def route_after_tools(state: ExecutorState) -> Literal["reflection", "call_execu
     return "call_executor"
 
 
-async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[str, Any]:
+async def reflection_node(
+    state: ExecutorState, runtime: Runtime[Context]
+) -> dict[str, Any]:
     """中途 Reflection：产出 paused 结构化结果并结束本轮 Executor。"""
     prompt = get_reflection_system_prompt()
     model = load_chat_model(
@@ -266,7 +297,7 @@ async def reflection_node(state: ExecutorState, runtime: Runtime[Context]) -> di
                 enable_streaming=runtime.context.enable_llm_streaming,
             )
         response = cast(AIMessage, raw_response)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Reflection LLM call timed out (%.0fs), aborting", llm_timeout)
         raise RuntimeError(
             f"Reflection LLM 调用超时（{llm_timeout:.0f}秒），进程将被终止"
@@ -299,6 +330,7 @@ executor_graph = builder.compile(name="Executor Agent")
 
 # ==================== 辅助函数：解析最终输出 ====================
 
+
 def _extract_plan_id_from_messages(messages: list[BaseMessage]) -> str:
     """Extract plan_id from the first HumanMessage containing plan JSON."""
     for msg in messages:
@@ -313,7 +345,10 @@ def _extract_plan_id_from_messages(messages: list[BaseMessage]) -> str:
             continue
     return ""
 
-def _normalize_executor_status_token(s: str) -> Literal["completed", "failed", "paused"] | None:
+
+def _normalize_executor_status_token(
+    s: str,
+) -> Literal["completed", "failed", "paused"] | None:
     """Map a single status token (no composite placeholders)."""
     if not s:
         return None
@@ -345,7 +380,9 @@ def _normalize_executor_status_token(s: str) -> Literal["completed", "failed", "
     return None
 
 
-def _normalize_executor_status(raw: Any) -> Literal["completed", "failed", "paused"] | None:
+def _normalize_executor_status(
+    raw: Any,
+) -> Literal["completed", "failed", "paused"] | None:
     """Map model status strings to completed/failed, or None if unrecognized."""
     if raw is True:
         return "completed"
@@ -506,6 +543,7 @@ def _extract_executor_payload(content: str) -> dict[str, Any] | None:
             return {"status": normalized}
     return None
 
+
 def _parse_executor_output(content: str) -> ExecutorResult:
     """从 Executor 最终 AIMessage 中解析结构化结果。
 
@@ -552,7 +590,7 @@ def _parse_executor_output(content: str) -> ExecutorResult:
     )
 
 
-def _executor_final_text_from_messages(messages: List[BaseMessage]) -> str | None:
+def _executor_final_text_from_messages(messages: list[BaseMessage]) -> str | None:
     """取用于解析 Executor 最终结果的文本：优先无 tool_calls 的最后一条 AIMessage。
 
     避免把中间轮「我要调用工具」的短句当成最终结果，从而漏掉随后一轮的 ```json```。
@@ -592,6 +630,7 @@ def _flatten_ai_message_content(content: Any) -> str:
 
 
 # ==================== 对外暴露的运行函数 ====================
+
 
 async def run_executor(
     plan_json: str,

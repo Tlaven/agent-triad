@@ -108,4 +108,3 @@ _REFLECTION_SYSTEM_PROMPT = """你是 Executor 的 Reflection 节点。
 def get_reflection_system_prompt() -> str:
     """Reflection 节点系统提示（Executor 中途暂停上报）。"""
     return _REFLECTION_SYSTEM_PROMPT
-

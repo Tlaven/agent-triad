@@ -25,9 +25,9 @@ class NormalizedObservation:
 
 # ====================== 智能截断相关配置 ======================
 
-_DEFAULT_HEAD_RATIO = 0.55          # 头部占比（稍偏尾部，更容易看到最终结果/错误）
-_LINE_BREAK_WINDOW = 200            # 寻找自然断行点的窗口大小（字符）
-_MIN_TAIL_CHARS = 150               # 最小保留尾部字符数（确保能看到关键的错误/总结）
+_DEFAULT_HEAD_RATIO = 0.55  # 头部占比（稍偏尾部，更容易看到最终结果/错误）
+_LINE_BREAK_WINDOW = 200  # 寻找自然断行点的窗口大小（字符）
+_MIN_TAIL_CHARS = 150  # 最小保留尾部字符数（确保能看到关键的错误/总结）
 
 
 def _serialize_tool_result(result: Any) -> str:
@@ -63,7 +63,9 @@ def normalize_observation(
         context.enable_observation_offload
         and n > context.observation_offload_threshold_chars
     ):
-        rel_dir = (context.observation_workspace_dir or "workspace/agent/.observations").strip()
+        rel_dir = (
+            context.observation_workspace_dir or "workspace/agent/.observations"
+        ).strip()
         abs_dir = os.path.abspath(os.path.join(base_cwd, rel_dir))
         os.makedirs(abs_dir, exist_ok=True)
         fname = f"{uuid.uuid4().hex}.txt"
@@ -216,7 +218,11 @@ def normalize_tool_message_content(
         for block in content:
             if isinstance(block, str):
                 parts.append(block)
-            elif isinstance(block, dict) and block.get("type") == "text" and "text" in block:
+            elif (
+                isinstance(block, dict)
+                and block.get("type") == "text"
+                and "text" in block
+            ):
                 parts.append(str(block["text"]))
             else:
                 parts.append(json.dumps(block, ensure_ascii=False, default=str))

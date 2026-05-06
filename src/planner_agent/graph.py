@@ -4,7 +4,6 @@
 消息约定：第一条为完整 Planner 系统提示（`_PLANNER_SYSTEM_PROMPT_TEMPLATE`）；第二条为 Supervisor 提供的 **task_core**（须足够详细）；重规划时第三条为带执行状态的 plan JSON。
 """
 
-
 import asyncio
 import json
 import logging
@@ -30,7 +29,6 @@ from src.common.context import Context
 from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.utils import invoke_chat_model, load_chat_model
-
 from src.planner_agent.prompts import get_planner_system_prompt
 from src.planner_agent.state import PlannerState
 from src.planner_agent.tools import get_planner_tools
@@ -42,8 +40,9 @@ logger = logging.getLogger(__name__)
 class PlannerOutput:
     """Planner 一次调用的完整返回。"""
 
-    plan_json: str       # 规范化后的 Plan JSON 字符串
-    reasoning: str       # Planner 的分析推理原文（JSON 代码块之前的部分）
+    plan_json: str  # 规范化后的 Plan JSON 字符串
+    reasoning: str  # Planner 的分析推理原文（JSON 代码块之前的部分）
+
 
 def build_planner_messages(
     task_core: str,
@@ -101,7 +100,9 @@ async def _load_planner_tools(ctx: Context) -> list[object]:
     return tools
 
 
-async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[str, list[BaseMessage]]:
+async def call_planner(
+    state: PlannerState, runtime: Runtime[Context]
+) -> dict[str, list[BaseMessage]]:
     """Planner 核心节点：ReAct 循环；最终应产出无 tool_calls 的 Plan JSON 文本。"""
     ctx = replace(runtime.context, readonly_tools_only=True)
     tools = await _load_planner_tools(ctx)
@@ -126,7 +127,9 @@ async def call_planner(state: PlannerState, runtime: Runtime[Context]) -> dict[s
     return {"messages": [response]}
 
 
-async def planner_tools_node(state: PlannerState, runtime: Runtime[Context]) -> dict[str, list[BaseMessage]]:
+async def planner_tools_node(
+    state: PlannerState, runtime: Runtime[Context]
+) -> dict[str, list[BaseMessage]]:
     """执行 Planner 侧工具调用，并对 Observation 做统一规范化。"""
     ctx = replace(runtime.context, readonly_tools_only=True)
     tools = await _load_planner_tools(ctx)
@@ -184,7 +187,11 @@ def _final_planner_text_from_messages(messages: list[BaseMessage]) -> str:
             for block in c:
                 if isinstance(block, str):
                     parts.append(block)
-                elif isinstance(block, dict) and block.get("type") == "text" and "text" in block:
+                elif (
+                    isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and "text" in block
+                ):
                     parts.append(str(block["text"]))
             return "\n".join(parts).strip()
     raise RuntimeError("Planner 未产生最终文本输出（缺少无 tool_calls 的 AIMessage）")
@@ -257,16 +264,18 @@ def _split_reasoning_and_json(content: str) -> tuple[str, str]:
     Returns:
         (reasoning, json_text): reasoning 为 JSON 代码块之前的文字；json_text 为提取的 JSON。
     """
-    matches = list(re.finditer(
-        r"```(?:json)?\s*([\s\S]*?)```",
-        content,
-        re.IGNORECASE | re.DOTALL,
-    ))
+    matches = list(
+        re.finditer(
+            r"```(?:json)?\s*([\s\S]*?)```",
+            content,
+            re.IGNORECASE | re.DOTALL,
+        )
+    )
     if len(matches) != 1:
         # 无 JSON 块或多个块 —— 整段都作为 reasoning，原始内容当作 json_text
         return content, content
     match = matches[0]
-    reasoning = content[:match.start()].strip()
+    reasoning = content[: match.start()].strip()
     json_text = match.group(1).strip()
     return reasoning, json_text
 
@@ -305,14 +314,22 @@ def _normalize_planner_output_plan_json(
             previous = {}
 
     normalized_arg_plan_id = (plan_id or "").strip() or None
-    previous_plan_id = previous.get("plan_id") if isinstance(previous.get("plan_id"), str) else None
+    previous_plan_id = (
+        previous.get("plan_id") if isinstance(previous.get("plan_id"), str) else None
+    )
 
     # plan_id 为系统字段：忽略 LLM 输出，始终由上层/历史或本地生成决定。
-    normalized_plan_id = normalized_arg_plan_id or previous_plan_id or _generate_plan_id()
+    normalized_plan_id = (
+        normalized_arg_plan_id or previous_plan_id or _generate_plan_id()
+    )
     parsed["plan_id"] = normalized_plan_id
 
     previous_version = previous.get("version")
-    previous_version = previous_version if isinstance(previous_version, int) and previous_version > 0 else 0
+    previous_version = (
+        previous_version
+        if isinstance(previous_version, int) and previous_version > 0
+        else 0
+    )
 
     # version 为系统字段：忽略 LLM 输出，首次=1，重规划=上一版+1。
     parsed["version"] = previous_version + 1 if previous_plan_id else 1

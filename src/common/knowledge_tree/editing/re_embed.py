@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
 from src.common.knowledge_tree.storage.vector_store import BaseVectorStore
