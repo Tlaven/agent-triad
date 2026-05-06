@@ -345,9 +345,11 @@ test_kt_e2e:        ## L3+L4 完整闭环（需 API key, ~2min）
 
 - 脚本：`tests/e2e/test_comprehensive_server.py`
 - 20 用例 / 4 组独立 thread / 三级验证（L1 工具调用 + L2 输出格式 + L3 副作用）
-- 目标：全部 10 个 Supervisor 工具触发
+- 目标：全部 Supervisor 工具触发
 
 ### 8.2 实测结果
+
+> 以下为工具合并前（10 工具架构）的实测记录。合并为 manage_executor 后的测试见 `tests/e2e/`。
 
 | 组 | 用例 | 结果 | 耗时 | 备注 |
 |----|------|------|------|------|
@@ -372,7 +374,7 @@ test_kt_e2e:        ## L3+L4 完整闭环（需 API key, ~2min）
 | D | D2 executor+replan | PASS | 29s | 一次成功，未触发 replan |
 | D | D3 kt_status | PASS | 14s | total_nodes=5（种子4+摄入1） |
 
-**汇总：20/20 通过（19 PASS + 1 SOFT_PASS），10/10 工具覆盖。**
+**汇总：20/20 通过（19 PASS + 1 SOFT_PASS），10/10 工具覆盖（合并前）。**
 
 ### 8.3 关键发现
 
@@ -398,3 +400,162 @@ A7 重复摄入：`nodes_ingested=0, nodes_deduplicated=1`
 - B4（Mode 3）：Supervisor 自主将 plan 拆分为多个独立 executor 调用，而非单次执行全部 steps
 - B5（check_progress）：Supervisor 倾向于执行任务而非仅查看进度，需要非常明确的指令才能触发 `manage_executor(action="check_progress")`
 - Executor 创建文件时，如果消息中包含 "workspace" 前缀，可能在 `workspace/workspace/` 下创建文件（CWD 已经是 workspace）
+
+---
+
+## 9. Embedding 模型配置
+
+### 9.1 两种 embedder
+
+| | Hash Embedder | Semantic Embedder |
+|---|---|---|
+| **模型** | n-gram 多粒度哈希 | `BAAI/bge-small-zh-v1.5` |
+| **依赖** | 零外部依赖 | `sentence-transformers` + 本地模型缓存 |
+| **维度** | 默认 64 | 512 |
+| **相似度范围** | 0.1-0.5 | 0.5-1.0 |
+| **推荐 RAG 阈值** | 0.15 | 0.5 |
+| **语义理解** | 仅 n-gram 匹配 | 真正语义相似度 |
+| **适用场景** | 日常开发、PRC 网络、CI | 聚类质量验证、去重精度、L2+ 测试 |
+
+### 9.2 配置方式
+
+```bash
+# 方法 1: 命令行（推荐，单次生效）
+uv run chat.py --kt --kt-embedding-model hash ...
+
+# 方法 2: .env（永久生效）
+KT_EMBEDDING_MODEL=hash
+
+# 方法 3: .env 使用语义模型（需先缓存）
+KT_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
+```
+
+### 9.3 语义模型缓存
+
+语义 embedder 使用 `local_files_only=True`，**不会自动下载**。首次使用前需手动缓存：
+
+```bash
+# 在有网络的环境下执行一次
+uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-zh-v1.5')"
+```
+
+缓存后，`ENABLE_KNOWLEDGE_TREE=true` + `KT_EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5` 会自动加载本地模型。
+
+### 9.4 降级机制
+
+```
+配置 "hash"         → 直接用 hash embedder
+配置 "BAAI/..."     → 尝试 SentenceTransformer(model, local_files_only=True)
+                      ├─ 本地有缓存 → 加载成功，自动提高 rag_similarity_threshold
+                      └─ 无缓存     → 立即失败，降级到 hash embedder + 警告日志
+```
+
+降级日志示例：
+```
+WARNING: Failed to load embedding model 'BAAI/bge-small-zh-v1.5': ...
+         Falling back to hash embedder.
+         To cache the model: run `python -c "from sentence_transformers import ...`
+```
+
+---
+
+## 10. L4+ chat.py 脚本实测记录（2026-05）
+
+### 10.1 测试方法
+
+使用 `chat.py --script` 直接调用 `graph.ainvoke()`（非 LangGraph Dev Server），按预定义脚本顺序发送消息。
+
+- 模型：`siliconflow:Pro/MiniMaxAI/MiniMax-M2.5`
+- Embedder：`hash`（n-gram）
+- 4 组并行运行，每组独立 KT 根目录
+
+### 10.2 测试结果
+
+| 组 | 脚本 | 轮次 | 通过 | 耗时 | 关键发现 |
+|----|------|------|------|------|---------|
+| Dedup | `dedup_stress.txt` | 10 | 10/10 | 38.6s | T3 完全相同→去重；T4 改标点→sim=0.85 过滤；T9 跨主题检索正常 |
+| Noise | `noise_antihallucination.txt` | 10 | 10/10 | 44.6s | T3 荒谬查询→"No results found"；T10 不存在内容→低质量/无结果 |
+| Collision | `collision_path.txt` | 11 | 11/11 | 49.8s | 3 条同标题→无覆盖；路径注入→安全存储；Unicode→正确处理 |
+| Executor | `executor_notk.txt` | 5 | 4/5 | 44.5s | T4 读不存在文件→失败报告正确；T5 多步骤任务超时 |
+
+### 10.3 关键发现
+
+#### Hash Embedder 去重边界
+
+- 完全相同内容 → `nodes_deduplicated=1`（去重生效）
+- 仅改标点空格 → sim≈0.85 → 自动过滤（不过阈值 0.95）
+- 换表述但同义 → sim < 0.85 → 正常摄入（hash 不捕捉语义）
+- 不同主题 → 正常摄入，互不干扰
+
+#### 同标题碰撞
+
+3 条标题均为"测试策略"的知识均成功摄入，生成不同 `node_id`（含后缀），无覆盖。
+
+#### 路径注入安全
+
+内容包含 `../escape.md`、`C:/Windows/system32` 等路径样式字符串时，系统按普通文本内容摄入，不写出知识树根目录。
+
+#### 荒谬查询处理
+
+"火星章鱼会用量子锅铲编译月光" → KT 返回 "No results found"，Supervisor 保持保守回答，不编造。
+
+#### Executor 错误路径
+
+读取不存在的文件 → executor 返回 `status="failed"` + 错误描述，Supervisor 正确展示失败信息。
+
+#### 多步骤任务超时（已知限制）
+
+单个 executor 调用中包含多步操作（如"先创建目录再创建文件再读取"）在重模型下容易超过 180s。建议拆为多个单步 executor 调用。
+
+#### HuggingFace 卡死问题（已修复）
+
+`ENABLE_KNOWLEDGE_TREE=true` 但语义模型未缓存时，`graph.ainvoke()` 会因 HuggingFace 连接超时而永久卡死。修复：`SentenceTransformer(model_name, local_files_only=True)`。详见 `tests/TESTING.md` §7。
+
+#### Supervisor 模式判断误触发（已修复）
+
+项目相关的信息查询（如"包管理器叫什么名字"）曾被 LLM 误判为需要执行的任务，触发 call_executor 导致超时。根因：prompt 中的"可多次直接调用 Executor Agent 获取充足信息"鼓励了这种行为。
+
+修复（2026-05-06）：重写意图分析步骤，明确"Executor 是执行工具，不是信息查询工具"，并增加 `[相关知识]` 上下文优先利用规则。
+
+#### Auto-inject 阈值调整（已修复）
+
+原 auto-inject 硬编码 0.6 阈值过高，语义 embedder 下大部分查询 similarity=0.5-0.57，被动召回无法触发。降至 0.4 后，全部 Rung 4-7 测试通过，未发现明显噪声注入问题。
+
+### §11 能力阶梯测试结果（2026-05-06）
+
+**测试配置**：语义 embedder (BAAI/bge-small-zh-v1.5) + auto-inject 阈值 0.4 + MiniMax-M2.5
+
+| Rung | 测试内容 | 结果 | 关键数据 |
+|------|---------|------|---------|
+| 1 | 显式摄入 + 原文检索 | ✅ | sim=0.585 |
+| 2 | + 换措辞检索 | ✅ | sim=0.718（hash 下仅 0.303） |
+| 3 | + 隐式检索 | ✅ | 自动注入，无工具调用 |
+| 4 | + 被动召回（新会话） | ✅ | 2s 内直接回答 |
+| 5 | + 组合记忆 | ✅ | 同时召回 2 条知识 |
+| 6 | + 噪声环境 | ✅ | 8 节点（4 噪声）不影响 |
+| 7 | + 跨轮次衰减 | ✅ | 10 轮填充后全部正确 |
+
+**结论**：
+- 语义 embedder 是被动召回的前提条件（hash sim 最高 ~0.63，大部分 0.3）
+- 0.4 auto-inject 阈值在语义 embedder 下有效且不引入显著噪声
+- 完整测试记录见 `docs/test-findings-kt-capability.md`
+
+### §12 元知识自举测试（2026-05-06）
+
+**测试目标**：验证 KT 存储的行为决策规则能否通过 RAG 自动注入改变 Agent 工具使用行为。
+
+**测试方法**：A/B 对照（空白 KT vs 含元规则 KT），相同查询。
+
+**结果**：
+
+| 场景 | 查询类型 | 元规则注入 | Agent 行为 | 结论 |
+|------|---------|-----------|-----------|------|
+| 主动分享信息 | 对话模式 | ✅ sim=0.598 | 口头确认，无工具调用 | ❌ 不遵循 |
+| KT 检索请求 | 工具使用模式 | ✅ sim=0.689 | ingest+retrieve，"根据规则" | ✅ 遵循 |
+| 配置查询 | 被动召回 | ✅ sim=0.574 | 从 KT 知识直接回答 | ✅ 被动召回有效 |
+
+**核心发现**：元规则能优化已有工具使用模式（操作改进），但不能在非工具场景触发新行为（触发检测）。根因是 LLM 将 [相关知识] 当作背景信息而非行为指令。
+
+**改进方向**：系统提示词级注入 / 独立注入通道 / 常驻元规则 / 工具增强。
+
+详见 `docs/test-findings-kt-capability.md` 元知识自举测试章节。

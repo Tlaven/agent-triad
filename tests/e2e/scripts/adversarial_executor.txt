@@ -1,0 +1,40 @@
+# ═══ 执行器层面压力测试（简化版）═══
+# 目标：测试 Supervisor/Executor 在刁钻场景下的行为
+# 注意：每轮控制在单个 executor 调用内，避免超时
+# 命令：uv run chat.py --kt --kt-embedding-model hash --script tests/e2e/scripts/adversarial_executor.txt --report tests/e2e/results/adversarial_executor.json --turn-timeout 180 --reset-kt-root --kt-root workspace/kt_executor_test
+
+# T1: 简单热身 — Mode 1 直接回复
+简单介绍一下 Python 是什么，两三句话就好。
+
+# T2: Mode 2 单步文件创建 — 验证 executor 基本流程
+请用 call_executor 执行：在 workspace 下创建文件 e2e_basic.txt，内容为"executor basic test passed"。
+
+# T3: 跨轮引用 — 引用前一轮结果
+刚才的执行结果是什么？请告诉我文件是否创建成功。
+
+# T4: 不存在的文件读取 — 触发 executor 错误路径
+请用 call_executor 执行：读取 workspace/nonexistent_xyz_123.txt 文件的内容。
+
+# T5: 深层目录创建 — 路径压力测试
+请用 call_executor 执行：在 workspace 下创建目录 deep/a/b/c/，并在其中创建文件 deep.txt 内容为"deep path ok"。
+
+# T6: 中文特殊字符文件名
+请用 call_executor 执行：创建文件"中文测试_e2e.txt"，内容为"中文文件名测试通过"。
+
+# T7: 模式切换 — 从工具使用回到直接回复
+请简单解释一下什么是 API。
+
+# T8: 紧接工具请求 — 同一会话内切换模式
+现在请用 call_executor 创建文件 mode_switch.txt 内容为"switched successfully"。
+
+# T9: 检索 + 执行联合 — 跨工具协作
+请先检索关于测试策略的知识，然后用 call_executor 创建文件 kt_test.txt 内容为你检索到的第一条知识的标题。
+
+# T10: 极短模糊输入 — 边界测试
+嗯
+
+# T11: KT 摄入 — 验证执行后仍可正常摄入
+请记录到知识树：E2E 执行器测试发现，重模型下单步任务可在 60s 内完成，但多步骤任务容易超时。
+
+# T12: 验证最终摄入
+请检索关于 E2E 执行器测试的知识。

@@ -1,0 +1,35 @@
+{
+  "script": "tests\\e2e\\scripts\\meta_direct.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_meta_treatment",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.592713299905881,
+      "final_response": "\n\n根据项目配置信息：\n\n- **包管理器**：使用 **uv**\n- **开发服务器端口**：2024\n\nuv 是一个现代的 Python 包管理器和构建工具，类似于 pip 但速度更快。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "项目配置是怎样的？包管理器用的什么？"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=120.0",
+      "elapsed": 120.02360199997202,
+      "final_response": null,
+      "input": "项目用 pytest 作为测试框架，测试命令是 make test_unit。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": false,
+    "total_time": 5.592713299905881
+  }
+}

@@ -198,3 +198,146 @@ def test_normalize_plan_id_arg_empty_inputs_return_none(arg) -> None:
 def test_normalize_plan_id_arg_valid_returns_stripped() -> None:
     assert _normalize_plan_id_arg("  plan_abc  ") == "plan_abc"
     assert _normalize_plan_id_arg("plan_xyz") == "plan_xyz"
+
+
+# ---------------------------------------------------------------------------
+# _split_planner_output
+# ---------------------------------------------------------------------------
+
+def test_split_planner_output_with_markers() -> None:
+    from src.supervisor_agent.graph import _split_planner_output
+    content = "prefix[PLANNER_REASONING]\nstep1\nstep2\n[/PLANNER_REASONING]\n{\"goal\":\"x\"}"
+    reasoning, plan = _split_planner_output(content)
+    assert "step1" in reasoning
+    assert "step2" in reasoning
+    assert '{"goal":"x"}' in plan
+
+
+def test_split_planner_output_no_markers() -> None:
+    from src.supervisor_agent.graph import _split_planner_output
+    content = '{"goal":"x","steps":[]}'
+    reasoning, plan = _split_planner_output(content)
+    assert reasoning == ""
+    assert plan == content
+
+
+def test_split_planner_output_empty_markers() -> None:
+    from src.supervisor_agent.graph import _split_planner_output
+    content = "[PLANNER_REASONING][/PLANNER_REASONING]{\"goal\":\"x\"}"
+    reasoning, plan = _split_planner_output(content)
+    assert reasoning == ""
+
+
+# ---------------------------------------------------------------------------
+# _extract_plan_id_from_meta
+# ---------------------------------------------------------------------------
+
+def test_extract_plan_id_from_meta_success() -> None:
+    from src.supervisor_agent.graph import _extract_plan_id_from_meta
+    content = 'result [EXECUTOR_RESULT] {"status":"completed","plan_id":"plan_abc"}'
+    assert _extract_plan_id_from_meta(content) == "plan_abc"
+
+
+def test_extract_plan_id_from_meta_no_marker() -> None:
+    from src.supervisor_agent.graph import _extract_plan_id_from_meta
+    assert _extract_plan_id_from_meta("no marker here") is None
+
+
+def test_extract_plan_id_from_meta_invalid_json() -> None:
+    from src.supervisor_agent.graph import _extract_plan_id_from_meta
+    content = "result [EXECUTOR_RESULT] {bad json}"
+    assert _extract_plan_id_from_meta(content) is None
+
+
+# ---------------------------------------------------------------------------
+# _extract_registry_updates
+# ---------------------------------------------------------------------------
+
+def test_extract_registry_updates_success() -> None:
+    from src.supervisor_agent.graph import _extract_registry_updates
+    content = 'some text [EXECUTOR_REGISTRY_UPDATE] [{"plan_id":"p1","status":"completed","queryable":true}]'
+    result = _extract_registry_updates(content)
+    assert "p1" in result
+    assert result["p1"].status == "completed"
+
+
+def test_extract_registry_updates_no_marker() -> None:
+    from src.supervisor_agent.graph import _extract_registry_updates
+    assert _extract_registry_updates("no registry marker") == {}
+
+
+def test_extract_registry_updates_invalid_json() -> None:
+    from src.supervisor_agent.graph import _extract_registry_updates
+    content = "[EXECUTOR_REGISTRY_UPDATE] [not valid json]"
+    assert _extract_registry_updates(content) == {}
+
+
+def test_extract_registry_updates_skips_entries_without_plan_id() -> None:
+    from src.supervisor_agent.graph import _extract_registry_updates
+    content = '[EXECUTOR_REGISTRY_UPDATE] [{"status":"running"},{"plan_id":"p2","status":"failed"}]'
+    result = _extract_registry_updates(content)
+    assert len(result) == 1
+    assert "p2" in result
+
+
+# ---------------------------------------------------------------------------
+# _trim_task_history
+# ---------------------------------------------------------------------------
+
+def test_trim_task_history_under_limit_unchanged() -> None:
+    from src.supervisor_agent.graph import _trim_task_history
+    history = {f"plan_{i}": f"record_{i}" for i in range(10)}
+    assert _trim_task_history(history) is history
+
+
+def test_trim_task_history_over_limit_trims_oldest() -> None:
+    from src.supervisor_agent.graph import _trim_task_history, _MAX_TASK_HISTORY
+    history = {f"plan_{i:03d}": f"record_{i}" for i in range(60)}
+    result = _trim_task_history(history)
+    assert len(result) == _MAX_TASK_HISTORY
+    # Oldest entries removed
+    assert "plan_000" not in result
+    # Newest entries kept
+    assert f"plan_059" in result
+
+
+# ---------------------------------------------------------------------------
+# _extract_snapshot_json
+# ---------------------------------------------------------------------------
+
+def test_extract_snapshot_json_success() -> None:
+    from src.supervisor_agent.graph import _extract_snapshot_json
+    content = 'result [EXECUTOR_RESULT] {"status":"paused","snapshot_json":"{\\"step\\":1}"}'
+    assert _extract_snapshot_json(content) == '{"step":1}'
+
+
+def test_extract_snapshot_json_empty_returns_none() -> None:
+    from src.supervisor_agent.graph import _extract_snapshot_json
+    content = 'result [EXECUTOR_RESULT] {"status":"completed","snapshot_json":""}'
+    assert _extract_snapshot_json(content) is None
+
+
+def test_extract_snapshot_json_no_marker() -> None:
+    from src.supervisor_agent.graph import _extract_snapshot_json
+    assert _extract_snapshot_json("no marker") is None
+
+
+# ---------------------------------------------------------------------------
+# _extract_dispatched_plan_id
+# ---------------------------------------------------------------------------
+
+def test_extract_dispatched_plan_id_success() -> None:
+    from src.supervisor_agent.graph import _extract_dispatched_plan_id
+    content = 'dispatched [EXECUTOR_DISPATCH] {"plan_id":"plan_dispatch_001"}'
+    assert _extract_dispatched_plan_id(content) == "plan_dispatch_001"
+
+
+def test_extract_dispatched_plan_id_no_marker() -> None:
+    from src.supervisor_agent.graph import _extract_dispatched_plan_id
+    assert _extract_dispatched_plan_id("no dispatch marker") is None
+
+
+def test_extract_dispatched_plan_id_invalid_json() -> None:
+    from src.supervisor_agent.graph import _extract_dispatched_plan_id
+    content = "[EXECUTOR_DISPATCH] {not json}"
+    assert _extract_dispatched_plan_id(content) is None

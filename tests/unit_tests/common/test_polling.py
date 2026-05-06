@@ -229,3 +229,169 @@ async def test_terminal_status_posts_to_mailbox_and_unregisters(
     comp = await mailbox.get_completion("p_term")
     assert comp is not None
     assert comp.payload["status"] == "completed"
+
+
+# ---------------------------------------------------------------------------
+# set_base_url
+# ---------------------------------------------------------------------------
+
+
+def test_set_base_url_stores_url(poller: ExecutorPoller) -> None:
+    poller.set_base_url("http://myhost:1234")
+    assert poller._base_url == "http://myhost:1234"
+
+
+def test_set_base_url_used_as_fallback_in_register(poller: ExecutorPoller) -> None:
+    poller.set_base_url("http://fallback:9999")
+    poller.register("p_fb", plan_json="{}")
+    assert poller._active["p_fb"].base_url == "http://fallback:9999"
+
+
+# ---------------------------------------------------------------------------
+# start / stop lifecycle
+# ---------------------------------------------------------------------------
+
+
+async def test_start_launches_background_task(poller: ExecutorPoller) -> None:
+    poller.start()
+    assert poller._task is not None
+    assert not poller._task.done()
+    await poller.stop()
+
+
+async def test_start_idempotent(poller: ExecutorPoller) -> None:
+    poller.start()
+    task1 = poller._task
+    poller.start()  # second call should be no-op
+    assert poller._task is task1
+    await poller.stop()
+
+
+async def test_stop_cleans_up_task(poller: ExecutorPoller) -> None:
+    poller.start()
+    await poller.stop()
+    assert poller._task is None
+
+
+# ---------------------------------------------------------------------------
+# _any_poll_base
+# ---------------------------------------------------------------------------
+
+
+def test_any_poll_base_empty_returns_false(poller: ExecutorPoller) -> None:
+    assert poller._any_poll_base() is False
+
+
+def test_any_poll_base_with_global_url(poller: ExecutorPoller) -> None:
+    poller.set_base_url("http://host:1")
+    poller.register("p1")
+    assert poller._any_poll_base() is True
+
+
+def test_any_poll_base_with_per_plan_url(poller: ExecutorPoller) -> None:
+    poller.register("p1", executor_base_url="http://per-plan:1")
+    assert poller._any_poll_base() is True
+
+
+def test_any_poll_base_no_url_anywhere(poller: ExecutorPoller) -> None:
+    """Active plans exist but none have a URL → False."""
+    poller.register("p1")  # no URL set anywhere
+    assert poller._any_poll_base() is False
+
+
+# ---------------------------------------------------------------------------
+# force_poll_once — with active plans
+# ---------------------------------------------------------------------------
+
+
+async def test_force_poll_once_no_active_is_noop(poller: ExecutorPoller) -> None:
+    """No active plans → force_poll_once returns immediately."""
+    await poller.force_poll_once()  # should not raise
+
+
+async def test_force_poll_once_with_active_plans_sweeps(
+    poller: ExecutorPoller, mailbox: Mailbox
+) -> None:
+    """With active plans and URL, force_poll_once triggers a sweep."""
+    poller.set_base_url("http://localhost:9999")
+    poller._active["p_fp"] = _registration(
+        base_url="http://localhost:9999",
+    )
+
+    # Mock the httpx client to return 200 with terminal status
+    import httpx
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"status": "completed", "summary": "done"}
+
+    # Patch httpx.AsyncClient to return our mock
+    with patch("httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.aclose = AsyncMock()
+        mock_client.is_closed = False
+        mock_client_cls.return_value = mock_client
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        await poller.force_poll_once()
+
+    comp = await mailbox.get_completion("p_fp")
+    assert comp is not None
+
+
+# ---------------------------------------------------------------------------
+# _poll_one — registration not found
+# ---------------------------------------------------------------------------
+
+
+async def test_poll_one_unknown_plan_is_noop(poller: ExecutorPoller) -> None:
+    """Polling a plan_id with no registration is a no-op."""
+    mock_client = MagicMock()
+    await poller._poll_one(mock_client, "nonexistent_plan")
+    mock_client.get.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# register / unregister basic
+# ---------------------------------------------------------------------------
+
+
+def test_register_with_explicit_url(poller: ExecutorPoller) -> None:
+    poller.register("p_explicit", plan_json="{}", executor_base_url="http://custom:1")
+    assert poller._active["p_explicit"].base_url == "http://custom:1"
+    assert poller._active["p_explicit"].plan_json == "{}"
+
+
+def test_unregister_removes_plan(poller: ExecutorPoller) -> None:
+    poller.register("p_rm")
+    assert "p_rm" in poller._active
+    poller.unregister("p_rm")
+    assert "p_rm" not in poller._active
+
+
+def test_unregister_unknown_is_noop(poller: ExecutorPoller) -> None:
+    poller.unregister("nonexistent")  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# Unexpected HTTP status increments failure counter
+# ---------------------------------------------------------------------------
+
+
+async def test_unexpected_status_increments_failure(poller: ExecutorPoller) -> None:
+    poller._active["p_500"] = _registration(
+        base_url="http://localhost:9999",
+        failures=0,
+    )
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 500
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(return_value=mock_resp)
+
+    await poller._poll_one(mock_client, "p_500")
+
+    assert poller._active["p_500"].consecutive_failures == 1

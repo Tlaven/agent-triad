@@ -14,6 +14,7 @@ from langgraph.managed import IsLastStep
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
+from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
 from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
@@ -21,7 +22,7 @@ from src.common.tools import apply_context_workspace_root
 from src.common.utils import invoke_chat_model, load_chat_model
 
 from src.executor_agent.prompts import get_executor_system_prompt, get_reflection_system_prompt
-from src.executor_agent.tools import get_executor_capabilities_docs, get_executor_tools
+from src.executor_agent.tools import get_executor_tools
 from src.executor_agent.interrupt import (
     set_current_plan_id,
     clear_current_plan_id,

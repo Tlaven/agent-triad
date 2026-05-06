@@ -31,15 +31,15 @@
 |---|------|------|------|
 | 1 | [`v4-knowledge-tree-concepts.md`](v4-knowledge-tree-concepts.md) | 历史参考 | 概念对齐：两层存储 + Overlay、向量映射公式、P1-P3 路线图。部分内容已被 core-design 取代（如 stored_vector 混合公式降为 P2，P1 纯用 content_embedding + 锚点自动放置） |
 | 2 | [`v4-knowledge-tree-spec.md`](v4-knowledge-tree-spec.md) | 历史参考 | P1 技术规格：数据模型、接口契约、测试策略。core-design 简化了部分接口（如移除 bootstrap/status 工具、精简为 2 工具） |
-| 3 | [`v4-kt-core-design.md`](v4-kt-core-design.md) | **当前权威** | 核心设计：向量-结构互塑闭环、养料入口、检索、管理权归属。**实现以本文档为准** |
-| 4 | [`v4-experiment-handbook.md`](v4-experiment-handbook.md) | 活跃维护 | 实验手册：成本分层 L0-L4、Mock 策略、确定性测试配方、诊断工具 |
+| 3 | [`v4-kt-core-design.md`](v4-kt-core-design.md) | **当前权威** | 核心设计：向量-结构互塑闭环、上下文自管理目标、养料入口、检索、管理权归属。**实现以本文档为准** |
+| 4 | [`v4-experiment-handbook.md`](v4-experiment-handbook.md) | 活跃维护 | 实验手册：成本分层 L0-L4、Mock 策略、确定性测试配方、诊断工具、Embedding 配置 §9、L4+ 实测记录 §10 |
 
 ### 测试
 
 | 主题 | 文件 | 大概位置 |
 |------|------|----------|
 | **改代码后跑哪条命令、`make test_*` 含义** | [`../tests/README.md`](../tests/README.md) | 命令表与文档分工 |
-| **环境、代理、测试分层、E2E Server 测试方法论、三级验证、已知 LLM 行为问题、FAQ** | [`../tests/TESTING.md`](../tests/TESTING.md) | E2E Server 测试 §3 起；已知问题 §4 |
+| **环境、代理、测试分层、E2E Server 测试方法论、三级验证、已知 LLM 行为问题、FAQ** | [`../tests/TESTING.md`](../tests/TESTING.md) | E2E Server 测试 §3 起；已知问题 §4；chat.py 脚本模式 §6；Embedding 排错 §7 |
 | **V2-a/b/c 专项测试文件与命令** | [`../tests/V2_TESTING.md`](../tests/V2_TESTING.md) | 各节按 V2-a / V2-b / V2-c 分块 |
 
 ---

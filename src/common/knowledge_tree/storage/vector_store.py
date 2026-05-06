@@ -67,6 +67,10 @@ class BaseVectorStore(ABC):
     def delete_embedding(self, node_id: str) -> bool:
         """删除节点的向量嵌入。"""
 
+    @abstractmethod
+    def clear(self) -> None:
+        """清空所有派生向量索引和目录锚点。"""
+
     # -- 目录锚点 --
 
     @abstractmethod
@@ -177,10 +181,22 @@ class InMemoryVectorStore(BaseVectorStore):
         return results[:top_k]
 
     def delete_embedding(self, node_id: str) -> bool:
+        removed = False
         if node_id in self._embeddings:
             del self._embeddings[node_id]
-            return True
-        return False
+            removed = True
+
+        title_key = f"title:{node_id}"
+        if title_key in self._embeddings:
+            del self._embeddings[title_key]
+            removed = True
+
+        return removed
+
+    def clear(self) -> None:
+        """清空派生索引。文件系统仍是 Source of Truth。"""
+        self._embeddings.clear()
+        self._anchors.clear()
 
     # -- 目录锚点 --
 
@@ -245,8 +261,7 @@ class InMemoryVectorStore(BaseVectorStore):
         return results[:top_k]
 
     def close(self) -> None:
-        self._embeddings.clear()
-        self._anchors.clear()
+        self.clear()
 
     # -- 辅助 --
 

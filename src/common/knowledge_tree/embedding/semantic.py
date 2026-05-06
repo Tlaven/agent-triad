@@ -37,9 +37,19 @@ def create_semantic_embedder(
         return None
 
     try:
-        model = SentenceTransformer(model_name)
+        # local_files_only=True: only use cached model, never attempt download.
+        # Without this, SentenceTransformer retries HuggingFace HEAD requests
+        # indefinitely in networks where huggingface.co is unreachable (e.g. PRC),
+        # blocking graph.ainvoke() forever.
+        model = SentenceTransformer(model_name, local_files_only=True)
     except Exception as e:
-        logger.warning("Failed to load embedding model '%s': %s. Falling back to hash embedder.", model_name, e)
+        logger.warning(
+            "Failed to load embedding model '%s': %s. "
+            "Falling back to hash embedder. "
+            "To cache the model: run `python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('%s')\"` "
+            "with a working network connection.",
+            model_name, e, model_name,
+        )
         return None
 
     # 验证维度

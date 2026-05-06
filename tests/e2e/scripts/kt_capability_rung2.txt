@@ -1,0 +1,10 @@
+# ═══ KT 能力阶梯测试 — Rung 2 ═══
+# 显式摄入 + 显式检索 + 换措辞
+# 延续 Rung 1 的知识，在新会话中测试
+# 命令：uv run chat.py --kt --kt-embedding-model hash --script tests/e2e/scripts/kt_capability_rung2.txt --report tests/e2e/results/kt_cap_rung2.json --turn-timeout 120 --kt-root workspace/kt_capability_test
+
+# T1: 显式摄入一条技术知识（换一个内容，避免与 Rung 1 重复）
+请记住这条知识：排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。
+
+# T2: 用完全不同的措辞检索（不提 HuggingFace、不提 SentenceTransformer）
+请用知识树检索工具检索关于"模型下载出问题导致程序卡住不动"的解决方法。

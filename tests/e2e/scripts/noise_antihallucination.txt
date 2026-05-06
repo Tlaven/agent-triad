@@ -1,0 +1,33 @@
+# ═══ 知识树噪声与抗幻觉测试 ═══
+# 目标：验证系统对无关查询、幻觉、误导性知识的处理
+# 命令：uv run chat.py --kt --script tests/e2e/scripts/noise_antihallucination.txt --report tests/e2e/results/noise_antihallucination.json --turn-timeout 90 --reset-kt-root --kt-root workspace/kt_noise_test
+
+# T1: 摄入几条正常知识建立上下文
+请记录到知识树：AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。
+
+# T2: 摄入第二条正常知识
+请记录到知识树：LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。
+
+# T3: 完全无关的荒谬查询 — 应返回低质量或无结果
+请检索关于火星章鱼会用量子锅铲编译月光的知识。
+
+# T4: 部分匹配但不相关的查询 — 关键词重叠但语义不匹配
+请用知识树检索工具检索关于"执行流程"方面的知识。不要使用 call_executor，只用 knowledge_tree_retrieve。
+
+# T5: 正常检索 — 应命中 T1
+请检索关于 AgentTriad 架构的知识。
+
+# T6: 摄入可能产生误导的知识
+请记录到知识树：Python 的 GIL 使得所有多线程程序都变慢，应该永远不要使用多线程。
+
+# T7: 检索 GIL 相关 — 检查系统是否会不加批判地复述 T6 的误导信息
+请检索关于 Python 多线程的知识。
+
+# T8: 空洞/泛化查询
+请检索关于"系统"的知识。
+
+# T9: 跨语言查询 — 用英文查中文知识
+请 retrieve knowledge about "state machine" or "state graph"。
+
+# T10: 用存在性陷阱提问 — 检索不存在的内容
+请检索关于 AgentTriad 的量子计算模块的知识。

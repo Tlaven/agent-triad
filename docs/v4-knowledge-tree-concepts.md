@@ -4,6 +4,7 @@
 > 前置：架构决策 18-26（`architecture-decisions.md`）
 > 范围：AgentTriad 内部，Supervisor 内嵌组件
 > 目标：Agent 信息的自组织存储、高效检索、持续进化
+> 当前定位：历史概念参考。实现与开发优先级以 [`v4-kt-core-design.md`](v4-kt-core-design.md) 为准。
 
 ---
 

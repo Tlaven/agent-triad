@@ -1,0 +1,9 @@
+# ═══ KT 能力阶梯测试 — Rung 3 ═══
+# 显式摄入 + 隐式检索（用户不直接说"检索知识树"）
+# 命令：uv run chat.py --kt --kt-embedding-model hash --script tests/e2e/scripts/kt_capability_rung3.txt --report tests/e2e/results/kt_cap_rung3.json --turn-timeout 120 --kt-root workspace/kt_capability_test
+
+# T1: 摄入一条经验性知识
+请记住这条知识：executor 执行超时通常是因为多步任务在单次 executor 调用中完成，单步任务很少超时。解决办法是把复杂任务拆分成多个步骤，每次只执行一步。
+
+# T2: 隐式检索 — 用户描述问题，不说"检索"，看 Agent 是否主动调 retrieve
+我的 executor 执行超时了，可能是什么原因？有没有之前记录的类似经验？

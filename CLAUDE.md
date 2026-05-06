@@ -18,6 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 入口：`langgraph.json` → `src/supervisor_agent/graph.py:graph`。各 Agent 默认模型见 `config/agent_models.toml`。
 
+长期目标之一：让 Agent 能够管理自己的上下文。V4 知识树是该目标的核心承载，负责记忆沉淀、检索、结构演化与后续上下文治理；当前权威设计见 `docs/v4-kt-core-design.md`。
+
 ### V3 进程分离架构
 
 每个 `call_executor` 派发时 spawn 独立子进程（`python -m src.executor_agent`），子进程启动 FastAPI + uvicorn，动态分配端口。

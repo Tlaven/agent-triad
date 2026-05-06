@@ -1,7 +1,7 @@
 """AgentTriad 交互式端到端测试工具.
 
 直接与 Supervisor Agent 对话，实时查看回复、工具调用和状态变化。
-支持流式输出，知识树功能可切换。
+支持交互式或脚本式运行，知识树功能可切换。
 
 用法：
     uv run chat.py [选项]
@@ -11,6 +11,7 @@
     uv run chat.py --kt                   # 启用知识树
     uv run chat.py --model siliconflow:Qwen/Qwen3-8B  # 指定模型
     uv run chat.py --verbose              # 显示完整工具调用细节
+    uv run chat.py --kt --script e2e.txt --report e2e.json
 """  # noqa: D415, T201
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -122,10 +124,17 @@ def print_message(msg, verbose: bool, show_thinking: bool = False):
 class ChatSession:
     """管理一次交互式会话。"""
 
-    def __init__(self, ctx: Context, verbose: bool = False, show_thinking: bool = False):
+    def __init__(
+        self,
+        ctx: Context,
+        verbose: bool = False,
+        show_thinking: bool = False,
+        turn_timeout: float | None = None,
+    ):
         self.ctx = ctx
         self.verbose = verbose
         self.show_thinking = show_thinking
+        self.turn_timeout = turn_timeout
         self.messages: list = []
         self.turn_count = 0
         self.total_time = 0.0
@@ -157,7 +166,7 @@ class ChatSession:
         print()
         print_divider()
 
-    async def send(self, text: str) -> str | None:
+    async def send(self, text: str) -> dict:
         """发送消息并获取回复，流式打印中间过程。"""
         self.turn_count += 1
         start = time.perf_counter()
@@ -168,20 +177,27 @@ class ChatSession:
         cprint(f"\n[Turn {self.turn_count}] 处理中…", C.DIM)
 
         try:
-            result = await graph.ainvoke(
-                {"messages": self.messages},
-                context=self.ctx,
-            )
+            run = graph.ainvoke({"messages": self.messages}, context=self.ctx)
+            result = await asyncio.wait_for(run, timeout=self.turn_timeout)
         except KeyboardInterrupt:
             cprint("\n  ⚠ 被用户中断", C.YELLOW)
-            return None
+            return {"ok": False, "error": "interrupted", "final_response": None}
+        except TimeoutError:
+            elapsed = time.perf_counter() - start
+            cprint(f"\n  ❌ 超时 ({elapsed:.1f}s): turn_timeout={self.turn_timeout}", C.RED)
+            return {
+                "ok": False,
+                "error": f"turn_timeout={self.turn_timeout}",
+                "elapsed": elapsed,
+                "final_response": None,
+            }
         except Exception as e:
             elapsed = time.perf_counter() - start
             cprint(f"\n  ❌ 错误 ({elapsed:.1f}s): {e}", C.RED)
             if self.verbose:
                 import traceback
                 traceback.print_exc()
-            return None
+            return {"ok": False, "error": str(e), "elapsed": elapsed, "final_response": None}
 
         elapsed = time.perf_counter() - start
         self.total_time += elapsed
@@ -196,15 +212,42 @@ class ChatSession:
         cprint(f"── 回复 ({elapsed:.1f}s) ──", C.DIM)
 
         final_response = None
+        tool_calls: list[dict] = []
+        tool_outputs: list[dict] = []
         for msg in new_messages:
             print_message(msg, self.verbose, self.show_thinking)
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    tool_calls.append({
+                        "name": tc.get("name", ""),
+                        "args": tc.get("args", {}),
+                    })
+            elif isinstance(msg, ToolMessage):
+                raw = msg.content if isinstance(msg.content, str) else str(msg.content)
+                parsed = None
+                try:
+                    parsed = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    parsed = None
+                tool_outputs.append({
+                    "name": getattr(msg, "name", ""),
+                    "content": raw,
+                    "json": parsed,
+                })
             # 找最后一条有文本内容的 AIMessage（最终回复）
             if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
                 final_response = msg.content
 
         print()
         print_divider()
-        return final_response
+        return {
+            "ok": True,
+            "error": None,
+            "elapsed": elapsed,
+            "final_response": final_response,
+            "tool_calls": tool_calls,
+            "tool_outputs": tool_outputs,
+        }
 
     def print_status(self):
         """打印当前会话状态。"""
@@ -323,6 +366,75 @@ async def repl(session: ChatSession):
     session.print_status()
 
 
+def _load_script_messages(path: Path) -> list[str]:
+    """读取脚本消息；支持 JSON 数组或逐行文本，空行和 # 注释会跳过。"""
+    text = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".json":
+        data = json.loads(text)
+        if not isinstance(data, list) or not all(isinstance(x, str) for x in data):
+            raise ValueError("--script JSON must be an array of strings")
+        return data
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+
+def _reset_kt_root_if_safe(path_text: str) -> None:
+    """删除脚本测试 KT 根目录；仅允许 workspace 下路径，避免误删用户数据。"""
+    root = Path(path_text).resolve()
+    workspace = (Path.cwd() / "workspace").resolve()
+    if root == workspace or not root.is_relative_to(workspace):
+        raise ValueError("--reset-kt-root only supports subdirectories under workspace/")
+    if root.exists():
+        shutil.rmtree(root)
+
+
+async def run_script(session: ChatSession, script_path: Path, report_path: Path | None = None) -> int:
+    """非交互执行多轮消息，用于真实 E2E 回归。"""
+    session.print_banner()
+    messages = _load_script_messages(script_path)
+    report: dict = {
+        "script": str(script_path),
+        "context": {
+            "enable_knowledge_tree": session.ctx.enable_knowledge_tree,
+            "knowledge_tree_root": session.ctx.knowledge_tree_root,
+            "kt_embedding_model": session.ctx.kt_embedding_model,
+            "kt_rag_similarity_threshold": session.ctx.kt_rag_similarity_threshold,
+            "kt_ingest_attach_threshold": session.ctx.kt_ingest_attach_threshold,
+            "kt_dedup_threshold": session.ctx.kt_dedup_threshold,
+        },
+        "turns": [],
+    }
+
+    exit_code = 0
+    for idx, message in enumerate(messages, start=1):
+        if getattr(session, "reset_each_turn", False):
+            session.messages = []
+        cprint(f"\n[SCRIPT {idx}/{len(messages)}] {message}", C.BOLD, C.YELLOW)
+        turn = await session.send(message)
+        turn["input"] = message
+        report["turns"].append(turn)
+        if not turn.get("ok"):
+            exit_code = 1
+            break
+
+    report["summary"] = {
+        "turns_requested": len(messages),
+        "turns_completed": len(report["turns"]),
+        "ok": exit_code == 0,
+        "total_time": session.total_time,
+    }
+    if report_path is not None:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        cprint(f"\n  ✓ JSON 报告: {report_path}", C.GREEN)
+
+    session.print_status()
+    return exit_code
+
+
 # ─── CLI ─────────────────────────────────────────────────────
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="AgentTriad 交互式测试工具")
@@ -331,9 +443,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--executor-model", default=None, help="Executor 模型")
     p.add_argument("--kt", action="store_true", help="启用知识树")
     p.add_argument("--kt-root", default=None, help="知识树根目录")
+    p.add_argument("--kt-embedding-model", default=None, help="知识树 embedding 模型（如 hash）")
+    p.add_argument("--kt-rag-threshold", type=float, default=None, help="知识树 RAG 相似度阈值")
+    p.add_argument("--kt-attach-threshold", type=float, default=None, help="知识树目录锚点吸附阈值")
+    p.add_argument("--kt-dedup-threshold", type=float, default=None, help="知识树去重阈值")
     p.add_argument("--verbose", "-v", action="store_true", help="详细模式（显示完整工具参数和返回）")
     p.add_argument("--thinking", action="store_true", help="显示 Supervisor 思维链")
     p.add_argument("--no-thinking", action="store_true", help="禁用隐式思维")
+    p.add_argument("--script", default=None, help="非交互脚本文件：JSON 字符串数组或逐行消息")
+    p.add_argument("--report", default=None, help="脚本模式输出 JSON 报告路径")
+    p.add_argument("--turn-timeout", type=float, default=None, help="脚本/交互单轮超时秒数")
+    p.add_argument("--reset-kt-root", action="store_true", help="脚本运行前清空 workspace 下的 KT 根目录")
+    p.add_argument("--reset-each-turn", action="store_true", help="脚本模式每轮清空对话上下文（稳定压测）")
     return p.parse_args()
 
 
@@ -353,6 +474,14 @@ def main():
         ctx_kwargs["enable_knowledge_tree"] = True
     if args.kt_root:
         ctx_kwargs["knowledge_tree_root"] = args.kt_root
+    if args.kt_embedding_model:
+        ctx_kwargs["kt_embedding_model"] = args.kt_embedding_model
+    if args.kt_rag_threshold is not None:
+        ctx_kwargs["kt_rag_similarity_threshold"] = args.kt_rag_threshold
+    if args.kt_attach_threshold is not None:
+        ctx_kwargs["kt_ingest_attach_threshold"] = args.kt_attach_threshold
+    if args.kt_dedup_threshold is not None:
+        ctx_kwargs["kt_dedup_threshold"] = args.kt_dedup_threshold
 
     if args.no_thinking:
         ctx_kwargs["enable_implicit_thinking"] = False
@@ -360,13 +489,26 @@ def main():
         ctx_kwargs["supervisor_thinking_visibility"] = "visible"
 
     ctx = Context(**ctx_kwargs)
+    if args.reset_kt_root:
+        _reset_kt_root_if_safe(ctx.knowledge_tree_root)
     session = ChatSession(
         ctx,
         verbose=args.verbose,
         show_thinking=args.thinking,
+        turn_timeout=args.turn_timeout,
     )
+    session.reset_each_turn = args.reset_each_turn
 
     try:
+        if args.script:
+            exit_code = asyncio.run(
+                run_script(
+                    session,
+                    Path(args.script),
+                    Path(args.report) if args.report else None,
+                )
+            )
+            raise SystemExit(exit_code)
         asyncio.run(repl(session))
     except KeyboardInterrupt:
         print()

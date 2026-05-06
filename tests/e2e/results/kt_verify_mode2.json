@@ -1,0 +1,46 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_verify_mode.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_semantic_test",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.197231600061059,
+      "final_response": "\n\n根据项目信息，这个项目的包管理器叫 **uv**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "这个项目的包管理器叫什么名字？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.432000800035894,
+      "final_response": "\n\n根据你提供的相关知识，SentenceTransformer 加载模型卡住的最常见原因是 **HuggingFace 模型下载卡死**。\n\n可能的原因：\n1. **网络问题** - 访问 HuggingFace Hub（huggingface.co）下载模型时网络不稳定或被阻塞\n2. **HF 服务问题** - HuggingFace 官方服务本身响应慢或超时\n3. **模型较大** - 首次加载需要下载较大的模型文件（如 BERT、RoBERTa 等）\n\n**解决方法**：\n\n在 SentenceTransformer 构造函数中添加 `local_files_only=True` 参数：\n\n```python\nfrom sentence_transformers import SentenceTransformer\n\nmodel = SentenceTransformer('your-model-name', local_files_only=True)\n```\n\n如果本地没有缓存模型，这个参数会报错提示找不到文件。那时候可以尝试：\n- 使用国内镜像源\n- 手动下载模型到本地目录后加载\n- 检查网络代理设置",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "SentenceTransformer 在加载模型的时候卡住了，你知不知道是什么原因？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 2.794220499927178,
+      "final_response": "\n\n项目的开发服务器端口是 **2024**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "我要启动项目的开发服务器，应该用什么端口？"
+    }
+  ],
+  "summary": {
+    "turns_requested": 3,
+    "turns_completed": 3,
+    "ok": true,
+    "total_time": 13.423452900024131
+  }
+}

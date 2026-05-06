@@ -1,0 +1,6 @@
+# 元知识自举测试 - Setup2（话题匹配型元规则）
+# 测试：元规则直接包含触发话题关键词，看能否在信息分享时自动注入
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_treatment --script tests/e2e/scripts/meta_setup2.txt --report tests/e2e/results/meta_setup2.json --turn-timeout 180
+
+# S1: 摄入话题匹配型元规则 - 包含具体触发词
+请将以下内容记录到知识树：主动存储规则——关于包管理器、端口号、配置参数这类项目配置信息，当用户在对话中提到时，应该主动使用 knowledge_tree_ingest 工具将其存储到知识树中，不要只是口头确认。用户提到 uv、npm、pip、端口、配置等关键词时都属于这种情况。

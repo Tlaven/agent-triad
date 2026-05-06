@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\meta_treatment2.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_meta_treatment",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.02696770010516,
+      "final_response": null,
+      "input": "对了，这个项目的测试框架是 pytest，配置文件在 pyproject.toml 里。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

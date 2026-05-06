@@ -1,0 +1,8 @@
+# 元知识自举测试 - Treatment2（新会话，含话题匹配型元规则）
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_treatment --script tests/e2e/scripts/meta_treatment2.txt --report tests/e2e/results/meta_treatment2.json --turn-timeout 180
+
+# T1: 用户分享配置信息（应触发话题匹配型元规则）
+对了，这个项目的测试框架是 pytest，配置文件在 pyproject.toml 里。
+
+# T2: 检索验证
+请检索知识树中关于测试框架的信息。

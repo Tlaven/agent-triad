@@ -1,6 +1,7 @@
-"""Unit tests for executor_agent.tools capability documentation helpers."""
+"""Unit tests for Executor tool registration and capability documentation helpers."""
 
-from src.executor_agent.tools import get_executor_capabilities_docs, get_executor_tools
+from src.common.capabilities import get_executor_capabilities_docs
+from src.executor_agent.tools import get_executor_tools
 
 
 def test_get_executor_tools_returns_two_tools() -> None:

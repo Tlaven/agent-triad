@@ -1,0 +1,81 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung1.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_capability_test",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.436015499988571,
+      "final_response": "\n\n已记住！这条知识已存入知识库：\n\n- **包管理器**：uv\n- **开发服务器端口**：2024\n\n后续如有相关问题，我会自动调用这些信息。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "项目使用 uv 作为包管理器，开发服务器端口是 2024。",
+            "trigger": "user_explicit",
+            "source": "user:knowledge"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记住这条知识：项目使用 uv 作为包管理器，开发服务器端口是 2024。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.8356961000245064,
+      "final_response": "\n\n检索到关于\"包管理器\"的内容：\n\n**项目配置信息**\n- 包管理器：**uv**\n- 开发服务器端口：2024\n\n相似度评分：0.331（中等匹配）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "包管理器"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"6b8d65baed57\", \"node_id\": \"-_uv_-_2024/项目配置信息__- 包管理器_uv_- 开发服务器端口_2024.md\", \"title\": \"项目配置信息：\\n- 包管理器：uv\\n- 开发服务器端口：2024\", \"content\": \"项目配置信息：\\n- 包管理器：uv\\n- 开发服务器端口：2024\", \"similarity\": 0.331, \"quality\": \"medium\", \"additional_results\": 1}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "6b8d65baed57",
+            "node_id": "-_uv_-_2024/项目配置信息__- 包管理器_uv_- 开发服务器端口_2024.md",
+            "title": "项目配置信息：\n- 包管理器：uv\n- 开发服务器端口：2024",
+            "content": "项目配置信息：\n- 包管理器：uv\n- 开发服务器端口：2024",
+            "similarity": 0.331,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        }
+      ],
+      "input": "请用知识树检索工具检索关于\"包管理器\"的内容。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": true,
+    "total_time": 9.271711600013077
+  }
+}

@@ -678,7 +678,7 @@ if runtime_context.enable_knowledge_tree:
     tools.extend(build_knowledge_tree_tools(runtime_context))
 ```
 
-P1 工具：`knowledge_tree_retrieve`、`knowledge_tree_ingest`、`knowledge_tree_status`
+P1 对外工具：`knowledge_tree_retrieve`、`knowledge_tree_ingest`（初始化与状态检查为内部能力，不暴露为 Supervisor 工具）
 P2 新增：`knowledge_tree_reorganize`、`knowledge_tree_apply_reorganization`
 
 ### 3) 配置

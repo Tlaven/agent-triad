@@ -130,3 +130,145 @@ def test_extract_reasoning_text_from_additional_kwargs() -> None:
         additional_kwargs={"reasoning_content": "step1 -> step2"},
     )
     assert extract_reasoning_text(msg) == "step1 -> step2"
+
+
+# ---------------------------------------------------------------------------
+# load_chat_model — provider routing
+# ---------------------------------------------------------------------------
+
+def test_load_chat_model_qwen_routes_to_create_qwen() -> None:
+    from unittest.mock import patch
+
+    from src.common.utils import load_chat_model
+
+    with patch("src.common.models.create_qwen_model", return_value="qwen_model") as mock:
+        result = load_chat_model("qwen:qwen-plus")
+        mock.assert_called_once()
+        assert result == "qwen_model"
+
+
+def test_load_chat_model_siliconflow_routes_correctly() -> None:
+    from unittest.mock import patch
+
+    from src.common.utils import load_chat_model
+
+    with patch("src.common.models.create_siliconflow_model", return_value="sf_model") as mock:
+        result = load_chat_model("siliconflow:some-model")
+        mock.assert_called_once()
+        assert result == "sf_model"
+
+
+# ---------------------------------------------------------------------------
+# invoke_chat_model — ainvoke Chunk fallback
+# ---------------------------------------------------------------------------
+
+class _NonConvertibleChunk:
+    """A chunk without to_message — triggers TypeError path."""
+
+    @property
+    def __class__(self):
+        return type("SomeChunk", (), {})
+
+
+async def test_invoke_chat_model_ainvoke_returns_chunk_with_to_message() -> None:
+    from unittest.mock import AsyncMock
+
+    from src.common.utils import invoke_chat_model
+
+    model = AsyncMock()
+    chunk = _FakeChunk("converted")
+    model.ainvoke.return_value = chunk
+    result = await invoke_chat_model(model, [], enable_streaming=False)
+    assert isinstance(result, AIMessage)
+    assert result.content == "converted"
+
+
+async def test_invoke_chat_model_ainvoke_returns_non_chunk() -> None:
+    from unittest.mock import AsyncMock
+
+    from src.common.utils import invoke_chat_model
+
+    model = AsyncMock()
+    model.ainvoke.return_value = AIMessage(content="normal")
+    result = await invoke_chat_model(model, [], enable_streaming=False)
+    assert result.content == "normal"
+
+
+async def test_invoke_chat_model_streaming_empty_raises() -> None:
+    from src.common.utils import invoke_chat_model
+
+    model = _FakeStreamingModel([])
+    with pytest.raises(RuntimeError, match="未返回任何内容"):
+        await invoke_chat_model(model, [], enable_streaming=True)
+
+
+# ---------------------------------------------------------------------------
+# invoke_chat_model — streaming text extraction fallback
+# ---------------------------------------------------------------------------
+
+class _RawChunk:
+    """Chunk that doesn't support + operator or to_message — triggers text extraction."""
+    def __init__(self, content: str | list) -> None:
+        self.content = content
+
+    def __add__(self, other: object) -> "_RawChunk":
+        raise TypeError("no add")
+
+
+class _RawStreamModel:
+    def __init__(self, chunks: list[_RawChunk]) -> None:
+        self._chunks = chunks
+
+    async def astream(self, _messages):
+        for ch in self._chunks:
+            yield ch
+
+    async def ainvoke(self, _messages):
+        return AIMessage(content="fallback")
+
+
+async def test_invoke_chat_model_streaming_text_extraction_fallback() -> None:
+    """When merged chunks aren't AIMessage and have no to_message, extract text from content."""
+
+    class _NonAIMessageChunk:
+        """Chunks that can be added but produce a non-AIMessage merged result."""
+        def __init__(self, text: str) -> None:
+            self.content = text
+
+        def __add__(self, other: "_NonAIMessageChunk") -> "_NonAIMessageChunk":
+            return _NonAIMessageChunk(self.content + other.content)
+
+        @property
+        def __class__(self):
+            return type("SomeChunk", (), {})
+
+    class _NonAIMessageStreamModel:
+        def __init__(self, chunks):
+            self._chunks = chunks
+        async def astream(self, _messages):
+            for ch in self._chunks:
+                yield ch
+
+    from src.common.utils import invoke_chat_model
+
+    model = _NonAIMessageStreamModel([_NonAIMessageChunk("hello "), _NonAIMessageChunk("world")])
+    result = await invoke_chat_model(model, [], enable_streaming=True)
+    assert isinstance(result, AIMessage)
+    assert "hello" in result.content
+
+
+async def test_invoke_chat_model_streaming_dict_content_extraction() -> None:
+    from src.common.utils import invoke_chat_model
+
+    model = _RawStreamModel([_RawChunk([{"text": "block"}])])
+    result = await invoke_chat_model(model, [], enable_streaming=True)
+    assert isinstance(result, AIMessage)
+    assert result.content == "block"
+
+
+async def test_invoke_chat_model_streaming_no_text_raises() -> None:
+    from src.common.utils import invoke_chat_model
+
+    model = _RawStreamModel([_RawChunk([])])
+    with pytest.raises(RuntimeError, match="无法转换为 AIMessage"):
+        await invoke_chat_model(model, [], enable_streaming=True)

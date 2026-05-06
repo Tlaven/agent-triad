@@ -7,7 +7,7 @@ V4: 目录层级 = 树结构。每个 Markdown 文件是一个知识节点，
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Callable
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
@@ -26,7 +26,7 @@ class MarkdownStore:
         root: Path,
         on_change: Callable[[str, str], None] | None = None,
     ) -> None:
-        self.root = root
+        self.root = root.resolve()
         self._initialized = False
         self._node_cache: dict[str, KnowledgeNode] = {}
         self._on_change = on_change
@@ -36,9 +36,28 @@ class MarkdownStore:
             self.root.mkdir(parents=True, exist_ok=True)
             self._initialized = True
 
+    def _safe_relative_path(self, relative_id: str, *, allow_empty: bool = False) -> Path:
+        """将知识树相对 ID 解析为 root 内路径，拒绝越界和平台相关分隔符。"""
+        if "\\" in relative_id:
+            raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")
+
+        posix_path = PurePosixPath(relative_id)
+        if not allow_empty and (not relative_id or str(posix_path) == "."):
+            raise ValueError("Knowledge tree path must not be empty")
+        if posix_path.is_absolute() or any(part in {"..", ""} for part in posix_path.parts):
+            raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")
+        if any(":" in part for part in posix_path.parts):
+            raise ValueError(f"Invalid knowledge tree path: {relative_id!r}")
+
+        root = self.root.resolve()
+        path = (root / Path(*posix_path.parts)).resolve()
+        if path != root and not path.is_relative_to(root):
+            raise ValueError(f"Knowledge tree path escapes root: {relative_id!r}")
+        return path
+
     def _node_path(self, node_id: str) -> Path:
         """节点文件路径。node_id 是相对路径（如 "development/debugging.md"）。"""
-        return self.root / node_id
+        return self._safe_relative_path(node_id)
 
     # -- 节点 CRUD --
 
@@ -148,7 +167,7 @@ class MarkdownStore:
 
     def get_directory_files(self, directory: str) -> list[str]:
         """获取指定目录下的所有节点 ID。"""
-        dir_path = self.root / directory
+        dir_path = self._safe_relative_path(directory, allow_empty=True)
         if not dir_path.is_dir():
             return []
         return [
@@ -161,13 +180,13 @@ class MarkdownStore:
 
     def ensure_directory(self, directory: str) -> Path:
         """确保目录存在，返回完整路径。"""
-        dir_path = self.root / directory
+        dir_path = self._safe_relative_path(directory, allow_empty=True)
         dir_path.mkdir(parents=True, exist_ok=True)
         return dir_path
 
     def remove_directory_if_empty(self, directory: str) -> bool:
         """如果目录为空则删除。返回是否删除。"""
-        dir_path = self.root / directory
+        dir_path = self._safe_relative_path(directory, allow_empty=True)
         if dir_path.is_dir():
             try:
                 dir_path.rmdir()  # 只能删空目录

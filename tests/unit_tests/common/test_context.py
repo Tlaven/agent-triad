@@ -152,3 +152,46 @@ supervisor_thinking_visibility = "visible"
     assert loaded["executor_seed"] == 9
     assert loaded["enable_implicit_thinking"] is False
     assert loaded["supervisor_thinking_visibility"] == "visible"
+
+
+# ---------------------------------------------------------------------------
+# _as_float / _as_int / _as_bool / _as_non_empty_str helpers
+# ---------------------------------------------------------------------------
+
+
+def test_as_float_returns_float_for_numeric() -> None:
+    assert defaults_module._as_float(3, 0.0) == 3.0
+    assert defaults_module._as_float(2.5, 0.0) == 2.5
+
+
+def test_as_float_returns_fallback_for_non_numeric() -> None:
+    assert defaults_module._as_float("x", 0.5) == 0.5
+
+
+def test_as_int_returns_int_for_int() -> None:
+    assert defaults_module._as_int(7, 0) == 7
+
+
+def test_as_int_returns_fallback_for_non_int() -> None:
+    assert defaults_module._as_int(3.5, 0) == 0
+
+
+def test_as_bool_returns_bool_for_bool() -> None:
+    assert defaults_module._as_bool(True, False) is True
+    assert defaults_module._as_bool(False, True) is False
+
+
+def test_as_bool_returns_fallback_for_non_bool() -> None:
+    assert defaults_module._as_bool(1, False) is False
+
+
+def test_as_non_empty_str_returns_str_for_non_empty() -> None:
+    assert defaults_module._as_non_empty_str("hello", "fallback") == "hello"
+
+
+def test_as_non_empty_str_returns_fallback_for_empty() -> None:
+    assert defaults_module._as_non_empty_str("", "fallback") == "fallback"
+
+
+def test_as_non_empty_str_returns_fallback_for_non_str() -> None:
+    assert defaults_module._as_non_empty_str(123, "fallback") == "fallback"

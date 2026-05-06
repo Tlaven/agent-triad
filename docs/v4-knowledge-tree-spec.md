@@ -3,6 +3,7 @@
 > 状态：v4（2026-04-22）
 > 前置：概念对齐（`v4-knowledge-tree-concepts.md`）、架构决策 18-26（`architecture-decisions.md`）
 > 范围：P1 最小闭环实现
+> 当前定位：历史 P1 技术规格参考。实现与开发优先级以 [`v4-kt-core-design.md`](v4-kt-core-design.md) 为准。
 
 ---
 
@@ -307,8 +308,8 @@ class KnowledgeTreeConfig:
 |--------|------|------|
 | `knowledge_tree_retrieve` | `(query: str) -> str` | RAG 向量检索（content + title 双路融合） |
 | `knowledge_tree_ingest` | `(text: str, trigger: str, source: str) -> str` | 增量摄入新知识 |
-| `knowledge_tree_status` | `() -> str` | 树概览（节点数、目录数、锚点状态） |
-| `knowledge_tree_bootstrap` | `() -> str` | 从种子目录建树（已有数据时跳过） |
+
+`status` / `bootstrap` 不作为 Supervisor 对外工具暴露；初始化与状态检查由内部流程和测试辅助接口承担。
 
 ### 6.2 P2 新增工具
 

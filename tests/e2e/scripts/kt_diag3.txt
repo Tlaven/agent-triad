@@ -1,0 +1,2 @@
+# 诊断：用 hash embedder，查询应命中 KT 存储的知识
+executor 执行超时了怎么办？

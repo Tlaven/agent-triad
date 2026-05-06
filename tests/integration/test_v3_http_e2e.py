@@ -14,6 +14,7 @@ Catches bugs that mocked-transport tests miss:
 
 import asyncio
 import json
+import re
 import socket
 
 import httpx

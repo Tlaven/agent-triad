@@ -97,8 +97,7 @@ def ingest_nodes(
             if best_anchor is not None:
                 # 放入对应目录
                 directory = best_anchor.directory
-                filename = _sanitize_filename(node.title) + ".md"
-                node.node_id = f"{directory}/{filename}" if directory else filename
+                node.node_id = _unique_node_id(md_store, directory, node.title)
                 node.directory = directory
 
                 logger.info(
@@ -110,8 +109,7 @@ def ingest_nodes(
                 # 创建新目录
                 dir_name = _sanitize_dirname(node.title)
                 md_store.ensure_directory(dir_name)
-                filename = _sanitize_filename(node.title) + ".md"
-                node.node_id = f"{dir_name}/{filename}"
+                node.node_id = _unique_node_id(md_store, dir_name, node.title)
                 node.directory = dir_name
 
                 # 新目录锚点 = 该文件的 content_embedding
@@ -158,6 +156,22 @@ def _sanitize_filename(title: str) -> str:
     safe = "".join(c if c.isalnum() or c in ("_", "-", " ", ".") else "_" for c in title)
     safe = safe.strip()[:40]  # 限制长度
     return safe or "untitled"
+
+
+def _unique_node_id(md_store: MarkdownStore, directory: str, title: str) -> str:
+    """为标题生成不覆盖现有节点的 node_id。"""
+    stem = _sanitize_filename(title)
+    candidate = f"{directory}/{stem}.md" if directory else f"{stem}.md"
+    if not md_store.node_exists(candidate):
+        return candidate
+
+    suffix = 2
+    while True:
+        filename = f"{stem}-{suffix}.md"
+        candidate = f"{directory}/{filename}" if directory else filename
+        if not md_store.node_exists(candidate):
+            return candidate
+        suffix += 1
 
 
 def _sanitize_dirname(title: str) -> str:

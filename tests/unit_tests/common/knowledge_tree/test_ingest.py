@@ -161,3 +161,37 @@ class TestIngestNodes:
 
         assert report.nodes_ingested == 5
         assert report.errors == []
+
+    def test_ingest_avoids_overwriting_same_title_in_directory(self, tmp_path: Path):
+        md_store = MarkdownStore(tmp_path / "md")
+        vector_store = InMemoryVectorStore(dimension=4)
+        overlay_store = OverlayStore(tmp_path / "md" / ".overlay.json")
+
+        def embedder(text: str) -> list[float]:
+            if "second" in text:
+                return [0.0, 1.0, 0.0, 0.0]
+            return [1.0, 0.0, 0.0, 0.0]
+
+        vector_store.upsert_anchor(DirectoryAnchor(
+            directory="notes",
+            anchor_vector=[1.0, 0.0, 0.0, 0.0],
+            file_count=0,
+        ))
+        first = KnowledgeNode.create("", "Same Title", "first content", "test")
+        second = KnowledgeNode.create("", "Same Title", "second content", "test")
+
+        report = ingest_nodes(
+            [first, second],
+            vector_store,
+            md_store,
+            overlay_store,
+            embedder,
+            dedup_threshold=1.1,
+            attach_threshold=0.0,
+        )
+
+        assert report.nodes_ingested == 2
+        assert report.errors == []
+        assert first.node_id != second.node_id
+        assert md_store.read_node(first.node_id).content == "first content"
+        assert md_store.read_node(second.node_id).content == "second content"

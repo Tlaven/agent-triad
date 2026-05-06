@@ -1,0 +1,30 @@
+# ═══ KT 能力阶梯测试 — Rung 1-4 语义 embedder ═══
+# 命令：uv run chat.py --kt --kt-root workspace/kt_semantic_test --reset-kt-root --script tests/e2e/scripts/kt_capability_rung1to4_semantic.txt --report tests/e2e/results/kt_cap_semantic.json --turn-timeout 120
+
+# === Rung 1: 显式摄入 + 显式检索 + 原文措辞 ===
+# T1: 摄入
+请记住这条知识：项目使用 uv 作为包管理器，开发服务器端口是 2024。
+
+# T2: 原文措辞检索
+请用知识树检索工具检索关于"包管理器"的内容。
+
+# === Rung 2: 换措辞检索 ===
+# T3: 摄入第二条知识
+请记住这条知识：排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数。
+
+# T4: 换措辞检索
+请用知识树检索工具检索关于"模型下载出问题导致程序卡住不动"的解决方法。
+
+# === Rung 3: 隐式检索 ===
+# T5: 摄入第三条知识
+请记住这条知识：executor 执行超时通常是因为多步任务在单次 executor 调用中完成，单步任务很少超时。解决办法是把复杂任务拆分成多个步骤，每次只执行一步。
+
+# T6: 隐式检索（提示性）
+我的 executor 执行超时了，可能是什么原因？有没有之前记录的类似经验？
+
+# === Rung 4: 被动召回 ===
+# T7: 不提"检索"或"记忆"，纯提问
+请直接回答我，不要使用任何工具：这个项目用的是什么包管理器，端口是多少？
+
+# T8: 被动召回 — HuggingFace 知识
+请直接回答我，不要使用任何工具：SentenceTransformer 加载模型的时候一直卡着不动，你知不知道怎么修？

@@ -51,12 +51,6 @@ _BLOCKED_COMMAND_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bdd\s+if=", "禁止执行原始磁盘写入命令"),
     (r"\bshutdown\b|\breboot\b|\bpoweroff\b", "禁止执行关机/重启命令"),
 )
-RUN_LOCAL_COMMAND_LLM_HINT = (
-    "- run_local_command 使用提示：执行命令时必须使用安全、最小权限原则；"
-    "禁止关机/重启/格式化/高风险删除命令；默认在 Agent 工作区执行，且自动使用工作区内 Python venv。"
-)
-
-
 def _project_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -323,23 +317,3 @@ def run_local_command(command: str, cwd: str | None = None, timeout: int = 120) 
 def get_executor_tools() -> list[object]:
     """返回 Executor 可用的工具列表。"""
     return [write_file, run_local_command, list_workspace_entries, read_workspace_text_file]
-
-
-def get_executor_capabilities_docs() -> str:
-    """返回供 Planner/Executor 共享的能力描述文案。"""
-    capabilities: list[str] = []
-    for idx, tool_obj in enumerate(get_executor_tools(), start=1):
-        description = str(getattr(tool_obj, "description", "") or "").strip()
-        if description:
-            first_line = description.splitlines()[0].strip()
-            capabilities.append(f"- {first_line}")
-        else:
-            capabilities.append(f"- 工具 {idx}")
-
-        tool_name = str(getattr(tool_obj, "name", "") or "")
-        if tool_name == "run_local_command":
-            capabilities.append(RUN_LOCAL_COMMAND_LLM_HINT)
-
-    return "\n".join(capabilities) if capabilities else "- （当前无可用工具）"
-
-

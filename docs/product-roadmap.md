@@ -27,6 +27,11 @@
 3. **失败显式化**：执行状态结构化返回，失败可追踪、可重放、可重规划。
 4. **重规划中心化**：重规划权只在 Supervisor，Executor 遇阻即停并上报。
 5. **成本可控**：优先低 token 路径；工具输出进入模型前必须可预算、可裁剪。
+6. **上下文自管理**：最终目标之一是让 Agent 能够管理自己的上下文，主动沉淀、检索、裁剪与重组任务相关记忆，而不是完全依赖外部人工整理。
+
+### 1.4 长期目标
+
+AgentTriad 不只是完成单次任务的执行框架，还要逐步成为能自我维护上下文的 Agent 底座：Agent 应能识别哪些执行记录、用户偏好、失败经验和项目知识值得长期保存，并在后续任务中按需召回、修正或淘汰这些上下文。
 
 ---
 
@@ -262,9 +267,9 @@
 [V2] V2-a → V2-b → V2-c      ✅
 [V3] 进程分离（Mailbox 等）    ✅
 [V4] P1 知识树最小闭环        🚧
-     - 涌现式知识树：三层存储（Markdown + Kùzu + 向量）+ DAG + 双路径检索 + 编辑闭环 + 异步优化
-     - 范围：领域知识、merge/split 编辑、JSON Patch Delta、Kùzu 原型
+     - 涌现式知识树：两层存储（Markdown 文件系统 + 向量索引）+ Overlay JSON + 向量-结构互塑闭环 + RAG 检索
+     - 范围：文件系统即树结构、目录锚点自动聚类、Agent 摄入与检索、闭环自进化，并支撑 Agent 自主管理自己的上下文
      - 验收：端到端闭环可运行，检索日志完整输出，闭环信号→动作→效果可度量
-     - 设计文档：v4-knowledge-tree-concepts.md、v4-knowledge-tree-spec.md
+     - 设计文档：v4-kt-core-design.md（当前权威）、v4-knowledge-tree-concepts.md、v4-knowledge-tree-spec.md
      - 架构决策：决策 18-25（architecture-decisions.md）
 ```

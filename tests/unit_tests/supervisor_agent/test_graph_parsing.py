@@ -12,6 +12,23 @@ def test_extract_updated_plan_from_executor_success() -> None:
     assert _extract_updated_plan_from_executor(content) == '{"steps": []}'
 
 
+def test_extract_updated_plan_from_executor_no_marker() -> None:
+    """No [EXECUTOR_RESULT] marker → None."""
+    assert _extract_updated_plan_from_executor("no marker here") is None
+
+
+def test_extract_updated_plan_from_executor_invalid_json() -> None:
+    """Marker present but invalid JSON → None."""
+    content = "xxx [EXECUTOR_RESULT] {not json}"
+    assert _extract_updated_plan_from_executor(content) is None
+
+
+def test_extract_updated_plan_from_executor_empty_updated() -> None:
+    """Marker with empty updated_plan_json → None."""
+    content = '[EXECUTOR_RESULT] {"status":"completed","updated_plan_json":""}'
+    assert _extract_updated_plan_from_executor(content) is None
+
+
 def test_extract_executor_status_success() -> None:
     content = (
         "executor failed\n\n"
@@ -23,3 +40,8 @@ def test_extract_executor_status_success() -> None:
 def test_extract_executor_status_invalid_json() -> None:
     content = "xxx [EXECUTOR_RESULT] {not json}"
     assert _extract_executor_status(content) == (None, None)
+
+
+def test_extract_executor_status_no_marker() -> None:
+    """No [EXECUTOR_RESULT] marker → (None, None)."""
+    assert _extract_executor_status("no marker") == (None, None)

@@ -115,3 +115,34 @@ class TestMarkdownStore:
         assert len(files) == 2
         assert "dev/a.md" in files
         assert "dev/b.md" in files
+
+    def test_relative_root_remains_consistent(self, tmp_path: Path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        store = MarkdownStore(Path("kt_md"))
+        node = KnowledgeNode.create(node_id="dev/a.md", title="A", content="a")
+
+        store.write_node(node)
+
+        assert store.get_directory_files("dev") == ["dev/a.md"]
+
+    @pytest.mark.parametrize(
+        "node_id",
+        [
+            "../escape.md",
+            "safe/../../escape.md",
+            "/absolute.md",
+            "C:/absolute.md",
+            "safe\\escape.md",
+            "",
+        ],
+    )
+    def test_rejects_unsafe_node_ids(self, md_store: MarkdownStore, node_id: str):
+        node = KnowledgeNode.create(node_id=node_id, title="Unsafe", content="content")
+
+        with pytest.raises(ValueError):
+            md_store.write_node(node)
+
+    @pytest.mark.parametrize("directory", ["../escape", "/absolute", "safe\\escape"])
+    def test_rejects_unsafe_directories(self, md_store: MarkdownStore, directory: str):
+        with pytest.raises(ValueError):
+            md_store.ensure_directory(directory)

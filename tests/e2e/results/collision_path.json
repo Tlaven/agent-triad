@@ -1,0 +1,358 @@
+{
+  "script": "tests\\e2e\\scripts\\collision_path.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_collision_test",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.650337200029753,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第一条 —— 单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "测试策略第一条——单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "trigger": "user_explicit",
+            "source": "user"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：测试策略第一条——单元测试应覆盖所有公共接口，包括正常路径和异常路径。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.163368299952708,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第二条 —— 集成测试应验证模块间的交互契约，而非内部实现。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.7847865000367165,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第三条 —— 端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "测试策略第三条——端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：测试策略第三条——端到端测试应模拟真实用户场景，覆盖关键业务流程。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.017568100010976,
+      "final_response": "\n\n检索到关于 **测试策略** 的知识，内容如下：\n\n---\n\n**测试策略第二条** —— 集成测试应验证模块间的交互契约，而非内部实现。\n\n---\n\n（检索结果共 3 条相似内容，已显示 1 条。可通过知识树进一步查看完整内容。）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "测试策略"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"0044ae617048\", \"node_id\": \"misc/测试策略第二条__集成测试应验证模块间的交互契约_而非内部实现_.md\", \"title\": \"测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。\", \"content\": \"测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。\", \"similarity\": 0.339, \"quality\": \"medium\", \"additional_results\": 2}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0044ae617048",
+            "node_id": "misc/测试策略第二条__集成测试应验证模块间的交互契约_而非内部实现_.md",
+            "title": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
+            "content": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
+            "similarity": 0.339,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        }
+      ],
+      "input": "请检索关于测试策略的知识。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.01244790002238,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：路径安全检查笔记 —— 当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.913795700063929,
+      "final_response": "\n\n检索到关于 **路径安全** 的知识，内容如下：\n\n---\n\n**路径安全检查笔记** —— 当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径。\n\n---",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "路径安全"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"7102c5d98ac3\", \"node_id\": \"escape_md_c_windows_syste/路径安全检查笔记__当用户输入包含 .._escape.md 或 C__Wind.md\", \"title\": \"路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system\", \"content\": \"路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。\", \"similarity\": 0.27, \"quality\": \"medium\", \"additional_results\": 0}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "7102c5d98ac3",
+            "node_id": "escape_md_c_windows_syste/路径安全检查笔记__当用户输入包含 .._escape.md 或 C__Wind.md",
+            "title": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system",
+            "content": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
+            "similarity": 0.27,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        }
+      ],
+      "input": "请检索关于路径安全的知识。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.858039600076154,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：国际化测试笔记 🔔 —— 系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.670809700037353,
+      "final_response": "\n\n检索到关于 **国际化测试** 的知识，内容如下：\n\n---\n\n**国际化测试笔记** 🔔 —— 系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。\n\n---\n\n（检索结果共 3 条相似内容，已显示 1 条。）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "国际化测试"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"e4b2b6b76ae0\", \"node_id\": \"emoji/国际化测试笔记 ___系统需支持 中文_日本語_한국어_العربية 以及 e.md\", \"title\": \"国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等\", \"content\": \"国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。\", \"similarity\": 0.279, \"quality\": \"medium\", \"additional_results\": 2}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e4b2b6b76ae0",
+            "node_id": "emoji/国际化测试笔记 ___系统需支持 中文_日本語_한국어_العربية 以及 e.md",
+            "title": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等",
+            "content": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
+            "similarity": 0.279,
+            "quality": "medium",
+            "additional_results": 2
+          }
+        }
+      ],
+      "input": "请检索关于国际化测试的知识。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.303541200002655,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.294395999982953,
+      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：代码示例知识 —— Python 快速排序的核心逻辑展示了列表推导和递归。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记录到知识树：代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.166446999995969,
+      "final_response": "\n\n检索到关于 **代码示例** 的知识，内容如下：\n\n---\n\n**代码示例知识** —— Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。\n\n---\n\n（注：系统提示该结果相似度较低，如需更精确结果可尝试重新表述查询。）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "代码示例"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"7fbfb5a23753\", \"node_id\": \"python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 _def quicksort.md\", \"title\": \"代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): ret\", \"content\": \"代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。\", \"similarity\": 0.232, \"quality\": \"low\", \"additional_results\": 0, \"warning\": \"Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly.\"}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "7fbfb5a23753",
+            "node_id": "python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 _def quicksort.md",
+            "title": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): ret",
+            "content": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。",
+            "similarity": 0.232,
+            "quality": "low",
+            "additional_results": 0,
+            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+          }
+        }
+      ],
+      "input": "请检索关于代码示例的知识。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 11,
+    "turns_completed": 11,
+    "ok": true,
+    "total_time": 49.83553720021155
+  }
+}

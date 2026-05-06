@@ -1,0 +1,103 @@
+{
+  "script": "tests\\e2e\\scripts\\executor_notk.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_executor_test3",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.577031399938278,
+      "final_response": "\n\nPython 是一种**高级编程语言**，以简洁易读的语法著称，广泛用于 Web 开发、数据分析、人工智能、自动化脚本等领域。它拥有丰富的第三方库和活跃的社区支持，适合初学者入门编程。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "简单介绍一下 Python 是什么，两三句话就好。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 20.969576900009997,
+      "final_response": "\n\n已成功完成！文件 `e2e_basic.txt` 已在 workspace 目录下创建，内容为\"executor basic test passed\"。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "在 workspace 目录下创建文件 e2e_basic.txt，内容为\"executor basic test passed\""
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "执行摘要：成功在 workspace 目录下创建文件 e2e_basic.txt，内容为\"executor basic test passed\"，文件已验证存在且内容正确\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "请用 call_executor 执行：在 workspace 下创建文件 e2e_basic.txt，内容为\"executor basic test passed\"。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.281722599989735,
+      "final_response": "\n\n根据刚才的執行結果，文件已创建成功。\n\n当时的返回信息是：`成功在 workspace 目录下创建文件 e2e_basic.txt，内容为\"executor basic test passed\"，文件已验证存在且内容正确`。",
+      "tool_calls": [
+        {
+          "name": "manage_executor",
+          "args": {
+            "action": "get_result",
+            "detail": "overview",
+            "plan_id": ""
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "manage_executor",
+          "content": "错误：get_result 需要 plan_id。",
+          "json": null
+        }
+      ],
+      "input": "刚才的执行结果是什么？请告诉我文件是否创建成功。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.716599100036547,
+      "final_response": "\n\n执行失败，错误原因是：**文件不存在**。\n\n文件 `workspace/nonexistent_xyz_123.txt` 不存在，因此无法读取其内容。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "读取 workspace/nonexistent_xyz_123.txt 文件的内容"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "Executor 执行结果：failed\n失败原因：未知错误\n摘要：执行失败：尝试读取 workspace/nonexistent_xyz_123.txt 文件时返回错误 - 文件不存在\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "请用 call_executor 执行：读取 workspace/nonexistent_xyz_123.txt 文件的内容。"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.01484670001082,
+      "final_response": null,
+      "input": "请用 call_executor 执行：在 workspace 下创建目录 deep/a/b/c/，并在其中创建文件 deep.txt 内容为\"deep path ok\"。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 5,
+    "ok": false,
+    "total_time": 44.544929999974556
+  }
+}

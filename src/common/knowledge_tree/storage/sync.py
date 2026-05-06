@@ -43,6 +43,7 @@ def full_rebuild(
         embedder: text → embedding 向量化函数。
     """
     report = SyncReport()
+    vector_store.clear()
 
     nodes = md_store.list_nodes()
     # directory → list[content_embedding]
@@ -103,6 +104,12 @@ def sync_node(
     """同步单个节点：写入文件 + 更新向量 + 刷新目录锚点。"""
     embedding = embedder(content)
     vector_store.upsert_embedding(node_id, embedding)
+
+    node = md_store.read_node(node_id)
+    if node is not None and node.title:
+        vector_store.upsert_embedding(f"title:{node_id}", embedder(node.title))
+    else:
+        vector_store.delete_embedding(f"title:{node_id}")
 
     # 刷新目录锚点
     parts = node_id.rsplit("/", 1)

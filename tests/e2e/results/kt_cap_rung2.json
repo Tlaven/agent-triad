@@ -1,0 +1,81 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung2.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_capability_test",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.546638299943879,
+      "final_response": "\n\n已记住。这条知识已存入知识库：\n\n> **排查 HuggingFace 模型下载卡死**：在 SentenceTransformer 构造函数中添加 `local_files_only=True` 参数，强制使用本地缓存，避免联网下载。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。",
+            "trigger": "user_explicit",
+            "source": "user"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记住这条知识：排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.6959236999973655,
+      "final_response": "\n\n检索到了解决方法，正好就是之前存入的那条知识：\n\n**解决方案**：在 `SentenceTransformer` 构造函数中添加 `local_files_only=True` 参数。\n\n```python\nfrom sentence_transformers import SentenceTransformer\n\n# 强制使用本地缓存，不联网下载\nmodel = SentenceTransformer('xxx-model-name', local_files_only=True)\n```\n\n这样程序只会读取本地已缓存的模型文件，不会尝试联网，从而避免因网络问题导致的卡死。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "模型下载出问题导致程序卡住不动 解决方法"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"d2d95d3aa534\", \"node_id\": \"huggingface_sentencetrans/排查 HuggingFace 模型下载卡死的方法是_在 SentenceTran.md\", \"title\": \"排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造\", \"content\": \"排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。\", \"similarity\": 0.303, \"quality\": \"medium\", \"additional_results\": 1}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "d2d95d3aa534",
+            "node_id": "huggingface_sentencetrans/排查 HuggingFace 模型下载卡死的方法是_在 SentenceTran.md",
+            "title": "排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造",
+            "content": "排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。",
+            "similarity": 0.303,
+            "quality": "medium",
+            "additional_results": 1
+          }
+        }
+      ],
+      "input": "请用知识树检索工具检索关于\"模型下载出问题导致程序卡住不动\"的解决方法。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": true,
+    "total_time": 10.242561999941245
+  }
+}

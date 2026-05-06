@@ -142,7 +142,7 @@ FILESYSTEM_MCP_ROOT_DIR=workspace     # 文件访问根目录
 ### 测试内容
 
 **核心测试文件**:
-- `tests/unit_tests/test_executor_reflection.py` (26 项单元测试)
+- `tests/unit_tests/executor_agent/test_reflection.py` (26 项单元测试)
 - `tests/integration/test_reflection_integration.py` (20 项集成测试)
 
 #### 单元测试（26 项）
@@ -177,7 +177,7 @@ FILESYSTEM_MCP_ROOT_DIR=workspace     # 文件访问根目录
 
 ```bash
 # V2-c 单元测试
-pytest tests/unit_tests/test_executor_reflection.py -v
+pytest tests/unit_tests/executor_agent/test_reflection.py -v
 
 # V2-c 集成测试
 pytest tests/integration/test_reflection_integration.py -v
@@ -284,7 +284,7 @@ pytest tests/unit_tests tests/integration -v -s
 
 # 只运行 V2 专项测试
 pytest tests/unit_tests/test_observation.py \
-       tests/unit_tests/test_executor_reflection.py \
+       tests/unit_tests/executor_agent/test_reflection.py \
        tests/unit_tests/planner_agent/test_tools_registry.py \
        tests/integration/test_reflection_integration.py \
        tests/integration/test_mcp_integration.py \
@@ -391,13 +391,13 @@ pytest tests/unit_tests tests/integration --cov=src --cov-report=html
 
 ```bash
 # 单个测试文件详细输出
-pytest tests/unit_tests/test_executor_reflection.py::TestReflectionRouting -v -s
+pytest tests/unit_tests/executor_agent/test_reflection.py::test_route_after_tools -v -s
 
 # 只运行失败的测试
 pytest tests/unit_tests tests/integration --lf
 
 # 打印本地变量
-pytest tests/unit_tests/test_executor_reflection.py -v -l
+pytest tests/unit_tests/executor_agent/test_reflection.py -v -l
 ```
 
 ---

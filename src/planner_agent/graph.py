@@ -25,11 +25,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
+from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
 from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.utils import invoke_chat_model, load_chat_model
-from src.executor_agent.tools import get_executor_capabilities_docs
 
 from src.planner_agent.prompts import get_planner_system_prompt
 from src.planner_agent.state import PlannerState

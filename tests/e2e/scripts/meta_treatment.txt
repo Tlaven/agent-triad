@@ -1,0 +1,9 @@
+# 元知识自举测试 - Treatment（含元规则的 KT）
+# 测试：有元规则自动注入时，Agent 是否会主动存储用户分享的信息
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_treatment --script tests/e2e/scripts/meta_treatment.txt --report tests/e2e/results/meta_treatment.json --turn-timeout 90
+
+# T1: 用户分享信息（同 Control T1），观察是否触发 ingest
+顺便说一下，这个项目用的是 uv 包管理器，开发服务器端口是 2024。
+
+# T2: 检索验证
+请检索知识树中关于包管理器的信息。

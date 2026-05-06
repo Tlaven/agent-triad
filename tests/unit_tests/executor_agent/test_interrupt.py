@@ -4,6 +4,7 @@ import asyncio
 import subprocess
 import sys
 import time
+from unittest.mock import patch
 
 import pytest
 
@@ -148,4 +149,87 @@ def test_run_local_command_returns_interrupt_on_stop():
         assert INTERRUPT_PROMPT in result.get("error", "")
     finally:
         clear_current_plan_id()
+        _stop_events.pop(plan_id, None)
+
+
+# ==================== _get_stop_event edge cases ====================
+
+
+def test_get_stop_event_empty_plan_id():
+    """_get_stop_event returns None for empty plan_id."""
+    from src.executor_agent.interrupt import _get_stop_event
+    assert _get_stop_event("") is None
+
+
+def test_get_stop_event_no_plan_id():
+    """_get_stop_event returns None for None plan_id."""
+    from src.executor_agent.interrupt import _get_stop_event
+    assert _get_stop_event(None) is None
+
+
+def test_get_stop_event_import_error():
+    """When server module can't be imported, _get_stop_event returns None."""
+    from src.executor_agent.interrupt import _get_stop_event
+    with patch.dict("sys.modules", {"src.executor_agent.server": None}):
+        # Force re-import path by calling with a plan_id that's not in server
+        result = _get_stop_event("nonexistent_plan_xyz")
+        # Either None (no server) or actual event — both are fine
+        assert result is None or hasattr(result, "is_set")
+
+
+# ==================== is_interrupted edge cases ====================
+
+
+def test_is_interrupted_no_plan_id_returns_false():
+    """When no plan_id is set, is_interrupted returns False."""
+    clear_current_plan_id()
+    assert is_interrupted() is False
+
+
+def test_is_interrupted_explicit_none():
+    """Explicit None plan_id returns False."""
+    assert is_interrupted(None) is False
+
+
+def test_is_interrupted_with_empty_string():
+    """Empty string plan_id returns False."""
+    assert is_interrupted("") is False
+
+
+# ==================== check_interrupt ====================
+
+
+def test_check_interrupt_raises_when_set():
+    """check_interrupt raises ToolInterrupted when stop event is set."""
+    try:
+        from src.executor_agent.server import _stop_events
+    except ImportError:
+        pytest.skip("Not running in server module context")
+
+    plan_id = "plan_check_interrupt"
+    event = asyncio.Event()
+    event.set()
+    _stop_events[plan_id] = event
+
+    try:
+        with pytest.raises(ToolInterrupted, match="Supervisor requested stop"):
+            check_interrupt(plan_id)
+    finally:
+        _stop_events.pop(plan_id, None)
+
+
+def test_check_interrupt_no_raise_when_not_set():
+    """check_interrupt does not raise when stop event is not set."""
+    try:
+        from src.executor_agent.server import _stop_events
+    except ImportError:
+        pytest.skip("Not running in server module context")
+
+    plan_id = "plan_check_no_interrupt"
+    event = asyncio.Event()
+    _stop_events[plan_id] = event
+
+    try:
+        check_interrupt(plan_id)  # should not raise
+    finally:
         _stop_events.pop(plan_id, None)

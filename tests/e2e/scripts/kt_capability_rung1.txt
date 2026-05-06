@@ -1,0 +1,9 @@
+# ═══ KT 能力阶梯测试 — Rung 1 ═══
+# 显式摄入 + 显式检索 + 原文措辞（最低难度）
+# 命令：uv run chat.py --kt --kt-embedding-model hash --script tests/e2e/scripts/kt_capability_rung1.txt --report tests/e2e/results/kt_cap_rung1.json --turn-timeout 120 --reset-kt-root --kt-root workspace/kt_capability_test
+
+# T1: 显式摄入一条事实性知识
+请记住这条知识：项目使用 uv 作为包管理器，开发服务器端口是 2024。
+
+# T2: 用几乎相同的措辞显式检索
+请用知识树检索工具检索关于"包管理器"的内容。

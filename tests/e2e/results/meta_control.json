@@ -1,0 +1,35 @@
+{
+  "script": "tests\\e2e\\scripts\\meta_control.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_meta_control",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.949591099983081,
+      "final_response": "\n\n收到！我已经记录下来：\n\n- **包管理器**：uv\n- **开发服务器端口**：2024\n\n请问需要我帮您做什么？比如：\n\n- 启动开发服务器？\n- 安装/管理项目依赖？\n- 执行其他开发任务？\n\n请告诉我您的具体需求，我来帮您处理。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "顺便说一下，这个项目用的是 uv 包管理器，开发服务器端口是 2024。"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=90.0",
+      "elapsed": 90.02632760000415,
+      "final_response": null,
+      "input": "请检索知识树中关于包管理器的信息。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": false,
+    "total_time": 6.949591099983081
+  }
+}

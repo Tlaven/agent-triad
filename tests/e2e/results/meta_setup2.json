@@ -1,0 +1,49 @@
+{
+  "script": "tests\\e2e\\scripts\\meta_setup2.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_meta_treatment",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.013131499988958,
+      "final_response": "\n\n已成功将内容存储到知识树中，新增 1 个节点。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "主动存储规则——关于包管理器、端口号、配置参数这类项目配置信息，当用户在对话中提到时，应该主动使用 knowledge_tree_ingest 工具将其存储到知识树中，不要只是口头确认。用户提到 uv、npm、pip、端口、配置等关键词时都属于这种情况。\n\n决策规则：当用户主动分享项目信息、技术细节或个人偏好时，应该主动使用 knowledge_tree_ingest 工具将这些信息存储到知识树中。不要只是口头确认收到，要实际调用工具存储。这样以后可以随时检索这些信息。\n\n项目配置信息：包管理器使用 uv，开发服务器端口为 2024",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请将以下内容记录到知识树：主动存储规则——关于包管理器、端口号、配置参数这类项目配置信息，当用户在对话中提到时，应该主动使用 knowledge_tree_ingest 工具将其存储到知识树中，不要只是口头确认。用户提到 uv、npm、pip、端口、配置等关键词时都属于这种情况。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 1,
+    "turns_completed": 1,
+    "ok": true,
+    "total_time": 9.013131499988958
+  }
+}

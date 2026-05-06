@@ -1,0 +1,28 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_diag.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_capability_test",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.6469653001986444,
+      "final_response": "\n\n你好！有什么我可以帮助你的吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，简单回复一句话。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 1,
+    "turns_completed": 1,
+    "ok": true,
+    "total_time": 3.6469653001986444
+  }
+}

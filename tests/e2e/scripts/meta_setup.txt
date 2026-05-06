@@ -1,0 +1,5 @@
+# 元知识自举测试 - Setup（摄入元规则）
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_treatment --reset-kt-root --script tests/e2e/scripts/meta_setup.txt --report tests/e2e/results/meta_setup.json --turn-timeout 90
+
+# S1: 摄入元规则 - 主动存储决策规则
+请将以下决策规则记录到知识树：当用户主动分享项目信息、技术细节或个人偏好时，你应该主动使用 knowledge_tree_ingest 工具将这些信息存储到知识树中。不要只是口头确认收到，要实际调用工具存储。这样以后可以随时检索这些信息。

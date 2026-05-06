@@ -1,0 +1,34 @@
+# ═══ KT 能力阶梯测试 — Rung 6-7 ═══
+# 前提：KT 已有 ~7 个节点（3 有用 + 4 噪声）
+# 命令：uv run chat.py --kt --kt-root workspace/kt_semantic_test --script tests/e2e/scripts/kt_capability_rung6to7.txt --report tests/e2e/results/kt_cap_rung6to7.json --turn-timeout 120
+
+# ═══ Rung 6: 噪声环境下检索原始知识 ═══
+
+# T1: 噪声中找包管理器
+请直接回答我，不要使用任何工具：这个项目用什么做包管理的？
+
+# T2: 噪声中找 HuggingFace 修复
+请直接回答我，不要使用任何工具：模型加载卡住怎么修来着？
+
+# ═══ Rung 7: 跨轮次衰减 ═══
+# T3-T12: 10 轮填充对话
+
+Python 的字典和列表有什么区别？
+什么是 REST API？
+Git 的 merge 和 rebase 有什么不同？
+解释一下什么是 Docker 容器。
+HTTP 和 HTTPS 的区别是什么？
+什么是微服务架构？
+解释一下什么是缓存，为什么需要缓存。
+TCP 和 UDP 的区别是什么？
+什么是设计模式？举两个常见例子。
+解释一下什么是 CI/CD。
+
+# T13: 跨 10 轮后回忆包管理器
+请直接回答我，不要使用任何工具：我忘了，这个项目的包管理器和端口分别是什么？
+
+# T14: 跨 10 轮后回忆 HuggingFace 修复
+请直接回答我，不要使用任何工具：之前遇到过 SentenceTransformer 卡死的问题，修复方法是什么来着？
+
+# T15: 跨 10 轮后回忆 executor 超时
+请直接回答我，不要使用任何工具：executor 超时的常见原因和解决办法是什么？

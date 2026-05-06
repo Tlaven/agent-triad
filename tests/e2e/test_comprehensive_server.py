@@ -3,10 +3,10 @@
 20 个测试用例，4 组独立 thread，覆盖全部 Supervisor 工具。
 三级验证：L1(工具调用) + L2(输出格式) + L3(副作用)。
 
-组 A (A1-A7): 知识树完整闭环 — bootstrap/status/retrieve/ingest/dedup/retrieve-verify
+组 A (A1-A7): 知识树完整闭环 — auto bootstrap/retrieve/ingest/dedup/retrieve-verify
 组 B (B1-B6): Mode 2 + Mode 3 执行流 — executor/list/get/planner+executor/check
 组 C (C1-C4): 异步 + 停止流程 — async dispatch/stop/list/get_result
-组 D (D1-D3): 重规划 + 边界 — plan/execute+replan/kt_status
+组 D (D1-D3): 重规划 + 边界 — plan/execute+replan/kt_retrieve
 
 用法:
     1. make dev
@@ -48,7 +48,6 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 KT_ROOT = "workspace/kt_comprehensive_test"
 
 ALL_TOOLS = {
-    "knowledge_tree_bootstrap", "knowledge_tree_status",
     "knowledge_tree_retrieve", "knowledge_tree_ingest",
     "call_planner", "call_executor", "manage_executor",
 }
@@ -66,13 +65,7 @@ def section(title: str):
 def validate_kt_output(tool_name: str, output: dict) -> list[str]:
     """验证 KT 工具输出 JSON，返回问题列表（空=通过）。"""
     issues: list[str] = []
-    if tool_name == "knowledge_tree_bootstrap":
-        if not output.get("ok"):
-            issues.append("ok != true")
-    elif tool_name == "knowledge_tree_status":
-        if "total_nodes" not in output:
-            issues.append("missing total_nodes")
-    elif tool_name == "knowledge_tree_retrieve":
+    if tool_name == "knowledge_tree_retrieve":
         if "query_id" not in output and not output.get("message"):
             issues.append("missing query_id")
     elif tool_name == "knowledge_tree_ingest":
@@ -135,15 +128,15 @@ def verify_side_effects(test_id: str) -> list[str]:
 # ─── 4 组测试用例 ────────────────────────────────────────────
 GROUP_A = [
     {
-        "id": "A1", "name": "A1: bootstrap — 初始建树",
-        "message": "请初始化知识树。",
-        "expected_tools": ["knowledge_tree_bootstrap"],
+        "id": "A1", "name": "A1: retrieve — 自动初始化并查询",
+        "message": "请检索关于状态管理的知识。",
+        "expected_tools": ["knowledge_tree_retrieve"],
         "l2_check": True,
     },
     {
-        "id": "A2", "name": "A2: status — 验证建树结果",
-        "message": "查看知识树当前状态。",
-        "expected_tools": ["knowledge_tree_status"],
+        "id": "A2", "name": "A2: ingest — 记录基础知识",
+        "message": "请记录到知识树：知识树由 retrieve 和 ingest 两个 Supervisor 主动工具组成。",
+        "expected_tools": ["knowledge_tree_ingest"],
         "l2_check": True,
     },
     {
@@ -287,9 +280,9 @@ GROUP_D = [
         "l2_check": False,  # 输出格式不确定
     },
     {
-        "id": "D3", "name": "D3: knowledge_tree_status — 最终 KT 状态验证",
-        "message": "查看知识树当前状态。",
-        "expected_tools": ["knowledge_tree_status"],
+        "id": "D3", "name": "D3: knowledge_tree_retrieve — 最终 KT 检索验证",
+        "message": "检索关于知识树工具的知识。",
+        "expected_tools": ["knowledge_tree_retrieve"],
         "l2_check": True,
     },
 ]
@@ -622,7 +615,7 @@ async def main():
     print(f"{BOLD}{CYAN}")
     print("╔════════════════════════════════════════════════════════╗")
     print("║   Supervisor 进阶综合测试 V2 — LangGraph Dev Server   ║")
-    print("║   20 用例 × 10 工具 × 4 组独立 Thread × 3 级验证    ║")
+    print("║   20 用例 × 5 工具 × 4 组独立 Thread × 3 级验证     ║")
     print("╚════════════════════════════════════════════════════════╝")
     print(R)
 

@@ -1,0 +1,12 @@
+# 验证 Supervisor 模式判断修复
+# 之前这些查询会触发 call_executor，现在应该走 Mode A
+# 命令：uv run chat.py --kt --kt-root workspace/kt_semantic_test --script tests/e2e/scripts/kt_verify_mode.txt --report tests/e2e/results/kt_verify_mode.json --turn-timeout 60
+
+# T1: 项目相关查询（之前触发 executor）
+这个项目的包管理器叫什么名字？
+
+# T2: 模型问题（之前触发 executor）
+SentenceTransformer 在加载模型的时候卡住了，你知不知道是什么原因？
+
+# T3: 另一个项目相关查询
+我要启动项目的开发服务器，应该用什么端口？

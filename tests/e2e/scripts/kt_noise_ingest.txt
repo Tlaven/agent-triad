@@ -1,0 +1,18 @@
+# ═══ Rung 6 准备：噪声知识摄入 ═══
+# 单独脚本，避免被"不要使用工具"污染
+# 命令：uv run chat.py --kt --kt-root workspace/kt_semantic_test --script tests/e2e/scripts/kt_noise_ingest.txt --report tests/e2e/results/kt_noise_ingest.json --turn-timeout 90
+
+# T1
+请记住这条知识：天气预报说明天北京有中雨，气温 15-22 度。
+
+# T2
+请记住这条知识：Python 的 GIL 使得多线程在 CPU 密集任务中不会真正并行。
+
+# T3
+请记住这条知识：量子计算的基本单位是量子比特，可以同时处于 0 和 1 的叠加态。
+
+# T4
+请记住这条知识：机器学习的三要素是数据、算法和算力。
+
+# T5
+请记住这条知识：HTTP 协议是无状态的，每次请求相互独立。

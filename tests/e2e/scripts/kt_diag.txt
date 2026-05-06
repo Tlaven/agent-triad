@@ -1,0 +1,2 @@
+# 诊断：隔离 kt_retrieve vs call_model
+你好，简单回复一句话。

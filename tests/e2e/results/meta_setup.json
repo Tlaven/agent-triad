@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\meta_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_meta_treatment",
+    "kt_embedding_model": "BAAI/bge-small-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "turn_timeout=90.0",
+      "elapsed": 90.03868579980917,
+      "final_response": null,
+      "input": "请将以下决策规则记录到知识树：当用户主动分享项目信息、技术细节或个人偏好时，你应该主动使用 knowledge_tree_ingest 工具将这些信息存储到知识树中。不要只是口头确认收到，要实际调用工具存储。这样以后可以随时检索这些信息。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 1,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

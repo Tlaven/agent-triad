@@ -1,0 +1,33 @@
+# ═══ 知识树去重压力测试 ═══
+# 目标：验证 dedup 在边界条件下的行为
+# 命令：uv run chat.py --kt --script tests/e2e/scripts/dedup_stress.txt --report tests/e2e/results/dedup_stress.json --turn-timeout 90 --reset-kt-root --kt-root workspace/kt_dedup_test
+
+# T1: 摄入第一条知识 — 建立基准
+请记录到知识树：Python 装饰器是一种修改函数行为的高级语法，使用 @decorator 语法糖可以简洁地包装函数。
+
+# T2: 检索验证基准存在
+请检索关于 Python 装饰器的知识。
+
+# T3: 重复摄入 — 完全相同内容，应触发 dedup
+请记录到知识树：Python 装饰器是一种修改函数行为的高级语法，使用 @decorator 语法糖可以简洁地包装函数。
+
+# T4: 近似摄入 — 仅改标点/空格，语义完全相同
+请记录到知识树：Python 装饰器是一种修改函数行为的高级语法,使用@decorator语法糖可以简洁地包装函数。
+
+# T5: 近似摄入 — 改变表述但语义相同
+请记录到知识树：在 Python 中，装饰器利用 @ 符号来优雅地修改或增强函数的行为。
+
+# T6: 摄入不同主题 — 不应被 dedup
+请记录到知识树：TypeScript 的类型系统使用泛型来创建可复用的类型安全组件。
+
+# T7: 再次摄入不同主题 — 也不应被 dedup
+请记录到知识树：Rust 的所有权系统通过借用检查器在编译期保证内存安全。
+
+# T8: 交叉主题 — 提到装饰器但主题不同
+请记录到知识树：在 TypeScript 中，装饰器是实验性功能，需要启用 experimentalDecorators 编译选项。
+
+# T9: 检索装饰器 — 应能检索到 T1/T4/T5 中至少一条
+请检索关于装饰器相关的知识。
+
+# T10: 检索 TypeScript — 应命中 T6/T8
+请检索关于 TypeScript 的知识。

@@ -1,0 +1,9 @@
+# 元知识自举测试 - Direct：验证 Agent 是否遵循注入的元规则
+# KT 中已有：原始元规则 + 话题元规则 + uv 项目信息
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_treatment --script tests/e2e/scripts/meta_direct.txt --report tests/e2e/results/meta_direct.json --turn-timeout 120
+
+# D1: 直接问一个应该触发元规则的问题——关于配置参数
+项目配置是怎样的？包管理器用的什么？
+
+# D2: 提出一个新的配置信息，看是否主动存储
+项目用 pytest 作为测试框架，测试命令是 make test_unit。

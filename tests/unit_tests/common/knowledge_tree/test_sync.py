@@ -59,6 +59,25 @@ class TestFullRebuild:
         assert "patterns" in anchor_dirs
         assert "fundamentals" in anchor_dirs
 
+    def test_rebuild_clears_stale_embeddings_and_anchors(self, stores):
+        md, vec = stores
+        embedder = _make_embedder()
+        node = KnowledgeNode.create("fresh/node.md", "Fresh", "fresh content")
+        md.write_node(node)
+        vec.upsert_embedding("stale.md", [1.0, 0.0, 0.0, 0.0])
+        vec.upsert_embedding("title:stale.md", [0.0, 1.0, 0.0, 0.0])
+
+        from src.common.knowledge_tree.storage.vector_store import DirectoryAnchor
+        vec.upsert_anchor(DirectoryAnchor("stale", [1.0, 0.0, 0.0, 0.0], 1))
+
+        report = full_rebuild(md, vec, embedder)
+
+        assert report.nodes_synced == 1
+        assert vec.get_embedding("stale.md") is None
+        assert vec.get_embedding("title:stale.md") is None
+        assert vec.get_anchor("stale") is None
+        assert vec.get_embedding("fresh/node.md") is not None
+
 
 class TestSyncNode:
     def test_sync_single_node(self, stores, mock_embedder):
@@ -71,3 +90,28 @@ class TestSyncNode:
         md.write_node(node)
         sync_node("test/new.md", "Test content", md, vec, mock_embedder)
         assert vec.get_embedding("test/new.md") is not None
+
+    def test_sync_single_node_updates_title_embedding(self, stores, mock_embedder):
+        md, vec = stores
+        node = KnowledgeNode.create(
+            node_id="test/new.md",
+            title="Test Title",
+            content="Test content",
+        )
+        md.write_node(node)
+
+        sync_node("test/new.md", "Test content", md, vec, mock_embedder)
+
+        assert vec.get_embedding("title:test/new.md") == mock_embedder("Test Title")
+
+    def test_sync_single_node_removes_stale_title_embedding_when_node_missing(
+        self,
+        stores,
+        mock_embedder,
+    ):
+        md, vec = stores
+        vec.upsert_embedding("title:test/missing.md", mock_embedder("Old Title"))
+
+        sync_node("test/missing.md", "Test content", md, vec, mock_embedder)
+
+        assert vec.get_embedding("title:test/missing.md") is None

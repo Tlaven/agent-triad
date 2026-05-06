@@ -1,0 +1,9 @@
+# ═══ KT 能力阶梯测试 — Rung 4（v3）═══
+# 被动召回 — 加"直接回答"约束防止触发 executor
+# 命令：uv run chat.py --kt --kt-embedding-model hash --script tests/e2e/scripts/kt_capability_rung4.txt --report tests/e2e/results/kt_cap_rung4_v3.json --turn-timeout 90 --kt-root workspace/kt_capability_test
+
+# T1: 被动召回测试 — 明确要求直接回答
+请直接回答我，不要使用任何工具：这个项目的包管理器叫什么名字？端口号是多少？
+
+# T2: 被动召回测试 — 同样要求直接回答
+请直接回答我，不要使用任何工具：SentenceTransformer 加载模型的时候卡住不动，你知不知道可能是什么原因？

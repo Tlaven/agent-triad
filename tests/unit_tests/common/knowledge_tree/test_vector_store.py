@@ -63,6 +63,24 @@ class TestInMemoryVectorStore:
         assert vec_store.get_embedding("n1") is None
         assert vec_store.delete_embedding("n1") is False
 
+    def test_delete_removes_title_embedding(self, vec_store: InMemoryVectorStore):
+        vec_store.upsert_embedding("n1", [1.0, 0.0, 0.0, 0.0])
+        vec_store.upsert_embedding("title:n1", [0.0, 1.0, 0.0, 0.0])
+
+        assert vec_store.delete_embedding("n1") is True
+
+        assert vec_store.get_embedding("n1") is None
+        assert vec_store.get_embedding("title:n1") is None
+
+    def test_clear_removes_embeddings_and_anchors(self, vec_store: InMemoryVectorStore):
+        vec_store.upsert_embedding("n1", [1.0, 0.0, 0.0, 0.0])
+        vec_store.upsert_anchor(DirectoryAnchor("dev", [1.0, 0.0, 0.0, 0.0], 1))
+
+        vec_store.clear()
+
+        assert vec_store.get_embedding("n1") is None
+        assert vec_store.get_all_anchors() == []
+
     def test_close_clears(self, vec_store: InMemoryVectorStore):
         vec_store.upsert_embedding("n1", [1.0, 0.0, 0.0, 0.0])
         vec_store.close()

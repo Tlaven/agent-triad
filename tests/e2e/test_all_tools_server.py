@@ -8,8 +8,7 @@
     - call_planner          T1
     - call_executor         T2 (Mode 2: task_description)
     - manage_executor       T3 (get_result / list_tasks / check_progress / stop)
-    - knowledge_tree_status T4
-    - knowledge_tree_retrieve T5
+    - knowledge_tree_retrieve T4/T5
     - knowledge_tree_ingest  T6
 """
 
@@ -69,9 +68,9 @@ TEST_CASES = [
     },
     # ═══ Knowledge Tree ═══
     {
-        "name": "T4: knowledge_tree_status — 查看知识树",
-        "message": "请查看知识树当前状态。",
-        "expected_tools": ["knowledge_tree_status"],
+        "name": "T4: knowledge_tree_retrieve — 查询初始知识",
+        "message": "请检索关于知识树状态管理的知识。",
+        "expected_tools": ["knowledge_tree_retrieve"],
     },
     {
         "name": "T5: knowledge_tree_retrieve — 检索知识",
@@ -101,9 +100,9 @@ TEST_CASES = [
         "expected_tools": ["knowledge_tree_retrieve"],
     },
     {
-        "name": "T10: knowledge_tree_status — 最终状态",
-        "message": "最后再查看一下知识树状态。",
-        "expected_tools": ["knowledge_tree_status"],
+        "name": "T10: knowledge_tree_retrieve — 最终检索验证",
+        "message": "最后再检索一下 Plan-Execute 模式的知识。",
+        "expected_tools": ["knowledge_tree_retrieve"],
     },
 ]
 
@@ -314,8 +313,7 @@ def print_summary(results: list[dict], tools_seen: set[str]):
     # 工具覆盖报告
     all_tools = {
         "call_planner", "call_executor", "manage_executor",
-        "knowledge_tree_retrieve", "knowledge_tree_status",
-        "knowledge_tree_ingest", "knowledge_tree_bootstrap",
+        "knowledge_tree_retrieve", "knowledge_tree_ingest",
     }
     section("工具覆盖")
     covered = len(tools_seen & all_tools)

@@ -2,7 +2,7 @@
 
 通用三层 Multi-Agent 框架：自然语言 → **Supervisor**（调度）→ **Planner**（意图层 Plan）→ **Executor**（工具执行）→ 结果融合；Planner 与 Executor 工具集解耦。
 
-**读什么**：[`CLAUDE.md`](./CLAUDE.md) 开发与协作 Agent 的硬规则 · [`docs/product-roadmap.md`](./docs/product-roadmap.md) 产品与里程碑 · [`docs/README.md`](./docs/README.md) `docs/` 索引导航 · [`tests/README.md`](./tests/README.md) 改代码后跑哪条测试 · [`tests/TESTING.md`](./tests/TESTING.md) 环境、代理与分层细节。
+**阅读顺序**：先按本文件完成安装与启动；开发或协作 Agent 先读 [`CLAUDE.md`](./CLAUDE.md) 硬规则；需要产品、里程碑、架构背景时进入 [`docs/README.md`](./docs/README.md)；改代码后按 [`tests/README.md`](./tests/README.md) 选择测试，环境细节见 [`tests/TESTING.md`](./tests/TESTING.md)。
 
 ---
 
@@ -33,13 +33,13 @@ make test_lint_coverage   # lint + 单元/集成覆盖率（Mock LLM，不含 E2
 
 ```
 src/
-  common/           配置、模型加载、Observation 等
+  common/           配置、模型加载、Observation、V3 基础设施、知识树等
   supervisor_agent/ 主图与工具（call_planner / call_executor）
   planner_agent/    规划 ReAct
   executor_agent/   执行 ReAct + 工具
 tests/
   README.md    TESTING.md    unit_tests/  integration/  e2e/
-docs/            产品路线、ADR、V3 架构图、索引
+docs/            产品路线、ADR、V3 架构图、V4 知识树、索引
 CLAUDE.md        硬规则（给开发者与 AI）
 ```
 

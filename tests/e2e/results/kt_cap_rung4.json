@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung4.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_capability_test",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "turn_timeout=120.0",
+      "elapsed": 120.07362930011004,
+      "final_response": null,
+      "input": "我要启动项目的开发服务器，应该用什么端口？"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

@@ -1,0 +1,9 @@
+# 元知识自举测试 - Control（空白 KT）
+# 测试：没有元规则时，Agent 是否会主动存储用户分享的信息
+# 命令：uv run chat.py --kt --kt-embedding-model BAAI/bge-small-zh-v1.5 --kt-root workspace/kt_meta_control --reset-kt-root --script tests/e2e/scripts/meta_control.txt --report tests/e2e/results/meta_control.json --turn-timeout 90
+
+# T1: 用户分享信息，不明确要求存储
+顺便说一下，这个项目用的是 uv 包管理器，开发服务器端口是 2024。
+
+# T2: 直接检索验证是否存储了
+请检索知识树中关于包管理器的信息。
