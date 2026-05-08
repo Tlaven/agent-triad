@@ -140,6 +140,15 @@ def ingest_nodes(
             # 6. 刷新目录锚点
             _refresh_anchor(node.directory, md_store, vector_store)
 
+            # 7. P2: 计算 stored_vector（content + structural 混合）
+            # 锚点已刷新，现在可以为新节点生成混合向量
+            # （on_change 回调也会触发，但这里显式处理确保时序正确）
+            from src.common.knowledge_tree.editing.stored_vector import (
+                compute_and_store_stored_vector,
+            )
+
+            compute_and_store_stored_vector(node.node_id, vector_store)
+
             report.nodes_ingested += 1
 
         except Exception as e:

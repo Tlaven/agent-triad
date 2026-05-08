@@ -1,6 +1,6 @@
 # V4 知识树核心设计 — 向量-结构互塑闭环
 
-> 状态：端到端质量验证完成（2026-05-07），993 tests，覆盖率 80%
+> 状态：P2 完成（2026-05-08），structural_vector 混合 + Agent 重组 + Overlay 管理，362 KT tests
 > 前置：`v4-knowledge-tree-spec.md`（P1 技术规格，已实现）
 > 定位：知识树是 AgentTriad 与其他 Agent 项目的核心差异
 
@@ -224,13 +224,13 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），993 tests
 - [x] **认知集成第二轮** — Reflection/paused 状态处理 + 异步派发诚实 + Observation 路径修复（workspace/agent/.observations）+ Planner KT 共享
 - [x] **端到端质量验证** — Hash embedder 检索基线（14 tests）+ Entry A 闭环（22 tests）+ Filter 边界（23 tests）+ 种子增强（15 篇）+ 配置审计，993 tests 全通过，详见 `docs/kt-validation-report.md`
+- [x] **P2：structural_vector 混合** — `stored_vector = normalize(α·content + β·structural)`，同目录文件聚簇增强
+- [x] **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整 + Overlay 边更新
+- [x] **P2：Overlay 主动管理** — `knowledge_tree_overlay` 工具：跨目录关联边的增删查
 
 ### 待实现（按优先级）
 
-1. **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整
-2. **P2：structural_vector 混合** — content_embedding + 结构位置向量，增强目录内区分
-3. **P2：Overlay 主动管理** — 跨目录关联边的增删查
-4. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类
+1. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类
 
 ### 文件结构（不变）
 
@@ -259,6 +259,9 @@ src/common/knowledge_tree/
         ingest.py            # 增量嫁接
     editing/
         re_embed.py          # 节点重嵌入
+        stored_vector.py     # P2: structural_vector 混合计算
+        tree_view.py         # P2: 编号树渲染/解析
+        reorganize.py        # P2: 重组差异计算 + 移动执行
     optimization/
         anti_oscillation.py # 反振荡保护
         signals.py          # 优化信号检测
@@ -276,6 +279,9 @@ src/common/knowledge_tree/
 | `knowledge_tree_ingest` | 主动工具 | Supervisor 主动记忆（用户要求、skill 触发、自主判断） |
 | `knowledge_tree_status` | 可见性工具 | 返回 KT 概览（节点数、目录数、锚点数） |
 | `knowledge_tree_list` | 可见性工具 | 列出节点（支持按目录过滤，含标题和内容预览） |
+| `knowledge_tree_tree` | 重组工具 | 返回编号树视图，Agent 可查看当前结构 |
+| `knowledge_tree_reorganize` | 重组工具 | Agent 提出编号树方案，系统自动执行移动 + 向量调整 |
+| `knowledge_tree_overlay` | 关联工具 | 管理跨目录关联边（add/remove/list） |
 | `kt_retrieve` graph 节点 | 自动注入 | 用户消息进入时自动 RAG 检索，拼接到用户消息 |
 
 bootstrap 已从工具列表移除（内部自动处理）。

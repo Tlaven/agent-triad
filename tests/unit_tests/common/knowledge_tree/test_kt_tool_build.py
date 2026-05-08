@@ -74,10 +74,10 @@ def _run(coro):
 
 
 class TestBuildToolsCreatesCorrectTools:
-    """build_knowledge_tree_tools 应返回 4 个正确的工具。"""
+    """build_knowledge_tree_tools 应返回正确的工具集。"""
 
-    def test_returns_four_tools(self, tools):
-        assert len(tools) == 4
+    def test_returns_five_tools(self, tools):
+        assert len(tools) == 7
 
     def test_tool_names(self, tools):
         names = {t.name for t in tools}
@@ -86,6 +86,9 @@ class TestBuildToolsCreatesCorrectTools:
             "knowledge_tree_ingest",
             "knowledge_tree_status",
             "knowledge_tree_list",
+            "knowledge_tree_overlay",
+            "knowledge_tree_tree",
+            "knowledge_tree_reorganize",
         }
 
     def test_tools_are_callable(self, tools):

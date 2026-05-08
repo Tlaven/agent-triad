@@ -156,6 +156,19 @@ class KnowledgeTree:
 
             _refresh_anchor(directory, self.md_store, self.vector_store)
 
+            # P2: 锚点刷新后重算 stored_vector
+            from src.common.knowledge_tree.editing.stored_vector import (
+                compute_stored_vectors_for_directory,
+            )
+
+            compute_stored_vectors_for_directory(
+                directory,
+                self.md_store,
+                self.vector_store,
+                self.config.content_weight,
+                self.config.structural_weight,
+            )
+
     def retrieve(
         self, query: str
     ) -> tuple[list[tuple[KnowledgeNode, float]], RetrievalLog]:
@@ -320,6 +333,137 @@ class KnowledgeTree:
         report.nodes_deduplicated = ingest_report.nodes_deduplicated
         report.errors = ingest_report.errors
         return report
+
+    # -- Overlay 管理 (P2) --
+
+    def overlay_add(
+        self,
+        source: str,
+        target: str,
+        relation: str = "related",
+        note: str = "",
+    ) -> dict[str, Any]:
+        """添加跨目录关联边。
+
+        Args:
+            source: 源节点路径。
+            target: 目标节点路径。
+            relation: 关系类型（默认 "related"）。
+            note: 关系说明。
+
+        Returns:
+            结果字典。
+        """
+        if source == target:
+            return {"ok": False, "error": "source and target must be different"}
+        if not self.md_store.node_exists(source):
+            return {"ok": False, "error": f"source not found: {source}"}
+        if not self.md_store.node_exists(target):
+            return {"ok": False, "error": f"target not found: {target}"}
+
+        from src.common.knowledge_tree.storage.overlay import OverlayEdge
+
+        edge = OverlayEdge(
+            source_path=source,
+            target_path=target,
+            relation=relation,
+            strength=1.0,
+            created_by="agent",
+            note=note,
+        )
+        self.overlay_store.add_edge(edge)
+        return {
+            "ok": True,
+            "edge": {"source": source, "target": target, "relation": relation},
+        }
+
+    def overlay_remove(
+        self,
+        source: str,
+        target: str,
+        relation: str = "related",
+    ) -> dict[str, Any]:
+        """移除跨目录关联边。
+
+        Returns:
+            结果字典。
+        """
+        removed = self.overlay_store.remove_edge(source, target, relation)
+        return {"ok": removed}
+
+    def overlay_list(self, path: str = "") -> dict[str, Any]:
+        """列出关联边。
+
+        Args:
+            path: 可选过滤路径。
+
+        Returns:
+            边列表。
+        """
+        if path:
+            edges = self.overlay_store.get_edges_for(path)
+        else:
+            edges = self.overlay_store.get_all_edges()
+        return {
+            "ok": True,
+            "total": len(edges),
+            "edges": [e.to_dict() for e in edges],
+        }
+
+    # -- 编号树 + 重组 (P2) --
+
+    def tree(self) -> dict[str, Any]:
+        """返回编号树视图。
+
+        Returns:
+            {"ok": True, "tree": "...numbered text..."}
+        """
+        from src.common.knowledge_tree.editing.tree_view import render_numbered_tree
+
+        tree_text = render_numbered_tree(self.md_store)
+        return {"ok": True, "tree": tree_text}
+
+    def reorganize(self, proposed_tree: str) -> dict[str, Any]:
+        """解析提议树并执行重组。
+
+        Args:
+            proposed_tree: 编号树格式的提议结构。
+
+        Returns:
+            重组报告。
+        """
+        from src.common.knowledge_tree.editing.reorganize import (
+            diff_trees,
+            execute_reorganize,
+        )
+        from src.common.knowledge_tree.editing.tree_view import parse_numbered_tree
+
+        try:
+            entries = parse_numbered_tree(proposed_tree)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+
+        if not entries:
+            return {"ok": True, "message": "No changes proposed", "report": None}
+
+        current_ids = self.md_store.list_node_ids()
+        moves = diff_trees(current_ids, entries)
+
+        if not moves:
+            return {"ok": True, "message": "No changes needed", "report": None}
+
+        report = execute_reorganize(moves, self.md_store, self.overlay_store)
+        return {
+            "ok": True,
+            "report": {
+                "moves_executed": report.moves_executed,
+                "moves_failed": report.moves_failed,
+                "directories_created": report.directories_created,
+                "directories_removed": report.directories_removed,
+                "overlay_edges_updated": report.overlay_edges_updated,
+                "errors": report.errors,
+            },
+        }
 
 
 def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
@@ -505,9 +649,96 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_list, directory)
 
+    # -- P2: Overlay 管理 --
+
+    def _sync_overlay(
+        action: str,
+        source: str = "",
+        target: str = "",
+        relation: str = "related",
+        note: str = "",
+        path: str = "",
+    ) -> str:
+        kt = get_or_create_kt(config)
+        if action == "add":
+            result = kt.overlay_add(source, target, relation, note)
+        elif action == "remove":
+            result = kt.overlay_remove(source, target, relation)
+        elif action == "list":
+            result = kt.overlay_list(path)
+        else:
+            result = {"ok": False, "error": f"Unknown action: {action}"}
+        return json.dumps(result, ensure_ascii=False)
+
+    @lc_tool
+    async def knowledge_tree_overlay(
+        action: str,
+        source: str = "",
+        target: str = "",
+        relation: str = "related",
+        note: str = "",
+        path: str = "",
+    ) -> str:
+        """Manage cross-directory knowledge associations (overlay edges).
+
+        Actions:
+        - "add": Create a link between two knowledge nodes. Both must exist.
+        - "remove": Delete a link between two knowledge nodes.
+        - "list": Show all links, or links involving a specific node.
+
+        Args:
+            action: One of "add", "remove", "list".
+            source: Source node path (for add/remove).
+            target: Target node path (for add/remove).
+            relation: Relationship type, default "related".
+            note: Optional note describing the relationship.
+            path: Filter path (for list action).
+        """
+        return await asyncio.to_thread(
+            _sync_overlay, action, source, target, relation, note, path
+        )
+
+    # -- P2: 编号树 + 重组 --
+
+    def _sync_tree() -> str:
+        kt = get_or_create_kt(config)
+        result = kt.tree()
+        return json.dumps(result, ensure_ascii=False)
+
+    def _sync_reorganize(proposed_tree: str) -> str:
+        kt = get_or_create_kt(config)
+        result = kt.reorganize(proposed_tree)
+        return json.dumps(result, ensure_ascii=False)
+
+    @lc_tool
+    async def knowledge_tree_tree() -> str:
+        """Display the knowledge tree as a numbered directory listing.
+
+        Shows the full tree structure with numbered directories and files.
+        Use this to understand the current organization before proposing changes.
+        """
+        return await asyncio.to_thread(_sync_tree)
+
+    @lc_tool
+    async def knowledge_tree_reorganize(proposed_tree: str) -> str:
+        """Reorganize the knowledge tree by proposing a new numbered structure.
+
+        The proposed_tree must follow the same numbered format as shown by
+        knowledge_tree_tree(). Files are matched by name -- if a file appears
+        in a different directory, it will be moved there. Files not included
+        in the proposal are left unchanged (not deleted).
+
+        Args:
+            proposed_tree: The new tree structure in numbered format.
+        """
+        return await asyncio.to_thread(_sync_reorganize, proposed_tree)
+
     return [
         knowledge_tree_retrieve,
         knowledge_tree_ingest,
         knowledge_tree_status,
         knowledge_tree_list,
+        knowledge_tree_overlay,
+        knowledge_tree_tree,
+        knowledge_tree_reorganize,
     ]

@@ -106,7 +106,10 @@ def _build_tools_section() -> str:
   - 用户明确说"记住这个"（trigger="user_explicit"）
   - 发现了重要的项目经验、最佳实践或错误教训
 - `knowledge_tree_status()` — 查看记忆库概览（节点数、目录数）
-- `knowledge_tree_list(directory)` — 浏览特定主题的记忆内容"""
+- `knowledge_tree_list(directory)` — 浏览特定主题的记忆内容
+- `knowledge_tree_tree()` — 查看编号树结构，了解知识的组织方式
+- `knowledge_tree_reorganize(proposed_tree)` — 提出新的编号树结构，系统自动执行文件移动和向量调整
+- `knowledge_tree_overlay(action, source, target, ...)` — 管理跨目录知识关联（add/remove/list）"""
 
 
 def get_supervisor_system_prompt(ctx: Context | None = None) -> str:

@@ -45,8 +45,8 @@ def rag_search(
     Returns:
         (node, similarity) 列表，按相似度降序。
     """
-    # 路径 1: content embedding
-    content_results = vector_store.similarity_search(
+    # 路径 1: content embedding (P2: 使用 stored_vector 混合向量)
+    content_results = vector_store.similarity_search_stored(
         query_vector, top_k=top_k * 2, threshold=threshold
     )
 

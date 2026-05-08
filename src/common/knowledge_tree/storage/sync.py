@@ -91,6 +91,13 @@ def full_rebuild(
             report.errors.append(err)
             logger.error(err)
 
+    # P2: 计算所有节点的 stored_vector（混合 content + structural）
+    from src.common.knowledge_tree.editing.stored_vector import (
+        compute_all_stored_vectors,
+    )
+
+    compute_all_stored_vectors(md_store, vector_store)
+
     return report
 
 

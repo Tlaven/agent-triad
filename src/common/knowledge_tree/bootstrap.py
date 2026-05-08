@@ -157,6 +157,14 @@ def bootstrap_from_directory(
     report.directories_created = len(directories)
     report.max_depth = max_depth
 
+    # P2: 计算所有节点的 stored_vector（混合 content + structural）
+    from src.common.knowledge_tree.editing.stored_vector import (
+        compute_all_stored_vectors,
+    )
+
+    stored_count = compute_all_stored_vectors(md_store, vector_store)
+    logger.debug("Bootstrap: computed %d stored_vectors", stored_count)
+
     logger.info(
         "Bootstrap complete: %d nodes, %d dirs, %d anchors, depth=%d",
         report.nodes_created,

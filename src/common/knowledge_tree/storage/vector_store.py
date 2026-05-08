@@ -272,6 +272,45 @@ class InMemoryVectorStore(BaseVectorStore):
             nid: emb for nid, emb in self._embeddings.items() if nid.startswith(prefix)
         }
 
+    def similarity_search_stored(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+        threshold: float = 0.7,
+    ) -> list[tuple[str, float]]:
+        """使用 stored_vector（混合）检索，无 stored 时回退到 content_embedding。
+
+        对每个非前缀节点，优先使用 "stored:{node_id}" 键的向量，
+        找不到则回退到原始 content_embedding。
+        """
+        if not self._embeddings:
+            return []
+
+        results: list[tuple[str, float]] = []
+        seen: set[str] = set()
+        for node_id in self._embeddings:
+            # 跳过辅助索引键
+            if node_id.startswith("title:") or node_id.startswith("stored:"):
+                continue
+            if node_id in seen:
+                continue
+            seen.add(node_id)
+
+            # 优先使用 stored_vector
+            stored_key = f"stored:{node_id}"
+            vec = self._embeddings.get(stored_key)
+            if vec is None:
+                vec = self._embeddings.get(node_id)
+            if vec is None:
+                continue
+
+            score = _cosine_similarity(query_embedding, vec)
+            if score >= threshold:
+                results.append((node_id, score))
+
+        results.sort(key=lambda x: x[1], reverse=True)
+        return results[:top_k]
+
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """计算余弦相似度（公开 API）。"""

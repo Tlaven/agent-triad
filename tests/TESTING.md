@@ -52,7 +52,7 @@ curl http://localhost:2024/ok
 |------|------|--------|---------|
 | `test_comprehensive_server.py` | 进阶综合测试，三级验证 | 20 | 全部 10 个 |
 | `test_all_tools_server.py` | 全工具快速测试 | 10 | 全部 10 个 |
-| `test_kt_via_server.py` | 知识树专项测试 | 5 | 4 个 KT 工具 |
+| `test_kt_via_server.py` | 知识树专项测试 | 5 | 7 个 KT 工具 |
 
 运行方式（从项目根目录）：
 
