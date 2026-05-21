@@ -71,7 +71,7 @@ class TestKtRetrieveDisabled:
         state = _state_with_messages(HumanMessage(content="查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": ""}
 
 
 class TestKtRetrieveNoQuery:
@@ -82,14 +82,14 @@ class TestKtRetrieveNoQuery:
         state = State(messages=[])
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": ""}
 
     def test_only_ai_messages(self) -> None:
         runtime = _MockRuntime()
         state = _state_with_messages(AIMessage(content="AI reply"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": ""}
 
 
 class TestKtRetrieveThreshold:
@@ -105,7 +105,7 @@ class TestKtRetrieveThreshold:
         state = _state_with_messages(HumanMessage(content="测试查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": ""}
 
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
@@ -242,7 +242,7 @@ class TestKtRetrieveErrorHandling:
         state = _state_with_messages(HumanMessage(content="查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": ""}
 
 
 class TestKtRetrieveQueryExtraction:
@@ -262,3 +262,65 @@ class TestKtRetrieveQueryExtraction:
 
         _run(kt_retrieve(state, runtime))
         mock_kt.retrieve.assert_called_once_with("second query")
+
+
+class TestKtRetrieveMetaRules:
+    """Verify persistent meta-rules are fetched and returned."""
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_meta_rules_returned_when_present(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        from src.common.knowledge_tree.dag.node import KnowledgeNode
+
+        rule1 = KnowledgeNode.create(
+            node_id="meta_rules/r1.md", title="Rule 1",
+            content="Always confirm before deleting.", source="test",
+            metadata={"node_type": "meta_rule", "priority": 10},
+        )
+        rule2 = KnowledgeNode.create(
+            node_id="meta_rules/r2.md", title="Rule 2",
+            content="Never skip testing.", source="test",
+            metadata={"node_type": "meta_rule", "priority": 5},
+        )
+
+        _mock_kt_setup(mock_get_kt, [(_make_node("K1", "content"), 0.7)])
+        mock_kt = mock_get_kt.return_value
+        mock_kt.get_meta_rules.return_value = [rule1, rule2]
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        assert "kt_meta_rules" in result
+        assert "Always confirm before deleting" in result["kt_meta_rules"]
+        assert "Never skip testing" in result["kt_meta_rules"]
+        # Higher priority first
+        assert result["kt_meta_rules"].index("Always confirm") < result["kt_meta_rules"].index("Never skip")
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_meta_rules_empty_when_none(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        _mock_kt_setup(mock_get_kt, [(_make_node("K1", "content"), 0.7)])
+        mock_kt = mock_get_kt.return_value
+        mock_kt.get_meta_rules.return_value = []
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        assert result["kt_meta_rules"] == ""
+
+    @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
+    @patch("src.common.knowledge_tree.get_or_create_kt")
+    def test_meta_rules_failure_is_non_critical(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
+        _mock_kt_setup(mock_get_kt, [(_make_node("K1", "content"), 0.7)])
+        mock_kt = mock_get_kt.return_value
+        mock_kt.get_meta_rules.side_effect = RuntimeError("meta rules failed")
+
+        runtime = _MockRuntime()
+        state = _state_with_messages(HumanMessage(content="查询"))
+
+        result = _run(kt_retrieve(state, runtime))
+        # kt_context should still work, meta_rules should be empty
+        assert "kt_context" in result
+        assert result["kt_meta_rules"] == ""

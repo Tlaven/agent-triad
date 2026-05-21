@@ -100,3 +100,5 @@ class State(InputState):
     executor_task_history: dict[str, ExecutorTaskRecord] = field(default_factory=dict)
     # 知识树自动检索上下文（每轮用户消息时由 kt_retrieve 节点刷新）
     kt_context: str = ""
+    # 持久元规则（每次请求注入到系统提示，绕过相似度阈值）
+    kt_meta_rules: str = ""

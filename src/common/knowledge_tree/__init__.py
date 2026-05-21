@@ -502,6 +502,17 @@ class KnowledgeTree:
             },
         }
 
+    def get_meta_rules(self) -> list[KnowledgeNode]:
+        """返回所有持久元规则节点（绕过相似度阈值，每次请求都注入）。
+
+        元规则通过 metadata.node_type == "meta_rule" 标识。
+        """
+        all_nodes = self.md_store.list_nodes()
+        return [
+            n for n in all_nodes
+            if n.metadata.get("node_type") == "meta_rule"
+        ]
+
 
 def _default_embedder(dimension: int) -> Callable[[str], list[float]]:
     """默认 n-gram 哈希 embedder（零外部依赖）.
@@ -770,6 +781,86 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_reorganize, proposed_tree)
 
+    def _sync_add_meta_rule(title: str, content: str, priority: int = 0) -> str:
+        kt = get_or_create_kt(config)
+        existing = kt.get_meta_rules()
+        for n in existing:
+            if n.title == title:
+                n.content = content
+                n.metadata["priority"] = priority
+                n.metadata["node_type"] = "meta_rule"
+                kt.md_store.write_node(n)
+                return json.dumps(
+                    {"ok": True, "action": "updated", "node_id": n.node_id},
+                    ensure_ascii=False,
+                )
+
+        node = KnowledgeNode.create(
+            node_id="",
+            title=title,
+            content=content,
+            source="agent:supervisor",
+            metadata={"node_type": "meta_rule", "priority": priority},
+        )
+        node.embedding = kt.embedder(content)
+        meta_dir = "meta_rules"
+        kt.md_store.ensure_directory(meta_dir)
+        from src.common.knowledge_tree.ingestion.ingest import (
+            _unique_node_id,
+        )
+
+        node.node_id = _unique_node_id(kt.md_store, meta_dir, title)
+        node.directory = meta_dir
+        kt.md_store.write_node(node)
+        kt.vector_store.upsert_embedding(node.node_id, node.embedding)
+        return json.dumps(
+            {"ok": True, "action": "created", "node_id": node.node_id},
+            ensure_ascii=False,
+        )
+
+    def _sync_list_meta_rules() -> str:
+        kt = get_or_create_kt(config)
+        rules = kt.get_meta_rules()
+        items = [
+            {
+                "node_id": r.node_id,
+                "title": r.title,
+                "priority": r.metadata.get("priority", 0),
+                "content_preview": r.content[:120],
+            }
+            for r in sorted(
+                rules, key=lambda r: r.metadata.get("priority", 0), reverse=True
+            )
+        ]
+        return json.dumps(
+            {"ok": True, "total": len(items), "rules": items}, ensure_ascii=False
+        )
+
+    @lc_tool
+    async def knowledge_tree_add_meta_rule(
+        title: str, content: str, priority: int = 0
+    ) -> str:
+        """Add or update a persistent meta-rule in the knowledge tree.
+
+        Meta-rules are behavioral directives injected into EVERY request as
+        system-level instructions (not as reference information). Use them for
+        rules the agent MUST follow regardless of context.
+
+        Args:
+            title: Short descriptive title for the rule.
+            content: The rule text. Be specific and imperative.
+            priority: Higher priority rules appear first. Default 0.
+        """
+        return await asyncio.to_thread(_sync_add_meta_rule, title, content, priority)
+
+    @lc_tool
+    async def knowledge_tree_list_meta_rules() -> str:
+        """List all persistent meta-rules currently active in the knowledge tree.
+
+        Returns each rule's title, priority, and content preview.
+        """
+        return await asyncio.to_thread(_sync_list_meta_rules)
+
     return [
         knowledge_tree_retrieve,
         knowledge_tree_ingest,
@@ -778,4 +869,6 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         knowledge_tree_overlay,
         knowledge_tree_tree,
         knowledge_tree_reorganize,
+        knowledge_tree_add_meta_rule,
+        knowledge_tree_list_meta_rules,
     ]

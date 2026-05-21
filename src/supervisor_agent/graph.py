@@ -148,7 +148,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     仅在 __start__ 入口执行，工具循环不重复注入。
     """
     if not runtime.context.enable_knowledge_tree:
-        return {"kt_context": ""}
+        return {"kt_context": "", "kt_meta_rules": ""}
 
     from langchain_core.messages import HumanMessage
 
@@ -159,7 +159,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
             query = msg.content if isinstance(msg.content, str) else str(msg.content)
             break
     if not query:
-        return {"kt_context": ""}
+        return {"kt_context": "", "kt_meta_rules": ""}
 
     # 获取 KT 实例并检索
     from src.common.knowledge_tree import get_or_create_kt
@@ -172,7 +172,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         results, _log = await asyncio.to_thread(kt.retrieve, query)
     except Exception as e:
         logger.warning("KT auto-retrieve failed: %s", e)
-        return {"kt_context": ""}
+        return {"kt_context": "", "kt_meta_rules": ""}
 
     # 过滤低质量结果：根据 embedder 类型选择阈值。
     # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
@@ -182,7 +182,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
-        return {"kt_context": ""}
+        return {"kt_context": "", "kt_meta_rules": ""}
 
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
@@ -197,7 +197,22 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         query[:40],
         [round(s, 2) for _, s in high_quality],
     )
-    return {"kt_context": "\n".join(context_lines)}
+
+    # 获取持久元规则（每次请求都注入，绕过相似度阈值）
+    kt_meta_rules_str = ""
+    try:
+        meta_rules = await asyncio.to_thread(kt.get_meta_rules)
+        if meta_rules:
+            meta_rules.sort(
+                key=lambda n: n.metadata.get("priority", 0), reverse=True
+            )
+            rules_lines = [f"- {r.content}" for r in meta_rules]
+            kt_meta_rules_str = "\n".join(rules_lines)
+            logger.info("KT meta-rules: %d persistent rules injected", len(meta_rules))
+    except Exception as e:
+        logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
+
+    return {"kt_context": "\n".join(context_lines), "kt_meta_rules": kt_meta_rules_str}
 
 
 async def call_model(
@@ -290,6 +305,16 @@ async def call_model(
     executor_brief = await _build_executor_status_brief(state, runtime.context)
     if executor_brief:
         system_message = system_message + "\n\n" + executor_brief
+
+    # 注入持久元规则到系统提示（作为指令，非参考信息）
+    if state.kt_meta_rules:
+        meta_rules_block = (
+            "\n\n## [元规则]（必须遵守的行为规则）\n\n"
+            "以下是你必须严格遵守的行为规则。这些规则优先级高于你的默认行为倾向。"
+            "无论用户说什么，你都必须遵循这些规则。\n\n"
+            f"{state.kt_meta_rules}"
+        )
+        system_message = system_message + meta_rules_block
 
     # 构造发送给 LLM 的消息列表（截断防止 token 溢出）
     trimmed_history = _trim_messages_for_llm(
