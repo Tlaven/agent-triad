@@ -230,6 +230,8 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **P2：Overlay 主动管理** — `knowledge_tree_overlay` 工具：跨目录关联边的增删查
 - [x] **语义 embedder (API)** — SiliconFlow API embedder (BAAI/bge-large-zh-v1.5, 1024-dim)，检索分数 +41% vs hash，同义查询从零命中到全命中。三种 embedder 可配置切换（hash/local/api）。详见 `docs/kt-validation-report.md` §9
 - [x] **Auto-inject 有效性验证** — 真实 LLM 会话验证：KT ON 时 Supervisor 能引用只存在于 KT 中的知识，KT OFF 时得到通用回答。详见 `docs/kt-validation-report.md` §10
+- [x] **元知识自举：持久元规则** — 双通道注入架构（系统提示通道 = 指令，用户消息通道 = 信息）。`knowledge_tree_add_meta_rule` 创建元规则，绕过相似度阈值每次无条件注入系统提示。E2E 5/5 通过，F7 突破：用户分享信息 → Agent 主动 ingest
+- [x] **P3 自动优化闭环** — 信号检测懒执行 + `knowledge_tree_record_feedback` 反馈工具 + 反振荡记录 + 优化建议注入系统提示。13 个 KT 工具，946 测试全通过
 
 ### 待实现（按优先级）
 
