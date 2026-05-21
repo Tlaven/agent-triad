@@ -1,0 +1,107 @@
+{
+  "results": [
+    {
+      "id": "A1",
+      "name": "同义：进程间通信",
+      "group": "A",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 11.6,
+      "kt_tools": []
+    },
+    {
+      "id": "A2",
+      "name": "同义：记忆管理",
+      "group": "A",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 11.7,
+      "kt_tools": []
+    },
+    {
+      "id": "A3",
+      "name": "同义：工具输出处理",
+      "group": "A",
+      "passed": false,
+      "detail": "期望关键词均未出现: ['截断', 'Observation', '外置']",
+      "elapsed": 9.6,
+      "kt_tools": []
+    },
+    {
+      "id": "A4",
+      "name": "英文查询",
+      "group": "A",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 7.4,
+      "kt_tools": []
+    },
+    {
+      "id": "B1",
+      "name": "完全无关：天气",
+      "group": "B",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 5.5,
+      "kt_tools": []
+    },
+    {
+      "id": "B2",
+      "name": "半相关：通用编程",
+      "group": "B",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 17.8,
+      "kt_tools": []
+    },
+    {
+      "id": "C1",
+      "name": "Ingest 新知识",
+      "group": "C",
+      "passed": false,
+      "detail": "期望工具 knowledge_tree_ingest 未调用 (实际: 无)",
+      "elapsed": 9.5,
+      "kt_tools": []
+    },
+    {
+      "id": "C2",
+      "name": "Retrieve 刚 ingest 的知识",
+      "group": "C",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 13.0,
+      "kt_tools": [
+        "knowledge_tree_retrieve"
+      ]
+    },
+    {
+      "id": "C3",
+      "name": "Ingest 复杂知识",
+      "group": "C",
+      "passed": false,
+      "detail": "期望工具 knowledge_tree_ingest 未调用 (实际: 无)",
+      "elapsed": 8.8,
+      "kt_tools": []
+    },
+    {
+      "id": "D1",
+      "name": "ReAct 查询（KT ON）",
+      "group": "D",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 8.1,
+      "kt_tools": []
+    },
+    {
+      "id": "D2",
+      "name": "ReAct 查询（KT OFF 对照）",
+      "group": "D",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 12.7,
+      "kt_tools": [
+        "knowledge_tree_retrieve"
+      ]
+    }
+  ]
+}

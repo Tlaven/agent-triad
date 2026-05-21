@@ -1,0 +1,43 @@
+{
+  "results": [
+    {
+      "id": "G1",
+      "name": "跨 Thread 显式 retrieve",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 28.1,
+      "thread_a_tools": [
+        "knowledge_tree_ingest"
+      ],
+      "thread_b_tools": [
+        "knowledge_tree_retrieve"
+      ]
+    },
+    {
+      "id": "G2",
+      "name": "跨 Thread auto-inject",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 25.9,
+      "thread_c_tools": [
+        "knowledge_tree_ingest"
+      ],
+      "thread_d_tools": []
+    },
+    {
+      "id": "G3",
+      "name": "噪声隔离",
+      "passed": true,
+      "detail": "无噪声泄漏",
+      "elapsed": 33.8,
+      "thread_e_tools": [
+        "knowledge_tree_ingest"
+      ],
+      "thread_f_tools": [
+        "knowledge_tree_status",
+        "knowledge_tree_retrieve",
+        "knowledge_tree_list"
+      ]
+    }
+  ]
+}

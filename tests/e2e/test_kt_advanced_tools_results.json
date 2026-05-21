@@ -1,0 +1,55 @@
+{
+  "summary": {
+    "passed": 4,
+    "total": 4
+  },
+  "tests": [
+    {
+      "test": "F1: knowledge_tree_tree",
+      "passed": true,
+      "detail": "tool=✓ content=✓",
+      "elapsed": 18.5,
+      "tools": [
+        "knowledge_tree_tree"
+      ],
+      "ai_text": "\n\n知识树当前共有 **16 个目录**（编号 01-16），包含 **36 个知识节点**。以下是完整的编号树结构：\n\n```\n01 architecture/\n   01 agent-triad-structure.md\n   02 executor-protocol.md\n   03 graph-topology.md\n   04 plan-json-and-state.md\n\n02 bayes_mle_-_mle/\n   01 Bayes 估计优于最大似然估计_MLE_的场景经验___- 原理_MLE 在小.md\n\n03 conventions/\n   01 coding-style.md\n   02 error-handling.md\n   03 testing-patterns.md\n   04 tools-reference.md\n\n04 huggingface_sentencetrans/\n   01 排查 HuggingFace 模型下载卡死的方法是_在 SentenceTran.md\n\n05 kolmogorov-smirnov/\n   01 Kolmogorov-",
+      "thread_id": "14681f50-a9e0-41f1-bf58-f91cc5cca85b"
+    },
+    {
+      "test": "F2: knowledge_tree_overlay",
+      "passed": true,
+      "detail": "tool=✓ content=✓",
+      "elapsed": 10.1,
+      "tools": [
+        "knowledge_tree_overlay"
+      ],
+      "ai_text": "\n\n已在 `architecture` 和 `patterns` 目录之间成功添加关联边，关系类型为 `related`，备注为\"共享 Agent 设计模式\"。",
+      "thread_id": "9cf549ad-53db-4615-8f72-f485bf485572"
+    },
+    {
+      "test": "F3: knowledge_tree_reorganize",
+      "passed": true,
+      "partial": false,
+      "detail": "tool=✓ content=✓",
+      "elapsed": 33.0,
+      "tools": [
+        "knowledge_tree_reorganize",
+        "knowledge_tree_tree",
+        "knowledge_tree_ingest"
+      ],
+      "ai_text": "\n\n已成功重组！树结构变化：\n\n**新增目录**：`04 errors/`（包含 2 个子目录 + 4 个文件）\n\n```\n04 errors/\n├── 01 error-handling.md              （原 conventions/error-handling.md）\n├── 02 e001-connection-timeout.md     （原 04 e001/ 中的文件）\n└── 03 troubleshooting/               （原 16 troubleshooting/ 整体迁入）\n    ├── Executor 启动失败...\n    ├── Executor 执行超时故障排除...\n    ├── common-errors.md\n    └── ...\n```\n\n同时清理了：\n- 原 `04 e001/` 目录（已迁移）\n- 原 `16 troubleshooting/` 目录（已迁移）\n\n所有错误相关内容现已集中在 `errors` 目录下 ✅",
+      "thread_id": "dea49212-d0b3-43bb-8528-fcd5017f02c8"
+    },
+    {
+      "test": "F4: overlay + retrieve interaction",
+      "passed": true,
+      "detail": "tool=✓ content=✓",
+      "elapsed": 12.8,
+      "tools": [
+        "knowledge_tree_retrieve"
+      ],
+      "ai_text": "\n\n根据知识树检索结果，以下是 AgentTriad 的 Agent 设计核心要点：\n\n## AgentTriad 三层架构\n\nAgentTriad 采用 **Supervisor → Planner → Executor** 三层智能体架构：\n\n| 层级 | 角色 | 核心职责 |\n|------|------|----------|\n| **Supervisor** | 决策中心 | 分析用户意图，选择执行模式（Mode 1/2/3） |\n| **Planner** | 意图层规划 | 生成 Plan JSON（含 intent + expected_output），不直接执行 |\n| **Executor** | 工具执行 | 自主选择工具执行具体步骤，遇阻即停 |\n\n## 三种执行模式\n\n1. **Mode 1（Direct Response）**：简单问答，无需工具，直接回复\n2. **Mode 2（Tool-use ReAct）**：短流程任务，传 `task_description` 给 Executor 执行\n3. **Mode 3（Plan → Execute）**：",
+      "thread_id": "ded73fa5-8f22-4157-ae65-3cffcda7895b"
+    }
+  ]
+}

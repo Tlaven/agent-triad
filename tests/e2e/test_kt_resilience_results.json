@@ -1,0 +1,38 @@
+{
+  "passed": 3,
+  "total": 3,
+  "results": [
+    {
+      "id": "H1",
+      "name": "Dedup: ingest same knowledge twice",
+      "passed": true,
+      "dedup_hint": false,
+      "second_skipped": true,
+      "tools_1st": [],
+      "tools_2nd": [],
+      "tools_retrieve": [
+        "knowledge_tree_retrieve"
+      ],
+      "elapsed": 22.7
+    },
+    {
+      "id": "H2",
+      "name": "Special chars query",
+      "passed": true,
+      "status": "success",
+      "has_response": true,
+      "tools": [],
+      "elapsed": 7.4
+    },
+    {
+      "id": "H3",
+      "name": "Very long query (2000+ chars)",
+      "passed": true,
+      "input_length": 396,
+      "response_length": 8606,
+      "status": "success",
+      "tools": [],
+      "elapsed": 40.0
+    }
+  ]
+}

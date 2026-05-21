@@ -1,0 +1,96 @@
+{
+  "summary": {
+    "passed": 7,
+    "total": 7
+  },
+  "results": [
+    {
+      "id": "A1",
+      "name": "乌龟协议触发（KT ON）",
+      "elapsed": 7.1,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 218,
+      "tool_calls": []
+    },
+    {
+      "id": "A2",
+      "name": "乌龟协议触发（KT OFF 对照）",
+      "elapsed": 7.4,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 483,
+      "tool_calls": []
+    },
+    {
+      "id": "A3",
+      "name": "紧急代码 Omega-7（KT ON）",
+      "elapsed": 9.5,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 224,
+      "tool_calls": []
+    },
+    {
+      "id": "A4",
+      "name": "紧急代码 Omega-7（KT OFF 对照）",
+      "elapsed": 16.2,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 335,
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve"
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "主动 ingest 触发",
+      "elapsed": 25.5,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 157,
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest"
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "name": "主动 retrieve 触发（知识不足时）",
+      "elapsed": 35.8,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 313,
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve"
+        },
+        {
+          "name": "knowledge_tree_tree"
+        },
+        {
+          "name": "knowledge_tree_list"
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "精确查询种子（架构）",
+      "elapsed": 12.6,
+      "passed": true,
+      "detail": "符合预期",
+      "ai_text_length": 227,
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve"
+        },
+        {
+          "name": "knowledge_tree_status"
+        }
+      ]
+    }
+  ]
+}

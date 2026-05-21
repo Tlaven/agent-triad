@@ -1,0 +1,45 @@
+{
+  "highest_rung": 8,
+  "results": [
+    {
+      "rung": 1,
+      "passed": true,
+      "detail": "显式 ingest+retrieve"
+    },
+    {
+      "rung": 2,
+      "passed": true,
+      "detail": "换措辞检索"
+    },
+    {
+      "rung": 3,
+      "passed": true,
+      "detail": "隐式检索"
+    },
+    {
+      "rung": 4,
+      "passed": true,
+      "detail": "被动召回"
+    },
+    {
+      "rung": 5,
+      "passed": true,
+      "detail": "组合记忆"
+    },
+    {
+      "rung": 6,
+      "passed": true,
+      "detail": "噪声环境"
+    },
+    {
+      "rung": 7,
+      "passed": true,
+      "detail": "跨轮次衰减"
+    },
+    {
+      "rung": 8,
+      "passed": true,
+      "detail": "知识更新"
+    }
+  ]
+}

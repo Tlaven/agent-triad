@@ -1,0 +1,28 @@
+{
+  "results": [
+    {
+      "id": "I1",
+      "name": "项目问答直接回答",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 9.2,
+      "tools": []
+    },
+    {
+      "id": "I2",
+      "name": "超时处理决策质量",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 7.9,
+      "tools": []
+    },
+    {
+      "id": "I3",
+      "name": "Observation 策略补全",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 6.1,
+      "tools": []
+    }
+  ]
+}

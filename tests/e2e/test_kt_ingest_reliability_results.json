@@ -1,0 +1,50 @@
+{
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "id": "E1",
+      "name": "Implicit 'remember'",
+      "passed": true,
+      "tools": [
+        "knowledge_tree_ingest"
+      ],
+      "elapsed": 10.7,
+      "status": "success"
+    },
+    {
+      "id": "E2",
+      "name": "Explicit tool name",
+      "passed": true,
+      "tools": [
+        "knowledge_tree_ingest"
+      ],
+      "elapsed": 7.6,
+      "status": "success"
+    },
+    {
+      "id": "E3",
+      "name": "Natural sharing",
+      "passed": true,
+      "tools": [
+        "knowledge_tree_ingest"
+      ],
+      "elapsed": 10.8,
+      "status": "success"
+    },
+    {
+      "id": "E4",
+      "name": "Ingest + verify",
+      "passed": true,
+      "ingest_called": true,
+      "retrieve_called": true,
+      "content_found": true,
+      "tools": [
+        "knowledge_tree_retrieve",
+        "knowledge_tree_ingest"
+      ],
+      "elapsed": 12.7,
+      "status": "success"
+    }
+  ]
+}

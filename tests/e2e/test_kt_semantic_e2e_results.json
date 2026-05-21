@@ -1,0 +1,32 @@
+{
+  "results": [
+    {
+      "id": "E1",
+      "name": "同义查询：进程间通信",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 8.5
+    },
+    {
+      "id": "E2",
+      "name": "主动 ingest",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 15.2
+    },
+    {
+      "id": "E3",
+      "name": "无关查询（不应注入噪声）",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 5.8
+    },
+    {
+      "id": "E4",
+      "name": "精确查询：ReAct 模式",
+      "passed": true,
+      "detail": "符合预期",
+      "elapsed": 9.6
+    }
+  ]
+}

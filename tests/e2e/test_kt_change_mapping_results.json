@@ -1,0 +1,417 @@
+{
+  "anchor_analysis": {
+    "total": 7,
+    "directories": [
+      "architecture",
+      "conventions",
+      "misc",
+      "patterns",
+      "setup",
+      "step_1_1",
+      "troubleshooting"
+    ],
+    "file_counts": {
+      "architecture": 4,
+      "conventions": 4,
+      "misc": 3,
+      "patterns": 4,
+      "setup": 2,
+      "step_1_1": 1,
+      "troubleshooting": 4
+    },
+    "avg_inter_anchor_sim": 0.7065,
+    "max_inter_anchor_sim": 0.9298,
+    "min_inter_anchor_sim": 0.4745,
+    "most_similar_pair": {
+      "dir_a": "architecture",
+      "dir_b": "patterns",
+      "similarity": 0.9298
+    },
+    "least_similar_pair": {
+      "dir_a": "setup",
+      "dir_b": "step_1_1",
+      "similarity": 0.4745
+    }
+  },
+  "semantic_content": [
+    {
+      "id": "Q1",
+      "query": "状态管理 State TypedDict",
+      "desc": "精确：状态管理",
+      "top_score": 0.4681,
+      "hit_dirs": [
+        "stored:architecture"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 7.4
+    },
+    {
+      "id": "Q2",
+      "query": "Executor 子进程 通信协议",
+      "desc": "精确：执行器协议",
+      "top_score": 0.6231,
+      "hit_dirs": [
+        "patterns",
+        "stored:architecture",
+        "stored:patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 5.0
+    },
+    {
+      "id": "Q3",
+      "query": "ReAct 模式 推理和行动",
+      "desc": "精确：ReAct 模式",
+      "top_score": 0.6648,
+      "hit_dirs": [
+        "patterns",
+        "stored:architecture",
+        "stored:patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 5.6
+    },
+    {
+      "id": "Q4",
+      "query": "Observation 截断 外置",
+      "desc": "精确：Observation",
+      "top_score": 0.5039,
+      "hit_dirs": [
+        "patterns",
+        "stored:patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 4.4
+    },
+    {
+      "id": "Q5",
+      "query": "怎么管理 Agent 的记忆和数据",
+      "desc": "同义：状态管理",
+      "top_score": 0.6257,
+      "hit_dirs": [
+        "conventions",
+        "stored:architecture",
+        "stored:conventions"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 5.3
+    },
+    {
+      "id": "Q6",
+      "query": "进程间怎么传递消息",
+      "desc": "同义：通信协议",
+      "top_score": 0.5466,
+      "hit_dirs": [
+        "architecture",
+        "stored:architecture",
+        "stored:patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 11.2
+    },
+    {
+      "id": "Q7",
+      "query": "Agent 怎么思考和执行的",
+      "desc": "同义：ReAct",
+      "top_score": 0.7071,
+      "hit_dirs": [
+        "architecture",
+        "stored:architecture",
+        "stored:setup"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 6.1
+    },
+    {
+      "id": "Q8",
+      "query": "工具输出太长怎么办",
+      "desc": "同义：Observation",
+      "top_score": 0.5849,
+      "hit_dirs": [
+        "misc",
+        "stored:misc"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 8.8
+    },
+    {
+      "id": "Q9",
+      "query": "Python 异常处理最佳实践",
+      "desc": "无关：Python 异常",
+      "top_score": 0.5307,
+      "hit_dirs": [
+        "conventions",
+        "stored:conventions",
+        "stored:troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": null,
+      "elapsed_ms": 5.8
+    },
+    {
+      "id": "Q10",
+      "query": "React hooks useEffect",
+      "desc": "无关：React",
+      "top_score": 0.5253,
+      "hit_dirs": [
+        "patterns",
+        "stored:patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": null,
+      "elapsed_ms": 7.3
+    }
+  ],
+  "semantic_stored": [
+    {
+      "id": "Q1",
+      "query": "状态管理 State TypedDict",
+      "desc": "精确：状态管理",
+      "top_score": 0.4681,
+      "hit_dirs": [
+        "architecture"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 5.1
+    },
+    {
+      "id": "Q2",
+      "query": "Executor 子进程 通信协议",
+      "desc": "精确：执行器协议",
+      "top_score": 0.6231,
+      "hit_dirs": [
+        "architecture",
+        "patterns",
+        "troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 2.9
+    },
+    {
+      "id": "Q3",
+      "query": "ReAct 模式 推理和行动",
+      "desc": "精确：ReAct 模式",
+      "top_score": 0.6648,
+      "hit_dirs": [
+        "architecture",
+        "patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 4.6
+    },
+    {
+      "id": "Q4",
+      "query": "Observation 截断 外置",
+      "desc": "精确：Observation",
+      "top_score": 0.5039,
+      "hit_dirs": [
+        "conventions",
+        "patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 2.7
+    },
+    {
+      "id": "Q5",
+      "query": "怎么管理 Agent 的记忆和数据",
+      "desc": "同义：状态管理",
+      "top_score": 0.6257,
+      "hit_dirs": [
+        "architecture",
+        "conventions",
+        "setup"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 2.7
+    },
+    {
+      "id": "Q6",
+      "query": "进程间怎么传递消息",
+      "desc": "同义：通信协议",
+      "top_score": 0.5466,
+      "hit_dirs": [
+        "architecture",
+        "patterns",
+        "troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 4.9
+    },
+    {
+      "id": "Q7",
+      "query": "Agent 怎么思考和执行的",
+      "desc": "同义：ReAct",
+      "top_score": 0.7068,
+      "hit_dirs": [
+        "architecture",
+        "conventions",
+        "setup"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 4.0
+    },
+    {
+      "id": "Q8",
+      "query": "工具输出太长怎么办",
+      "desc": "同义：Observation",
+      "top_score": 0.5849,
+      "hit_dirs": [
+        "misc",
+        "troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": false,
+      "elapsed_ms": 2.6
+    },
+    {
+      "id": "Q9",
+      "query": "Python 异常处理最佳实践",
+      "desc": "无关：Python 异常",
+      "top_score": 0.5307,
+      "hit_dirs": [
+        "conventions",
+        "patterns",
+        "troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": null,
+      "elapsed_ms": 2.9
+    },
+    {
+      "id": "Q10",
+      "query": "React hooks useEffect",
+      "desc": "无关：React",
+      "top_score": 0.5253,
+      "hit_dirs": [
+        "conventions",
+        "patterns"
+      ],
+      "num_hits": 3,
+      "dir_match": null,
+      "elapsed_ms": 2.4
+    }
+  ],
+  "hash_content": [
+    {
+      "id": "Q1",
+      "query": "状态管理 State TypedDict",
+      "desc": "精确：状态管理",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.3
+    },
+    {
+      "id": "Q2",
+      "query": "Executor 子进程 通信协议",
+      "desc": "精确：执行器协议",
+      "top_score": 0.4756,
+      "hit_dirs": [
+        "architecture",
+        "stored:troubleshooting"
+      ],
+      "num_hits": 3,
+      "dir_match": true,
+      "elapsed_ms": 2.2
+    },
+    {
+      "id": "Q3",
+      "query": "ReAct 模式 推理和行动",
+      "desc": "精确：ReAct 模式",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.1
+    },
+    {
+      "id": "Q4",
+      "query": "Observation 截断 外置",
+      "desc": "精确：Observation",
+      "top_score": 0.5393,
+      "hit_dirs": [
+        "patterns",
+        "stored:patterns"
+      ],
+      "num_hits": 2,
+      "dir_match": true,
+      "elapsed_ms": 2.1
+    },
+    {
+      "id": "Q5",
+      "query": "怎么管理 Agent 的记忆和数据",
+      "desc": "同义：状态管理",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.3
+    },
+    {
+      "id": "Q6",
+      "query": "进程间怎么传递消息",
+      "desc": "同义：通信协议",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.2
+    },
+    {
+      "id": "Q7",
+      "query": "Agent 怎么思考和执行的",
+      "desc": "同义：ReAct",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.2
+    },
+    {
+      "id": "Q8",
+      "query": "工具输出太长怎么办",
+      "desc": "同义：Observation",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": false,
+      "elapsed_ms": 2.2
+    },
+    {
+      "id": "Q9",
+      "query": "Python 异常处理最佳实践",
+      "desc": "无关：Python 异常",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": null,
+      "elapsed_ms": 2.2
+    },
+    {
+      "id": "Q10",
+      "query": "React hooks useEffect",
+      "desc": "无关：React",
+      "top_score": 0.0,
+      "hit_dirs": [],
+      "num_hits": 0,
+      "dir_match": null,
+      "elapsed_ms": 2.2
+    }
+  ]
+}
