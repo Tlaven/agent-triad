@@ -53,6 +53,7 @@ def _mock_kt_setup(mock_get_kt: MagicMock, results: list[tuple]) -> MagicMock:
     """Configure a mock KT instance with given retrieve results."""
     mock_kt = MagicMock()
     mock_kt.retrieve.return_value = (results, None)
+    mock_kt.embedder_type = "hash"
     mock_get_kt.return_value = mock_kt
     return mock_kt
 
@@ -92,13 +93,13 @@ class TestKtRetrieveNoQuery:
 
 
 class TestKtRetrieveThreshold:
-    """Verify the 0.4 quality threshold for auto-injection."""
+    """Verify embedder-aware quality threshold for auto-injection (hash: 0.25, semantic: 0.6)."""
 
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
     def test_below_threshold_filtered_out(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
-        """Results with sim < 0.4 should not be injected."""
-        _mock_kt_setup(mock_get_kt, [(_make_node("Low", "content"), 0.35)])
+        """Results with sim < hash threshold (0.25) should not be injected."""
+        _mock_kt_setup(mock_get_kt, [(_make_node("Low", "content"), 0.10)])
 
         runtime = _MockRuntime()
         state = _state_with_messages(HumanMessage(content="测试查询"))
@@ -109,7 +110,7 @@ class TestKtRetrieveThreshold:
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
     def test_exactly_at_threshold_included(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
-        """Result with sim == 0.4 should be included (>= check)."""
+        """Result at hash threshold (0.25) should be included."""
         _mock_kt_setup(mock_get_kt, [(_make_node("Exact", "threshold content"), 0.4)])
 
         runtime = _MockRuntime()
@@ -195,7 +196,7 @@ class TestKtRetrieveFormat:
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
     def test_reference_tag(self, mock_get_kt: MagicMock, mock_from_ctx: MagicMock) -> None:
-        _mock_kt_setup(mock_get_kt, [(_make_node("Test", "body"), 0.50)])
+        _mock_kt_setup(mock_get_kt, [(_make_node("Test", "body"), 0.40)])
 
         runtime = _MockRuntime()
         state = _state_with_messages(HumanMessage(content="查询"))

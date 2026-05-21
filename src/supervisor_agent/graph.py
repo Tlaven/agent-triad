@@ -174,9 +174,12 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         logger.warning("KT auto-retrieve failed: %s", e)
         return {"kt_context": ""}
 
-    # 过滤低质量结果：语义 embedder 下 0.4 可有效区分相关/无关（实测验证），
-    # hash embedder 下此阈值仍会注入较多噪声，但 hash 本身不适合被动召回。
-    high_quality = [(node, score) for node, score in results if score >= 0.4]
+    # 过滤低质量结果：根据 embedder 类型选择阈值。
+    # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
+    # hash embedder 分数低（相关 0.3-0.6），用较低阈值（0.25）。
+    is_semantic = getattr(kt, "embedder_type", "hash") != "hash"
+    quality_threshold = 0.6 if is_semantic else 0.25
+    high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
         return {"kt_context": ""}
@@ -184,7 +187,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
     for node, score in high_quality[:3]:
-        tag = "[高可信]" if score >= 0.7 else "[参考]"
+        tag = "[高可信]" if score >= (0.65 if is_semantic else 0.5) else "[参考]"
         context_lines.append(f"- {tag} {node.title}（相似度 {score:.2f}）")
         context_lines.append(f"  {node.content[:300]}")
 

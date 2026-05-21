@@ -69,21 +69,18 @@ QUERIES = [
 
 def setup_kt_with_api_embedder():
     """用 API embedder 创建 KT 并 bootstrap 种子知识。"""
-    import shutil
     from src.common.knowledge_tree import KnowledgeTree
     from src.common.knowledge_tree.config import KnowledgeTreeConfig
 
-    kt_root = _PROJECT_ROOT / "workspace" / "kt_change_mapping_test"
-    if kt_root.exists():
-        shutil.rmtree(kt_root)
-    kt_root.mkdir(parents=True)
+    # 直接用种子目录作为 root，这样 md_store 能扫描到文件
+    kt_root = _PROJECT_ROOT / "workspace" / "knowledge_tree"
 
     config = KnowledgeTreeConfig(
         markdown_root=kt_root,
         embedder_type="api",
         embedding_model="BAAI/bge-large-zh-v1.5",
         embedding_dimension=1024,
-        rag_similarity_threshold=0.5,
+        rag_similarity_threshold=0.6,
     )
 
     kt = KnowledgeTree(config=config)
@@ -91,51 +88,40 @@ def setup_kt_with_api_embedder():
     if kt.embedder_type != "api":
         print(f"  {RED}API embedder 未能加载，跳过实验{R}")
         sys.exit(1)
-    print(f"  KT root: {kt_root}")
 
-    # Bootstrap 种子知识
+    # Bootstrap：读取文件系统 → 向量索引
     from src.common.knowledge_tree.bootstrap import bootstrap_from_directory
 
-    seed_dir = _PROJECT_ROOT / "workspace" / "knowledge_tree"
-    if not seed_dir.exists():
-        print(f"  {RED}种子目录不存在: {seed_dir}{R}")
-        sys.exit(1)
-
     report = bootstrap_from_directory(
-        seed_dir, kt.md_store, kt.vector_store, kt.overlay_store, kt.embedder,
+        kt_root, kt.md_store, kt.vector_store, kt.overlay_store, kt.embedder,
     )
-    print(f"  Bootstrap: {report.nodes_created} 个节点")
+    print(f"  Bootstrap: {report.nodes_created} nodes, {report.anchors_computed} anchors")
 
-    # 刷新所有锚点
+    # 刷新锚点 + 计算 stored_vectors
     from src.common.knowledge_tree.storage.sync import _refresh_anchor
+    from src.common.knowledge_tree.editing.stored_vector import compute_all_stored_vectors
 
     dirs = kt.md_store.list_directories()
     for d in dirs:
         _refresh_anchor(d, kt.md_store, kt.vector_store)
-    print(f"  Anchors refreshed: {len(dirs)} directories")
-
-    # 计算 stored_vectors
-    from src.common.knowledge_tree.editing.stored_vector import compute_all_stored_vectors
+    print(f"  Directories from md_store: {len(dirs)}")
 
     sv_count = compute_all_stored_vectors(kt.md_store, kt.vector_store, 0.8, 0.2)
-    print(f"  Stored vectors computed: {sv_count}")
+    print(f"  Stored vectors: {sv_count}")
 
     return kt
 
 
 def setup_kt_with_hash_embedder():
     """用 hash embedder 创建 KT（对照组）。"""
-    import shutil
     from src.common.knowledge_tree import KnowledgeTree
     from src.common.knowledge_tree.config import KnowledgeTreeConfig
     from src.common.knowledge_tree.bootstrap import bootstrap_from_directory
     from src.common.knowledge_tree.storage.sync import _refresh_anchor
     from src.common.knowledge_tree.editing.stored_vector import compute_all_stored_vectors
 
-    kt_root = _PROJECT_ROOT / "workspace" / "kt_hash_baseline_test"
-    if kt_root.exists():
-        shutil.rmtree(kt_root)
-    kt_root.mkdir(parents=True)
+    # 同样用种子目录作为 root
+    kt_root = _PROJECT_ROOT / "workspace" / "knowledge_tree"
 
     config = KnowledgeTreeConfig(
         markdown_root=kt_root,
@@ -147,11 +133,10 @@ def setup_kt_with_hash_embedder():
     kt = KnowledgeTree(config=config)
     print(f"  Hash embedder, dim=512")
 
-    seed_dir = _PROJECT_ROOT / "workspace" / "knowledge_tree"
     report = bootstrap_from_directory(
-        seed_dir, kt.md_store, kt.vector_store, kt.overlay_store, kt.embedder,
+        kt_root, kt.md_store, kt.vector_store, kt.overlay_store, kt.embedder,
     )
-    print(f"  Bootstrap: {report.nodes_created} nodes")
+    print(f"  Bootstrap: {report.nodes_created} nodes, {report.anchors_computed} anchors")
 
     dirs = kt.md_store.list_directories()
     for d in dirs:
@@ -176,9 +161,9 @@ def run_retrieval_experiment(kt, mode: str) -> list[dict]:
         start = time.perf_counter()
 
         if mode == "content":
-            hits = kt.vector_store.similarity_search(query_vec, top_k=3, threshold=0.3)
+            hits = kt.vector_store.similarity_search(query_vec, top_k=3, threshold=0.4)
         elif mode == "stored":
-            hits = kt.vector_store.similarity_search_stored(query_vec, top_k=3, threshold=0.3)
+            hits = kt.vector_store.similarity_search_stored(query_vec, top_k=3, threshold=0.4)
         else:
             hits = []
 
