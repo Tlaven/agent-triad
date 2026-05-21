@@ -235,7 +235,7 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 
 1. ~~**语义 embedder 接入生产**~~ ✅ — `.env` 已配置 `KT_EMBEDDER_TYPE=api`（BAAI/bge-large-zh-v1.5, 1024-dim），语义区分度 0.55，API 失败自动降级 hash。`.env.example` 已提供参考配置
 2. ~~**Change Mapping 效果验证**~~ ✅ — API embedder + 知识库多样化（47 节点/24 目录）显著改善：锚点区分度 0.71→0.43（低于 0.5 目标），stored_vector 目录命中率 5/8 vs content 1/8（5x 提升）。少数同类锚点仍高度相似（architecture↔patterns=0.93），但整体分化良好
-3. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类（前置条件：Change Mapping 验证通过）
+3. ~~**P3：完全自动优化闭环**~~ ✅ — 信号检测懒执行（每 50 次 retrieve）+ `knowledge_tree_record_feedback` 反馈工具 + 反振荡记录闭环。优化建议以 `[优化建议]` 注入系统提示，Supervisor 决策是否行动。Leiden 全局聚类推迟
 
 ### 文件结构
 
