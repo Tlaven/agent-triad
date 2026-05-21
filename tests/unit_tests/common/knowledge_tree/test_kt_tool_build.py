@@ -25,8 +25,9 @@ class _FakeContext:
     """模拟 Context 对象，只包含 KT 相关字段。"""
     knowledge_tree_root: str = ""
     kt_rag_similarity_threshold: float = 0.15
+    kt_embedder_type: str = "hash"
     kt_embedding_model: str = "hash"
-    kt_embedding_dimension: int = 512
+    kt_embedding_dimension: int = 1024
     kt_max_tree_depth: int = 5
     kt_ingest_enabled: bool = True
     kt_ingest_chunk_max_tokens: int = 512

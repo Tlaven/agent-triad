@@ -109,28 +109,17 @@ class KnowledgeTree:
         self.llm = llm  # 可选 LLM 实例（用于查询扩展）
         if embedder is not None:
             self.embedder = embedder
-        elif config.embedding_model == "hash":
-            self.embedder = _default_embedder(config.embedding_dimension)
+            self.embedder_type = "external"
         else:
-            # 尝试加载语义 embedder，失败则降级到 hash
-            from src.common.knowledge_tree.embedding.semantic import (
-                create_semantic_embedder,
-            )
+            self.embedder, self.embedder_type = self._create_embedder(config)
 
-            semantic = create_semantic_embedder(
-                config.embedding_model, config.embedding_dimension
-            )
-            if semantic is not None:
-                self.embedder = semantic
-                # 语义 embedder 使用更高阈值
-                if config.rag_similarity_threshold < 0.3:
-                    logger.info(
-                        "Semantic embedder loaded: raising threshold %.2f → 0.50",
-                        config.rag_similarity_threshold,
-                    )
-                    config.rag_similarity_threshold = 0.5
-            else:
-                self.embedder = _default_embedder(config.embedding_dimension)
+        logger.info(
+            "KT embedder: type=%s model=%s dim=%d threshold=%.2f",
+            self.embedder_type,
+            config.embedding_model,
+            config.embedding_dimension,
+            config.rag_similarity_threshold,
+        )
 
         # 两层存储
         self.md_store = MarkdownStore(
@@ -168,6 +157,54 @@ class KnowledgeTree:
                 self.config.content_weight,
                 self.config.structural_weight,
             )
+
+    @staticmethod
+    def _create_embedder(
+        config: KnowledgeTreeConfig,
+    ) -> tuple[Callable[[str], list[float]], str]:
+        """根据 config 选择 embedder。返回 (embedder, type_name)。"""
+        etype = config.embedder_type
+
+        if etype == "hash":
+            return _default_embedder(config.embedding_dimension), "hash"
+
+        if etype == "api":
+            from src.common.knowledge_tree.embedding.api import create_api_embedder
+
+            api_emb = create_api_embedder(
+                model=config.embedding_model,
+                dimension=config.embedding_dimension,
+            )
+            if api_emb is not None:
+                if config.rag_similarity_threshold < 0.3:
+                    logger.info(
+                        "API embedder: raising threshold %.2f → 0.50",
+                        config.rag_similarity_threshold,
+                    )
+                    config.rag_similarity_threshold = 0.5
+                return api_emb, "api"
+            logger.warning("API embedder failed, falling back to hash")
+
+        if etype == "local":
+            from src.common.knowledge_tree.embedding.semantic import (
+                create_semantic_embedder,
+            )
+
+            local_emb = create_semantic_embedder(
+                config.embedding_model, config.embedding_dimension
+            )
+            if local_emb is not None:
+                if config.rag_similarity_threshold < 0.3:
+                    logger.info(
+                        "Local embedder: raising threshold %.2f → 0.50",
+                        config.rag_similarity_threshold,
+                    )
+                    config.rag_similarity_threshold = 0.5
+                return local_emb, "local"
+            logger.warning("Local embedder failed, falling back to hash")
+
+        # Fallback to hash
+        return _default_embedder(config.embedding_dimension), "hash"
 
     def retrieve(
         self, query: str

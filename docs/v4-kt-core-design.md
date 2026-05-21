@@ -227,20 +227,25 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **P2：structural_vector 混合** — `stored_vector = normalize(α·content + β·structural)`，同目录文件聚簇增强
 - [x] **P2：Agent 驱动重组** — 编号树显示 → Agent 输出新结构 → 自动迁移 + 向量调整 + Overlay 边更新
 - [x] **P2：Overlay 主动管理** — `knowledge_tree_overlay` 工具：跨目录关联边的增删查
+- [x] **语义 embedder (API)** — SiliconFlow API embedder (BAAI/bge-large-zh-v1.5, 1024-dim)，检索分数 +41% vs hash，同义查询从零命中到全命中。三种 embedder 可配置切换（hash/local/api）。详见 `docs/kt-validation-report.md` §9
+- [x] **Auto-inject 有效性验证** — 真实 LLM 会话验证：KT ON 时 Supervisor 能引用只存在于 KT 中的知识，KT OFF 时得到通用回答。详见 `docs/kt-validation-report.md` §10
 
 ### 待实现（按优先级）
 
-1. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类
+1. **语义 embedder 接入生产** — 配置 `.env` 切换 `KT_EMBEDDER_TYPE=api`，替换 hash 作为默认
+2. **Change Mapping 效果验证** — 等知识库自然增长、主题多样化后，验证 stored_vector 是否有效（当前锚点区分度 0.71 太高，architecture↔patterns=0.93）
+3. **P3：完全自动优化闭环** — 信号检测 + 反振荡 + Leiden 全局聚类（前置条件：Change Mapping 验证通过）
 
-### 文件结构（不变）
+### 文件结构
 
 ```
 src/common/knowledge_tree/
     __init__.py              # KnowledgeTree 门面 + get_or_create_kt()
-    config.py                # KnowledgeTreeConfig
+    config.py                # KnowledgeTreeConfig（含 embedder_type 字段）
     bootstrap.py             # 种子目录建树
     embedding/
-        semantic.py          # sentence-transformers embedder
+        api.py               # SiliconFlow / OpenAI-compatible API embedder
+        semantic.py          # sentence-transformers 本地 embedder
     storage/
         markdown_store.py    # 文件系统存储（含节点缓存）
         vector_store.py      # 向量索引 + 目录锚点

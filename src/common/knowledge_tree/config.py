@@ -28,8 +28,9 @@ class KnowledgeTreeConfig:
     max_tree_depth: int = 5
 
     # -- 嵌入 --
-    embedding_model: str = "BAAI/bge-small-zh-v1.5"
-    embedding_dimension: int = 512
+    embedder_type: str = "hash"  # "hash" | "local" | "api"
+    embedding_model: str = "BAAI/bge-large-zh-v1.5"
+    embedding_dimension: int = 1024
 
     # -- 摄入管道 --
     ingest_enabled: bool = True
@@ -55,6 +56,7 @@ class KnowledgeTreeConfig:
             markdown_root=Path(ctx.knowledge_tree_root),
             rag_similarity_threshold=ctx.kt_rag_similarity_threshold,
             max_tree_depth=ctx.kt_max_tree_depth,
+            embedder_type=ctx.kt_embedder_type,
             embedding_model=ctx.kt_embedding_model,
             embedding_dimension=ctx.kt_embedding_dimension,
             ingest_enabled=ctx.kt_ingest_enabled,

@@ -10,7 +10,7 @@ class TestKnowledgeTreeConfig:
         cfg = KnowledgeTreeConfig()
         assert cfg.rag_similarity_threshold == 0.15
         assert cfg.max_tree_depth == 5
-        assert cfg.embedding_dimension == 512
+        assert cfg.embedding_dimension == 1024
         assert cfg.max_optimizations_per_window == 10
         assert cfg.structural_weight == 0.2
         assert cfg.content_weight == 0.8

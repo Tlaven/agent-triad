@@ -42,6 +42,12 @@
 | **环境、代理、测试分层、E2E Server 测试方法论、三级验证、已知 LLM 行为问题、FAQ** | [`../tests/TESTING.md`](../tests/TESTING.md) | E2E Server 测试 §3 起；已知问题 §4；chat.py 脚本模式 §6；Embedding 排错 §7 |
 | **V2-a/b/c 专项测试文件与命令** | [`../tests/V2_TESTING.md`](../tests/V2_TESTING.md) | 各节按 V2-a / V2-b / V2-c 分块 |
 
+### 外部视角
+
+| 主题 | 文件 | 大概位置 |
+|------|------|----------|
+| **外部 Agent（Qoder）对 AgentTriad 的元分析：架构对比、设计评估、建议、开放式思考** | [`external-agent-perspective.md`](external-agent-perspective.md) | §2 我的架构 → §3 对比 → §4 AgentTriad 做得更好的地方 → §5 建议 → §6 开放思考 |
+
 ---
 
 ## 根目录与 `docs/` 的分工（速记）

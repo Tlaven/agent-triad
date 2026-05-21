@@ -295,15 +295,19 @@ class Context:
     kt_rag_similarity_threshold: float = field(
         default=0.15,
         metadata={
-            "description": "Similarity threshold for RAG retrieval. Lower for hash embedder (0.15), higher for semantic embedder (0.7)."
+            "description": "Similarity threshold for RAG retrieval. Lower for hash embedder (0.15), higher for semantic embedder (0.5)."
         },
     )
+    kt_embedder_type: str = field(
+        default="hash",
+        metadata={"description": "Embedder type: 'hash' (n-gram), 'local' (sentence-transformers), or 'api' (SiliconFlow/OpenAI API)."},
+    )
     kt_embedding_model: str = field(
-        default="BAAI/bge-small-zh-v1.5",
+        default="BAAI/bge-large-zh-v1.5",
         metadata={"description": "Embedding model for Knowledge Tree vector index."},
     )
     kt_embedding_dimension: int = field(
-        default=512,
+        default=1024,
         metadata={"description": "Embedding vector dimension."},
     )
     kt_max_tree_depth: int = field(

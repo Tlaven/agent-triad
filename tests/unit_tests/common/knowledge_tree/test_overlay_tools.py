@@ -213,8 +213,9 @@ def _FakeContext():
     @dataclass
     class FakeContext:
         knowledge_tree_root: str = "workspace/knowledge_tree"
+        kt_embedder_type: str = "hash"
         kt_embedding_model: str = "hash"
-        kt_embedding_dimension: int = 512
+        kt_embedding_dimension: int = 1024
         kt_rag_similarity_threshold: float = 0.15
         kt_max_tree_depth: int = 5
         kt_ingest_enabled: bool = True

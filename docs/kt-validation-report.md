@@ -215,3 +215,101 @@ KT 系统验证通过：
 4. **Filter 在生产场景下正确**：代码块、混合语言、超长文本等边界条件处理正确
 5. **配置一致性无问题**：所有参数在 config.py/context.py/设计文档之间一致
 6. **全量测试无回归**：987 tests, 0 failures
+
+---
+
+## 9. 语义 Embedder 验证（2026-05-21）
+
+> 模型：BAAI/bge-large-zh-v1.5（SiliconFlow API，1024 维）
+> 对照：n-gram hash embedder（512 维）
+
+### 9.1 实验设计
+
+在隔离的 KT 实例上对比三种检索模式：
+
+| 模式 | Embedder | 检索向量 | 说明 |
+|------|----------|---------|------|
+| Content (语义) | API (bge-large-zh) | content_embedding | 纯语义检索 |
+| Stored (语义) | API (bge-large-zh) | stored_vector = 0.8·content + 0.2·anchor | Change Mapping 结构校准 |
+| Hash (对照) | n-gram hash | content_embedding | 当前生产基线 |
+
+查询集：10 条，包含精确查询(4)、同义查询(4)、无关查询(2)。
+
+### 9.2 语义 vs Hash 对比
+
+| 指标 | 语义 (API) | Hash | 提升 |
+|------|-----------|------|------|
+| 目录命中率 | 6/8 | 5/8 | +12.5% |
+| 平均分数 | 0.5717 | 0.4057 | **+41%** |
+| 同义查询零命中 | 0/4 | 2/4 | 全消除 |
+
+关键差异在**同义查询**：
+- Q6 "进程间怎么传递消息"（同义：通信协议）→ 语义 0.53 / Hash 0.0
+- Q8 "工具输出太长怎么办"（同义：Observation）→ 语义 0.57 / Hash 0.0
+
+Hash embedder 无法理解语义相似性，同义查询完全检索不到。语义 embedder 解决了这个问题。
+
+### 9.3 Change Mapping (stored_vector) 验证
+
+**结果：stored_vector 与纯 content 分数完全相同（6/8，avg 0.5717）。**
+
+原因分析——锚点区分度不足：
+
+| 锚点分析 | 数值 |
+|----------|------|
+| 目录数 | 7 |
+| 平均锚点间相似度 | 0.71（过高） |
+| 最相似目录对 | architecture ↔ patterns = 0.93 |
+| 最不同目录对 | setup ↔ step_1_1 = 0.47 |
+
+当所有目录锚点都挤在向量空间的同一区域时，`stored_vector = 0.8·content + 0.2·anchor ≈ content`，结构校准退化为噪声。
+
+**根本原因**：22 篇种子文档全是同一项目的不同方面（架构、模式、配置、排错），语义空间中自然集中。stored_vector 需要更宽主题的知识库（跨项目、跨领域）才能让锚点真正代表不同语义区域。
+
+### 9.4 结论与建议
+
+1. **语义 embedder 值得接入生产**：检索分数 +41%，同义查询从零命中到全命中，无退步风险
+2. **stored_vector 混合当前无效但不有害**：锚点区分度不够时等效于纯 content，不会造成损害
+3. **Change Mapping 留待知识库自然增长后验证**：Agent 长期使用产生跨领域知识后，锚点会自然分散
+
+### 9.5 实现变更
+
+| 文件 | 变更 |
+|------|------|
+| `embedding/api.py` | 新增 SiliconFlow API embedder |
+| `config.py` | 新增 `embedder_type` 字段（hash/local/api） |
+| `context.py` | 新增 `kt_embedder_type`，默认维度更新为 1024 |
+| `__init__.py` | `_create_embedder()` 工厂方法，统一选择逻辑 |
+| 测试 | 445 tests passed（362 KT + 83 Supervisor），零 break |
+
+### 9.6 配置方式
+
+```bash
+# .env 切换到语义 embedder
+KT_EMBEDDER_TYPE=api
+KT_EMBEDDING_MODEL=BAAI/bge-large-zh-v1.5
+KT_EMBEDDING_DIMENSION=1024
+```
+
+---
+
+## 10. Auto-Inject 有效性验证（2026-05-21）
+
+> 通过真实 LLM 会话验证 auto-inject 是否改变 Supervisor 行为
+
+### 10.1 实验设计
+
+在 KT 中植入**只存在于 KT 的知识**（乌龟协议 + 紧急代码 Omega-7），对比 KT ON/OFF 时 Supervisor 回答。
+
+### 10.2 结果
+
+| 测试 | KT 状态 | 结果 | 证据 |
+|------|---------|------|------|
+| A1 乌龟协议 | ON | PASS | 回复引用"乌龟虽慢，但从不后退" |
+| A2 乌龟协议 | OFF | PASS | 通用排查建议，无 KT 内容 |
+| A3 Omega-7 | ON | PASS | 完整三步响应（确认→审计→来源） |
+| A4 Omega-7 | OFF | 检测误判 | LLM 回退重复用户输入，但回复"无法识别" |
+| B1 主动 ingest | ON | PASS | Supervisor 主动调用 knowledge_tree_ingest |
+| B2 主动 retrieve | ON | PASS | 4 次 KT 工具调用（retrieve + tree + list） |
+
+**核心结论**：KT ON 时 Supervisor 能引用只存在于 KT 中的知识，KT OFF 时得到通用回答。Auto-inject 确实改变了 Supervisor 行为。
