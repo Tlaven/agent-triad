@@ -148,7 +148,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     仅在 __start__ 入口执行，工具循环不重复注入。
     """
     if not runtime.context.enable_knowledge_tree:
-        return {"kt_context": "", "kt_meta_rules": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
 
     from langchain_core.messages import HumanMessage
 
@@ -159,7 +159,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
             query = msg.content if isinstance(msg.content, str) else str(msg.content)
             break
     if not query:
-        return {"kt_context": "", "kt_meta_rules": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
 
     # 获取 KT 实例并检索
     from src.common.knowledge_tree import get_or_create_kt
@@ -172,7 +172,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         results, _log = await asyncio.to_thread(kt.retrieve, query)
     except Exception as e:
         logger.warning("KT auto-retrieve failed: %s", e)
-        return {"kt_context": "", "kt_meta_rules": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
 
     # 过滤低质量结果：根据 embedder 类型选择阈值。
     # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
@@ -182,7 +182,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
-        return {"kt_context": "", "kt_meta_rules": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
 
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
@@ -212,7 +212,32 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     except Exception as e:
         logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
 
-    return {"kt_context": "\n".join(context_lines), "kt_meta_rules": kt_meta_rules_str}
+    # P3: 获取优化建议（信号检测发现的问题）
+    kt_suggestions_str = ""
+    try:
+        signals = kt._last_signals if hasattr(kt, "_last_signals") else []
+        if signals:
+            lines = []
+            urgency = {"total_failure": "紧急", "rag_false_positive": "中等", "content_insufficient": "建议"}
+            for s in signals[:5]:
+                tag = urgency.get(s.signal_type, "建议")
+                if s.signal_type == "total_failure":
+                    queries = s.evidence.get("sample_queries", [])
+                    lines.append(f"- [{tag}] {s.evidence.get('count', 0)} 次查询完全无结果，涉及话题：{', '.join(str(q) for q in queries[:3])} — 考虑摄入相关知识")
+                elif s.signal_type == "rag_false_positive":
+                    lines.append(f"- [{tag}] {s.evidence.get('count', 0)} 次查询返回了不相关结果 — 考虑重组或更新内容")
+                elif s.signal_type == "content_insufficient":
+                    lines.append(f"- [{tag}] 节点 {s.node_id} 内容被标记为不充分 {s.evidence.get('count', 0)} 次 — 考虑补充内容")
+            if lines:
+                kt_suggestions_str = "\n".join(lines)
+    except Exception as e:
+        logger.debug("KT optimization suggestions failed (non-critical): %s", e)
+
+    return {
+        "kt_context": "\n".join(context_lines),
+        "kt_meta_rules": kt_meta_rules_str,
+        "kt_optimization_suggestions": kt_suggestions_str,
+    }
 
 
 async def call_model(
@@ -315,6 +340,18 @@ async def call_model(
             f"{state.kt_meta_rules}"
         )
         system_message = system_message + meta_rules_block
+
+    # P3: 优化建议注入（仅在信号检测发现问题时）
+    if state.kt_optimization_suggestions:
+        suggestions_block = (
+            "\n\n## [优化建议]（知识树自检发现的问题）\n\n"
+            "以下问题由知识树信号检测自动发现，你可以选择是否采取行动：\n"
+            "- 摄入缺失知识（knowledge_tree_ingest）\n"
+            "- 重组树结构（knowledge_tree_reorganize）\n"
+            "- 记录反馈（knowledge_tree_record_feedback）\n\n"
+            f"{state.kt_optimization_suggestions}"
+        )
+        system_message = system_message + suggestions_block
 
     # 构造发送给 LLM 的消息列表（截断防止 token 溢出）
     trimmed_history = _trim_messages_for_llm(

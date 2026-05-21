@@ -135,6 +135,17 @@ class KnowledgeTree:
         self._retrieval_logs: list[RetrievalLog] = []
         self._max_retrieval_logs = 1000
 
+        # P3 自动优化闭环
+        self._signal_check_counter = 0
+        self._last_signals: list = []
+        from src.common.knowledge_tree.optimization.anti_oscillation import (
+            OptimizationHistory,
+        )
+        self._opt_history = OptimizationHistory(
+            window=config.optimization_window,
+            max_per_window=config.max_optimizations_per_window,
+        )
+
     def _on_fs_change(self, change_type: str, directory: str) -> None:
         """文件系统变更回调：刷新受影响目录的锚点。
 
@@ -241,6 +252,7 @@ class KnowledgeTree:
         self._retrieval_logs.append(log)
         if len(self._retrieval_logs) > self._max_retrieval_logs:
             self._retrieval_logs = self._retrieval_logs[-self._max_retrieval_logs :]
+        self._check_signals()
         return results, log
 
     def status(self) -> dict[str, Any]:
@@ -269,6 +281,36 @@ class KnowledgeTree:
                 log.agent_satisfaction = satisfaction
                 log.agent_feedback = feedback
                 break
+
+    def _check_signals(self) -> list:
+        """懒检测：每 signal_check_interval 次 retrieve 检查一次优化信号。"""
+        self._signal_check_counter += 1
+        if self._signal_check_counter < 50:
+            return []
+        self._signal_check_counter = 0
+
+        from src.common.knowledge_tree.optimization.signals import detect_signals
+        from src.common.knowledge_tree.optimization.anti_oscillation import (
+            filter_signals_by_quota,
+        )
+
+        signals = detect_signals(
+            self._retrieval_logs,
+            total_failure_threshold=self.config.total_failure_threshold,
+            rag_false_positive_threshold=self.config.rag_false_positive_threshold,
+            content_insufficient_threshold=self.config.content_insufficient_threshold,
+        )
+        if not signals:
+            self._last_signals = []
+            return []
+
+        filtered = filter_signals_by_quota(signals, self._opt_history)
+        self._last_signals = filtered
+        if filtered:
+            logger.info("KT optimization signals detected: %s", [
+                {"type": s.signal_type, "node": s.node_id} for s in filtered
+            ])
+        return filtered
 
     def bootstrap(self) -> dict[str, Any]:
         """从种子目录构建初始知识树。
@@ -490,6 +532,8 @@ class KnowledgeTree:
             return {"ok": True, "message": "No changes needed", "report": None}
 
         report = execute_reorganize(moves, self.md_store, self.overlay_store)
+        if report.moves_executed > 0:
+            self._opt_history.record()
         return {
             "ok": True,
             "report": {
@@ -861,6 +905,27 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_list_meta_rules)
 
+    def _sync_record_feedback(query_id: str, satisfaction: bool, feedback: str) -> str:
+        kt = get_or_create_kt(config)
+        kt.record_feedback(query_id, satisfaction, feedback)
+        return json.dumps({"ok": True, "query_id": query_id, "satisfaction": satisfaction})
+
+    @lc_tool
+    async def knowledge_tree_record_feedback(
+        query_id: str, satisfaction: bool, feedback: str = ""
+    ) -> str:
+        """Record whether the retrieval results were useful.
+
+        Call this after evaluating retrieval results quality.
+        This feedback improves the knowledge tree's self-optimization signals.
+
+        Args:
+            query_id: The query_id from a previous knowledge_tree_retrieve call.
+            satisfaction: True if results were relevant, False otherwise.
+            feedback: Optional explanation of what was wrong or missing.
+        """
+        return await asyncio.to_thread(_sync_record_feedback, query_id, satisfaction, feedback)
+
     return [
         knowledge_tree_retrieve,
         knowledge_tree_ingest,
@@ -871,4 +936,5 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         knowledge_tree_reorganize,
         knowledge_tree_add_meta_rule,
         knowledge_tree_list_meta_rules,
+        knowledge_tree_record_feedback,
     ]

@@ -102,3 +102,6 @@ class State(InputState):
     kt_context: str = ""
     # 持久元规则（每次请求注入到系统提示，绕过相似度阈值）
     kt_meta_rules: str = ""
+
+    # P3 优化建议（信号检测发现的问题，注入系统提示）
+    kt_optimization_suggestions: str = ""

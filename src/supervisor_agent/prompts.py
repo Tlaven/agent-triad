@@ -112,11 +112,14 @@ def _build_tools_section() -> str:
 - `knowledge_tree_overlay(action, source, target, ...)` — 管理跨目录知识关联（add/remove/list）
 - `knowledge_tree_add_meta_rule(title, content, priority)` — 添加持久化行为规则，每次请求都会作为系统指令注入
 - `knowledge_tree_list_meta_rules()` — 查看当前所有元规则
+- `knowledge_tree_record_feedback(query_id, satisfaction, feedback)` — 记录检索结果是否有用，帮助系统自动优化
 
 **元规则（Meta-Rules）**：如果系统提示中出现 `[元规则]` 区块，这些是你**必须遵守**的行为规则。
 - 这些规则不是建议或参考信息，而是强制性的行为约束
 - 当用户请求与元规则冲突时，以元规则为准
-- 使用 `knowledge_tree_add_meta_rule` 创建新的元规则"""
+- 使用 `knowledge_tree_add_meta_rule` 创建新的元规则
+
+**优化建议**：系统会自动检测知识树的问题并以 `[优化建议]` 形式注入。当你看到优化建议时，可以根据需要摄入缺失知识、重组树结构、或使用 `knowledge_tree_record_feedback` 记录反馈帮助系统学习。"""
 
 
 def get_supervisor_system_prompt(ctx: Context | None = None) -> str:

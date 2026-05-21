@@ -78,7 +78,7 @@ class TestBuildToolsCreatesCorrectTools:
     """build_knowledge_tree_tools 应返回正确的工具集。"""
 
     def test_returns_five_tools(self, tools):
-        assert len(tools) == 9
+        assert len(tools) == 10
 
     def test_tool_names(self, tools):
         names = {t.name for t in tools}
@@ -92,6 +92,7 @@ class TestBuildToolsCreatesCorrectTools:
             "knowledge_tree_reorganize",
             "knowledge_tree_add_meta_rule",
             "knowledge_tree_list_meta_rules",
+            "knowledge_tree_record_feedback",
         }
 
     def test_tools_are_callable(self, tools):
