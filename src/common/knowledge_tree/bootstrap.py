@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
@@ -180,3 +181,72 @@ def _get_directory(rel_path: str) -> str:
     """从相对路径提取目录部分。"""
     parts = rel_path.rsplit("/", 1)
     return parts[0] if len(parts) > 1 else ""
+
+
+# 操作元规则种子（元认知阶段 2）
+_META_RULE_SEEDS: list[tuple[str, str, int]] = [
+    (
+        "主动沉淀",
+        "当用户分享了项目特定信息（路径、配置、约定、偏好）时，用 knowledge_tree_ingest 沉淀到知识树",
+        10,
+    ),
+    (
+        "失败前查",
+        "遇到重复出现的错误模式时，先用 knowledge_tree_retrieve 查看是否有历史经验可参考",
+        20,
+    ),
+    (
+        "先查后答",
+        "当任务涉及不熟悉的技术栈或领域时，先 retrieve 查知识树再回答",
+        15,
+    ),
+    (
+        "失败后学",
+        "执行失败后重规划前，先检索相关失败经验避免重复踩坑",
+        25,
+    ),
+    (
+        "成功也记",
+        "完成任务后如果发现新的可复用知识（工具用法、配置技巧、排错方法），主动 ingest",
+        5,
+    ),
+]
+
+
+def seed_meta_rules(kt: Any) -> int:
+    """向知识树种子操作元规则。
+
+    已存在的元规则（按 content 匹配）不会重复写入。
+
+    Args:
+        kt: KnowledgeTree 实例。
+
+    Returns:
+        新写入的元规则数量。
+    """
+    existing_contents: set[str] = set()
+    try:
+        for rule in kt.get_meta_rules():
+            existing_contents.add(rule.content.strip())
+    except Exception:
+        logger.warning("Failed to check existing meta rules during seed")
+
+    count = 0
+    for title, content, priority in _META_RULE_SEEDS:
+        if content.strip() in existing_contents:
+            continue
+        try:
+            kt.ingest(
+                content,
+                trigger="bootstrap",
+                source="bootstrap:meta_rule",
+                metadata={"node_type": "meta_rule", "priority": priority},
+            )
+            count += 1
+        except Exception as e:
+            logger.warning("Failed to seed meta rule '%s': %s", title, e)
+
+    if count > 0:
+        logger.info("Meta rules seeded: %d new rules", count)
+
+    return count
