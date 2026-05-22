@@ -71,7 +71,7 @@ class TestKtRetrieveDisabled:
         state = _state_with_messages(HumanMessage(content="查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
 
 class TestKtRetrieveNoQuery:
@@ -82,14 +82,14 @@ class TestKtRetrieveNoQuery:
         state = State(messages=[])
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     def test_only_ai_messages(self) -> None:
         runtime = _MockRuntime()
         state = _state_with_messages(AIMessage(content="AI reply"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
 
 class TestKtRetrieveThreshold:
@@ -105,7 +105,7 @@ class TestKtRetrieveThreshold:
         state = _state_with_messages(HumanMessage(content="测试查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     @patch("src.common.knowledge_tree.config.KnowledgeTreeConfig.from_context")
     @patch("src.common.knowledge_tree.get_or_create_kt")
@@ -242,7 +242,7 @@ class TestKtRetrieveErrorHandling:
         state = _state_with_messages(HumanMessage(content="查询"))
 
         result = _run(kt_retrieve(state, runtime))
-        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        assert result == {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
 
 class TestKtRetrieveQueryExtraction:

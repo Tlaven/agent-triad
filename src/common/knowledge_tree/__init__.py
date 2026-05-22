@@ -553,6 +553,14 @@ class KnowledgeTree:
             },
         }
 
+    def get_node_count(self) -> int:
+        """返回节点总数。"""
+        return len(self.md_store.list_nodes())
+
+    def get_directory_count(self) -> int:
+        """返回目录数。"""
+        return len(self.vector_store.get_all_anchors())
+
     def get_meta_rules(self) -> list[KnowledgeNode]:
         """返回所有持久元规则节点（绕过相似度阈值，每次请求都注入）。
 

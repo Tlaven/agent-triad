@@ -105,3 +105,6 @@ class State(InputState):
 
     # P3 优化建议（信号检测发现的问题，注入系统提示）
     kt_optimization_suggestions: str = ""
+
+    # 元认知：KT 状态快照累积数据（任务完成后写入日志）
+    kt_snapshot_data: dict = field(default_factory=dict)

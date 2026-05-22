@@ -148,7 +148,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     仅在 __start__ 入口执行，工具循环不重复注入。
     """
     if not runtime.context.enable_knowledge_tree:
-        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     from langchain_core.messages import HumanMessage
 
@@ -159,7 +159,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
             query = msg.content if isinstance(msg.content, str) else str(msg.content)
             break
     if not query:
-        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     # 获取 KT 实例并检索
     from src.common.knowledge_tree import get_or_create_kt
@@ -172,7 +172,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         results, _log = await asyncio.to_thread(kt.retrieve, query)
     except Exception as e:
         logger.warning("KT auto-retrieve failed: %s", e)
-        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     # 过滤低质量结果：根据 embedder 类型选择阈值。
     # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
@@ -182,7 +182,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
-        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": ""}
+        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
@@ -237,6 +237,10 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         "kt_context": "\n".join(context_lines),
         "kt_meta_rules": kt_meta_rules_str,
         "kt_optimization_suggestions": kt_suggestions_str,
+        "kt_snapshot_data": {
+            "auto_retrieve_hits": len(high_quality),
+            "retrieved_nodes": [n.title for n, _ in high_quality[:5]],
+        },
     }
 
 
