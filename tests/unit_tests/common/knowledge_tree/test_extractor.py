@@ -293,3 +293,21 @@ class TestExperienceExtraction:
         assert len(result) == 1
         for field in ["情境", "行动", "结果", "教训", "适用"]:
             assert field in result[0]
+
+
+class TestEntryAExperienceIngestion:
+    """验证 Entry A 调用经验提取并 ingest 为 experience 节点。"""
+
+    def test_failed_result_triggers_experience_ingest(self):
+        """失败结果应触发经验提取。"""
+        summary = "Executor 超时导致任务失败。"
+        plan_json = json.dumps({
+            "plan_id": "p1", "version": 1, "goal": "测试",
+            "steps": [{"step_id": "s1", "intent": "执行", "status": "failed",
+                        "result_summary": "", "failure_reason": "超时退出。"}],
+        })
+
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert len(result) == 1
+        assert "教训" in result[0]
+        assert "失败" in result[0]

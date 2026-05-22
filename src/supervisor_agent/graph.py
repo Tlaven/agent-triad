@@ -922,6 +922,7 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
         from src.common.knowledge_tree import get_or_create_kt
         from src.common.knowledge_tree.config import KnowledgeTreeConfig
         from src.common.knowledge_tree.ingestion.extractor import (
+            extract_experience_from_executor_result,
             extract_knowledge_from_executor_result,
         )
 
@@ -931,9 +932,8 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
         chunks = extract_knowledge_from_executor_result(
             summary, updated_plan, exec_status
         )
-        if not chunks:
-            return
 
+        # 即使无常规知识块，也继续提取经验
         config = KnowledgeTreeConfig.from_context(ctx)
         kt = get_or_create_kt(config)
         total_ingested = 0
@@ -945,10 +945,24 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
             )
             total_ingested += report.nodes_ingested
 
+        # 元认知：提取结构化经验节点
+        experiences = extract_experience_from_executor_result(
+            summary, updated_plan, exec_status
+        )
+        for exp in experiences:
+            exp_report = kt.ingest(
+                exp,
+                trigger="task_complete",
+                source="auto:executor_experience",
+                metadata={"node_type": "experience"},
+            )
+            total_ingested += exp_report.nodes_ingested
+
         if total_ingested > 0:
             logger.info(
-                "Entry A: auto-ingested %d knowledge chunks from executor result",
+                "Entry A: auto-ingested %d knowledge chunks (%d experiences) from executor result",
                 total_ingested,
+                len(experiences),
             )
     except Exception:
         logger.debug("Entry A: auto-ingest failed (non-critical)", exc_info=True)
