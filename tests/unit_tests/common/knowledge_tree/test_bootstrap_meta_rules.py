@@ -15,7 +15,7 @@ class TestSeedMetaRules:
         kt = MagicMock()
         kt.get_meta_rules.return_value = []
         seed_meta_rules(kt)
-        assert kt.ingest.call_count == 5
+        assert kt.ingest.call_count == 6
 
     def test_seed_content_contains_kt_guidance(self):
         """种子内容应包含 KT 操作指导。"""
@@ -41,7 +41,7 @@ class TestSeedMetaRules:
         kt = MagicMock()
         kt.get_meta_rules.return_value = [existing]
         seed_meta_rules(kt)
-        assert kt.ingest.call_count == 4
+        assert kt.ingest.call_count == 5
 
     def test_seed_metadata_is_meta_rule(self):
         """每条种子的 metadata 应包含 node_type=meta_rule。"""
