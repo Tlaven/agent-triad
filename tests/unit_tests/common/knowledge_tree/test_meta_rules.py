@@ -91,9 +91,10 @@ class TestMetaRuleTools:
         assert "meta_rules/" in result["node_id"]
 
         rules = kt_from_ctx(cfg).get_meta_rules()
-        assert len(rules) == 1
-        assert rules[0].content == "Always verify."
-        assert rules[0].metadata["priority"] == 3
+        # bootstrap() seeds meta rules automatically; just verify user rule exists
+        user_rule = [r for r in rules if r.content == "Always verify."]
+        assert len(user_rule) == 1
+        assert user_rule[0].metadata["priority"] == 3
 
     def test_add_meta_rule_updates_existing(self, tmp_path: Path) -> None:
         cfg = KnowledgeTreeConfig(markdown_root=tmp_path, embedder_type="hash", embedding_dimension=64)
@@ -108,8 +109,9 @@ class TestMetaRuleTools:
         assert result["action"] == "updated"
 
         rules = kt_from_ctx(cfg).get_meta_rules()
-        assert len(rules) == 1
-        assert "v2 updated" in rules[0].content
+        # bootstrap() seeds meta rules automatically; just verify user rule updated
+        user_rule = [r for r in rules if "v2 updated" in r.content]
+        assert len(user_rule) == 1
 
     def test_list_meta_rules(self, tmp_path: Path) -> None:
         cfg = KnowledgeTreeConfig(markdown_root=tmp_path, embedder_type="hash", embedding_dimension=64)
@@ -125,8 +127,11 @@ class TestMetaRuleTools:
 
         result = json.loads(asyncio_run(list_tool.ainvoke({})))
         assert result["ok"] is True
-        assert result["total"] == 2
-        assert result["rules"][0]["title"] == "High"  # Higher priority first
+        # bootstrap() seeds meta rules; total includes seeds + user-added rules
+        assert result["total"] >= 2
+        user_rules = [r for r in result["rules"] if r["title"] in ("Low", "High")]
+        assert len(user_rules) == 2
+        assert user_rules[0]["title"] == "High"  # Higher priority first
 
 
 def kt_from_ctx(cfg: KnowledgeTreeConfig) -> KnowledgeTree:

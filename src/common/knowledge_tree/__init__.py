@@ -337,6 +337,13 @@ class KnowledgeTree:
             embedder=self.embedder,
         )
 
+        # 元认知：种子操作元规则
+        from src.common.knowledge_tree.bootstrap import seed_meta_rules
+        try:
+            seed_meta_rules(self)
+        except Exception as e:
+            logger.warning("Meta rule seeding failed (non-critical): %s", e)
+
         return {
             "ok": True,
             "nodes_created": report.nodes_created,
