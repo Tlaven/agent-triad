@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from src.common.knowledge_tree.ingestion.extractor import (
+    extract_experience_from_executor_result,
     extract_knowledge_from_executor_result,
 )
 
@@ -204,3 +205,91 @@ class TestRealExecutorFormat:
         all_text = " ".join(result)
         assert "extractor.py" in all_text
         assert "测试" in all_text
+
+
+class TestExperienceExtraction:
+    """验证经验节点提取（元认知阶段 1）。"""
+
+    def test_failed_task_extracts_experience(self):
+        """失败任务应提取经验四元组。"""
+        summary = "执行失败：在处理大规模文件时 Executor 超时退出。"
+        plan_json = _make_plan_json(
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "扫描目录下所有文件",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "Executor 进程超时，可能是文件数量过多导致内存溢出。",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert len(result) == 1
+        text = result[0]
+        assert "情境" in text
+        assert "行动" in text
+        assert "教训" in text
+        assert "失败" in text
+
+    def test_completed_with_discovery_extracts_experience(self):
+        """完成但含有发现性内容时提取经验。"""
+        summary = "发现重要模式：在 config.yaml 中设置 worker_timeout 时需要同步修改 supervisor_timeout，否则会导致进程假死。"
+        plan_json = _make_plan_json(
+            goal="配置超时参数",
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "修改配置文件",
+                    "status": "completed",
+                    "result_summary": "发现 worker_timeout 和 supervisor_timeout 需要同步修改。",
+                    "failure_reason": "",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "completed")
+        assert len(result) == 1
+        text = result[0]
+        assert "情境" in text
+        assert "教训" in text
+
+    def test_completed_trivial_no_experience(self):
+        """简单确认性完成不提取经验。"""
+        summary = "已读取文件。"
+        plan_json = _make_plan_json(
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "读取配置",
+                    "status": "completed",
+                    "result_summary": "已读取。",
+                    "failure_reason": "",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "completed")
+        assert len(result) == 0
+
+    def test_empty_input_no_experience(self):
+        """空输入不提取经验。"""
+        result = extract_experience_from_executor_result("", "", "completed")
+        assert result == []
+
+    def test_experience_format_contains_all_fields(self):
+        """经验节点包含完整的四元组字段。"""
+        summary = "使用 uv run pytest 运行测试时，需要确保 .env 文件存在，否则会加载失败。"
+        plan_json = _make_plan_json(
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "运行测试",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "缺少 .env 文件导致配置加载失败。",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert len(result) == 1
+        for field in ["情境", "行动", "结果", "教训", "适用"]:
+            assert field in result[0]

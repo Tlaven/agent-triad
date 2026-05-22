@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from src.common.knowledge_tree.ingestion.filter import should_remember
 
@@ -91,3 +92,92 @@ def extract_knowledge_from_executor_result(
         )
 
     return passed
+
+
+# 经验提炼关键词：检测 completion summary 中是否有知识发现性内容
+_DISCOVERY_PATTERNS = re.compile(
+    r"发现|确认|正确的.*是|需要先|必须|关键|重要.*模式|导致.*原因|因为|只有.*才能"
+)
+
+
+def extract_experience_from_executor_result(
+    summary: str,
+    updated_plan_json: str,
+    status: str,
+) -> list[str]:
+    """从 Executor 结果中提取结构化经验节点。
+
+    与 extract_knowledge_from_executor_result 不同，此函数输出
+    格式化的经验四元组（情境/行动/结果/教训/适用），用于元认知。
+
+    Args:
+        summary: Executor 返回的 summary 文本。
+        updated_plan_json: Executor 返回的 updated_plan_json 字符串。
+        status: Executor 状态（"completed"/"failed"/"paused"）。
+
+    Returns:
+        格式化的经验文本列表。每个元素是一个完整的经验节点内容。
+    """  # noqa: D415
+    # 收集素材
+    goal = ""
+    step_intents: list[str] = []
+    step_failures: list[str] = []
+    step_results: list[str] = []
+
+    if updated_plan_json and updated_plan_json.strip():
+        try:
+            plan = json.loads(updated_plan_json)
+        except (json.JSONDecodeError, TypeError):
+            plan = {}
+        goal = plan.get("goal", "")
+        for step in plan.get("steps", []):
+            intent = step.get("intent", "")
+            step_intents.append(intent)
+            fr = step.get("failure_reason", "")
+            if fr and fr.strip():
+                step_failures.append(f"步骤「{intent}」失败：{fr.strip()}")
+            rs = step.get("result_summary", "")
+            if rs and rs.strip():
+                step_results.append(f"步骤「{intent}」：{rs.strip()}")
+
+    # 判断是否值得提取经验
+    if status == "failed":
+        # 失败任务始终提取
+        pass
+    elif status == "completed":
+        # 完成任务只有含有发现性内容时才提取
+        combined = f"{summary} {' '.join(step_results)}"
+        if not _DISCOVERY_PATTERNS.search(combined):
+            return []
+        if len(combined.strip()) < 50:
+            return []
+    else:
+        # paused 等其他状态不提取经验
+        return []
+
+    # 构造情境
+    context = goal if goal else "（无明确目标）"
+    actions = "；".join(step_intents) if step_intents else "（执行了任务）"
+
+    # 构造结果和教训
+    if status == "failed":
+        outcome = "失败"
+        lessons = "；".join(step_failures) if step_failures else summary
+        lesson_text = f"避免{lessons}" if lessons else "需要进一步分析失败原因"
+    else:
+        outcome = "成功"
+        lesson_text = summary if summary else "。".join(step_results)
+
+    # 适用范围
+    applicable = goal if goal else "；".join(step_intents[:2])
+
+    experience = (
+        f"[经验] {context[:30]}\n"
+        f"情境：{context}\n"
+        f"行动：{actions}\n"
+        f"结果：{outcome} — {summary[:100] if summary else '见步骤详情'}\n"
+        f"教训：{lesson_text}\n"
+        f"适用：涉及「{applicable}」类型的任务"
+    )
+
+    return [experience]
