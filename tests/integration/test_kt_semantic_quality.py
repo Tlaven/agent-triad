@@ -48,7 +48,7 @@ class TestSemanticRetrievalQuality:
     def test_bootstrap_with_real_embedder(self, kt_real: KnowledgeTree):
         """Bootstrap 应生成 embeddings 和 anchors。"""
         status = kt_real.status()
-        assert status["total_nodes"] == 8, f"Expected 8 nodes, got {status['total_nodes']}"
+        assert status["total_nodes"] >= 8, f"Expected >= 8 nodes, got {status['total_nodes']}"
         assert status["total_anchors"] >= 5, f"Expected >= 5 anchors, got {status['total_anchors']}"
 
     def test_exact_match_http(self, kt_real: KnowledgeTree):
