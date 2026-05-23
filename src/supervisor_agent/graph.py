@@ -174,6 +174,20 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         logger.warning("KT auto-retrieve failed: %s", e)
         return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
+    # 获取持久元规则（每次请求都注入，绕过相似度阈值）
+    kt_meta_rules_str = ""
+    try:
+        meta_rules = await asyncio.to_thread(kt.get_meta_rules)
+        if meta_rules:
+            meta_rules.sort(
+                key=lambda n: n.metadata.get("priority", 0), reverse=True
+            )
+            rules_lines = [f"- {r.content}" for r in meta_rules]
+            kt_meta_rules_str = "\n".join(rules_lines)
+            logger.info("KT meta-rules: %d persistent rules injected", len(meta_rules))
+    except Exception as e:
+        logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
+
     # 过滤低质量结果：根据 embedder 类型选择阈值。
     # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
     # hash embedder 分数低（相关 0.3-0.6），用较低阈值（0.25）。
@@ -182,7 +196,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
-        return {"kt_context": "", "kt_meta_rules": "", "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
+        return {"kt_context": "", "kt_meta_rules": kt_meta_rules_str, "kt_optimization_suggestions": "", "kt_snapshot_data": {}}
 
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
@@ -197,20 +211,6 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         query[:40],
         [round(s, 2) for _, s in high_quality],
     )
-
-    # 获取持久元规则（每次请求都注入，绕过相似度阈值）
-    kt_meta_rules_str = ""
-    try:
-        meta_rules = await asyncio.to_thread(kt.get_meta_rules)
-        if meta_rules:
-            meta_rules.sort(
-                key=lambda n: n.metadata.get("priority", 0), reverse=True
-            )
-            rules_lines = [f"- {r.content}" for r in meta_rules]
-            kt_meta_rules_str = "\n".join(rules_lines)
-            logger.info("KT meta-rules: %d persistent rules injected", len(meta_rules))
-    except Exception as e:
-        logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
 
     # P3: 获取优化建议（信号检测发现的问题）
     kt_suggestions_str = ""

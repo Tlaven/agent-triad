@@ -840,7 +840,10 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_reorganize, proposed_tree)
 
-    def _sync_add_meta_rule(title: str, content: str, priority: int = 0) -> str:
+    def _sync_add_meta_rule(
+        title: str, content: str, priority: int = 0, aliases: list[str] | None = None
+    ) -> str:
+        aliases = aliases or []
         kt = get_or_create_kt(config)
         existing = kt.get_meta_rules()
         for n in existing:
@@ -848,18 +851,24 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                 n.content = content
                 n.metadata["priority"] = priority
                 n.metadata["node_type"] = "meta_rule"
+                if aliases:
+                    n.metadata["aliases"] = aliases
                 kt.md_store.write_node(n)
+                _reindex_aliases(kt, n.node_id, aliases)
                 return json.dumps(
                     {"ok": True, "action": "updated", "node_id": n.node_id},
                     ensure_ascii=False,
                 )
 
+        metadata: dict[str, Any] = {"node_type": "meta_rule", "priority": priority}
+        if aliases:
+            metadata["aliases"] = aliases
         node = KnowledgeNode.create(
             node_id="",
             title=title,
             content=content,
             source="agent:supervisor",
-            metadata={"node_type": "meta_rule", "priority": priority},
+            metadata=metadata,
         )
         node.embedding = kt.embedder(content)
         meta_dir = "meta_rules"
@@ -872,10 +881,20 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         node.directory = meta_dir
         kt.md_store.write_node(node)
         kt.vector_store.upsert_embedding(node.node_id, node.embedding)
+        _reindex_aliases(kt, node.node_id, aliases)
         return json.dumps(
             {"ok": True, "action": "created", "node_id": node.node_id},
             ensure_ascii=False,
         )
+
+    def _reindex_aliases(kt: Any, node_id: str, aliases: list[str]) -> None:
+        """重建节点的 alias embedding 索引。"""
+        alias_prefix = f"alias:{node_id}:"
+        for key in [k for k in kt.vector_store._embeddings if k.startswith(alias_prefix)]:
+            del kt.vector_store._embeddings[key]
+        for i, alias in enumerate(aliases):
+            alias_emb = kt.embedder(alias)
+            kt.vector_store.upsert_embedding(f"alias:{node_id}:{i}", alias_emb)
 
     def _sync_list_meta_rules() -> str:
         kt = get_or_create_kt(config)
@@ -885,6 +904,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                 "node_id": r.node_id,
                 "title": r.title,
                 "priority": r.metadata.get("priority", 0),
+                "aliases": r.metadata.get("aliases", []),
                 "content_preview": r.content[:120],
             }
             for r in sorted(
@@ -897,7 +917,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
 
     @lc_tool
     async def knowledge_tree_add_meta_rule(
-        title: str, content: str, priority: int = 0
+        title: str, content: str, priority: int = 0, aliases: list[str] | None = None
     ) -> str:
         """Add or update a persistent meta-rule in the knowledge tree.
 
@@ -909,8 +929,10 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             title: Short descriptive title for the rule.
             content: The rule text. Be specific and imperative.
             priority: Higher priority rules appear first. Default 0.
+            aliases: Optional trigger phrases expanding the rule's RAG retrievability.
+                     E.g. ["vague request", "unclear task"]. Default None.
         """
-        return await asyncio.to_thread(_sync_add_meta_rule, title, content, priority)
+        return await asyncio.to_thread(_sync_add_meta_rule, title, content, priority, aliases or [])
 
     @lc_tool
     async def knowledge_tree_list_meta_rules() -> str:

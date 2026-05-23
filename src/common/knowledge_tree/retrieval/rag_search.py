@@ -75,6 +75,20 @@ def rag_search(
         rrf_scores[node_id] = rrf_scores.get(node_id, 0.0) + 1.0 / (k_rrf + rank + 1)
         best_similarities[node_id] = max(best_similarities.get(node_id, 0.0), score)
 
+    # 路径 2b: alias embedding（元规则检索扩展）
+    alias_results: list[tuple[str, float]] = []
+    if embedder is not None:
+        alias_results = vector_store.similarity_search_with_prefix(
+            "alias:", query_vector, top_k=top_k * 2, threshold=threshold
+        )
+    for rank, (alias_key, score) in enumerate(alias_results):
+        # alias:{node_id}:{i} → node_id
+        parts = alias_key.split(":", 2)
+        if len(parts) >= 2:
+            node_id = parts[1]
+            rrf_scores[node_id] = rrf_scores.get(node_id, 0.0) + 1.0 / (k_rrf + rank + 1)
+            best_similarities[node_id] = max(best_similarities.get(node_id, 0.0), score)
+
     # 路径 3: 目录锚点扩展（结构信号）
     # 找到与查询匹配的目录锚点，将同目录节点加入 RRF 候选
     matching_anchors = vector_store.find_matching_anchors(

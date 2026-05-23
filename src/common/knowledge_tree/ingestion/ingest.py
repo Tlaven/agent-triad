@@ -137,6 +137,12 @@ def ingest_nodes(
                 title_embedding = embedder(node.title)
                 vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
 
+            # 5c. 索引 alias embedding（元规则检索扩展）
+            if node.metadata.get("node_type") == "meta_rule" and node.metadata.get("aliases"):
+                for i, alias in enumerate(node.metadata["aliases"]):
+                    alias_emb = embedder(alias)
+                    vector_store.upsert_embedding(f"alias:{node.node_id}:{i}", alias_emb)
+
             # 6. 刷新目录锚点
             _refresh_anchor(node.directory, md_store, vector_store)
 

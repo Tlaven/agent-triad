@@ -110,6 +110,13 @@ def bootstrap_from_directory(
                 vector_store.upsert_embedding(f"title:{node.node_id}", title_embedding)
                 report.embeddings_generated += 1
 
+            # 索引 alias embedding（元规则检索扩展）
+            if node.metadata.get("node_type") == "meta_rule" and node.metadata.get("aliases"):
+                for i, alias in enumerate(node.metadata["aliases"]):
+                    alias_emb = embedder(alias)
+                    vector_store.upsert_embedding(f"alias:{node.node_id}:{i}", alias_emb)
+                    report.embeddings_generated += 1
+
             # 收集目录信息
             directory = node.directory
             dir_embeddings.setdefault(directory, []).append(embedding)
@@ -184,36 +191,56 @@ def _get_directory(rel_path: str) -> str:
 
 
 # 操作元规则种子（元认知阶段 2）
-_META_RULE_SEEDS: list[tuple[str, str, int]] = [
-    (
+class MetaRuleSeed:
+    """元规则种子定义。"""
+
+    __slots__ = ("title", "content", "priority", "aliases")
+
+    def __init__(
+        self, title: str, content: str, priority: int, aliases: list[str] | None = None
+    ):
+        self.title = title
+        self.content = content
+        self.priority = priority
+        self.aliases = aliases or []
+
+
+_META_RULE_SEEDS: list[MetaRuleSeed] = [
+    MetaRuleSeed(
         "主动沉淀",
         "当用户分享了项目特定信息（路径、配置、约定、偏好）时，用 knowledge_tree_ingest 沉淀到知识树",
         10,
+        ["元规则", "用户分享", "项目信息", "记住配置", "用户偏好"],
     ),
-    (
+    MetaRuleSeed(
         "失败前查",
         "遇到重复出现的错误模式时，先用 knowledge_tree_retrieve 查看是否有历史经验可参考",
         20,
+        ["元规则", "重复错误", "错误模式", "查历史经验", "先查再试"],
     ),
-    (
+    MetaRuleSeed(
         "先查后答",
         "当任务涉及不熟悉的技术栈或领域时，先 retrieve 查知识树再回答",
         15,
+        ["元规则", "不熟悉技术栈", "查知识再回答", "先检索"],
     ),
-    (
+    MetaRuleSeed(
         "失败后学",
         "执行失败后重规划前，先检索相关失败经验避免重复踩坑",
         25,
+        ["元规则", "执行失败", "失败经验", "重规划前", "避免重复踩坑"],
     ),
-    (
+    MetaRuleSeed(
         "成功也记",
         "完成任务后如果发现新的可复用知识（工具用法、配置技巧、排错方法），主动 ingest",
         5,
+        ["元规则", "任务完成", "可复用知识", "工具用法", "配置技巧"],
     ),
-    (
+    MetaRuleSeed(
         "聪明提问",
         "当任务目标模糊或涉及不确定的关键假设时，在执行的同时向用户提出 1-2 个澄清问题（不要因此停止或延迟执行），根据用户回答调整后续策略",
         8,
+        ["元规则", "目标模糊", "澄清问题", "不确定假设", "任务不明确"],
     ),
 ]
 
@@ -237,19 +264,25 @@ def seed_meta_rules(kt: Any) -> int:
         logger.warning("Failed to check existing meta rules during seed")
 
     count = 0
-    for title, content, priority in _META_RULE_SEEDS:
-        if content.strip() in existing_contents:
+    for seed in _META_RULE_SEEDS:
+        if seed.content.strip() in existing_contents:
             continue
         try:
+            metadata: dict[str, Any] = {
+                "node_type": "meta_rule",
+                "priority": seed.priority,
+            }
+            if seed.aliases:
+                metadata["aliases"] = seed.aliases
             kt.ingest(
-                content,
+                seed.content,
                 trigger="bootstrap",
                 source="bootstrap:meta_rule",
-                metadata={"node_type": "meta_rule", "priority": priority},
+                metadata=metadata,
             )
             count += 1
         except Exception as e:
-            logger.warning("Failed to seed meta rule '%s': %s", title, e)
+            logger.warning("Failed to seed meta rule '%s': %s", seed.title, e)
 
     if count > 0:
         logger.info("Meta rules seeded: %d new rules", count)

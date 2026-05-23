@@ -191,6 +191,12 @@ class InMemoryVectorStore(BaseVectorStore):
             del self._embeddings[title_key]
             removed = True
 
+        # 清理 alias 辅助索引键
+        alias_prefix = f"alias:{node_id}:"
+        for key in [k for k in self._embeddings if k.startswith(alias_prefix)]:
+            del self._embeddings[key]
+            removed = True
+
         return removed
 
     def clear(self) -> None:
@@ -290,7 +296,7 @@ class InMemoryVectorStore(BaseVectorStore):
         seen: set[str] = set()
         for node_id in self._embeddings:
             # 跳过辅助索引键
-            if node_id.startswith("title:") or node_id.startswith("stored:"):
+            if node_id.startswith("title:") or node_id.startswith("stored:") or node_id.startswith("alias:"):
                 continue
             if node_id in seen:
                 continue
