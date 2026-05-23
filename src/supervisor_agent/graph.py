@@ -430,6 +430,7 @@ async def dynamic_tools_node(state: State, runtime: Runtime[Context]) -> dict:
     id_to_name = _build_id_to_name(state)
     id_to_call = _build_id_to_call(state)
 
+
     sanitized_tool_messages: list[ToolMessage] = []
     updates: dict = {"messages": sanitized_tool_messages}
 
@@ -554,7 +555,9 @@ async def dynamic_tools_node(state: State, runtime: Runtime[Context]) -> dict:
                     updates["executor_task_history"] = _trim_task_history(history)
                 # Entry A: 自动从 Executor 结果提取知识
                 if exec_status in ("completed", "failed") and runtime.context.enable_knowledge_tree:
-                    _try_auto_ingest_executor_result(content, runtime.context, exec_status)
+                    await asyncio.to_thread(
+                        _try_auto_ingest_executor_result, content, runtime.context, exec_status
+                    )
             elif "[EXECUTOR_DISPATCH]" in content:
                 # 异步派发成功 → 存储 ActiveExecutorTask，透传消息（去除内部标记）
                 clean_content = re.sub(
