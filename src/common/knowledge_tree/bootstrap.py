@@ -190,65 +190,14 @@ def _get_directory(rel_path: str) -> str:
     return parts[0] if len(parts) > 1 else ""
 
 
-# 操作元规则种子（元认知阶段 2）
-class MetaRuleSeed:
-    """元规则种子定义。"""
-
-    __slots__ = ("title", "content", "priority", "aliases")
-
-    def __init__(
-        self, title: str, content: str, priority: int, aliases: list[str] | None = None
-    ):
-        self.title = title
-        self.content = content
-        self.priority = priority
-        self.aliases = aliases or []
-
-
-_META_RULE_SEEDS: list[MetaRuleSeed] = [
-    MetaRuleSeed(
-        "主动沉淀",
-        "当用户分享了项目特定信息（路径、配置、约定、偏好）时，用 knowledge_tree_ingest 沉淀到知识树",
-        10,
-        ["元规则", "用户分享", "项目信息", "记住配置", "用户偏好"],
-    ),
-    MetaRuleSeed(
-        "失败前查",
-        "遇到重复出现的错误模式时，先用 knowledge_tree_retrieve 查看是否有历史经验可参考",
-        20,
-        ["元规则", "重复错误", "错误模式", "查历史经验", "先查再试"],
-    ),
-    MetaRuleSeed(
-        "先查后答",
-        "当任务涉及不熟悉的技术栈或领域时，先 retrieve 查知识树再回答",
-        15,
-        ["元规则", "不熟悉技术栈", "查知识再回答", "先检索"],
-    ),
-    MetaRuleSeed(
-        "失败后学",
-        "执行失败后重规划前，先检索相关失败经验避免重复踩坑",
-        25,
-        ["元规则", "执行失败", "失败经验", "重规划前", "避免重复踩坑"],
-    ),
-    MetaRuleSeed(
-        "成功也记",
-        "完成任务后如果发现新的可复用知识（工具用法、配置技巧、排错方法），主动 ingest",
-        5,
-        ["元规则", "任务完成", "可复用知识", "工具用法", "配置技巧"],
-    ),
-    MetaRuleSeed(
-        "聪明提问",
-        "当任务目标模糊或涉及不确定的关键假设时，在执行的同时向用户提出 1-2 个澄清问题（不要因此停止或延迟执行），根据用户回答调整后续策略",
-        8,
-        ["元规则", "目标模糊", "澄清问题", "不确定假设", "任务不明确"],
-    ),
-]
-
-
 def seed_meta_rules(kt: Any) -> int:
-    """向知识树种子操作元规则。
+    """从 meta_rules 种子目录读取 .md 文件并摄入知识树。
 
-    已存在的元规则（按 content 匹配）不会重复写入。
+    元规则的内容定义在 KT 自身的种子文件中（workspace/knowledge_tree/meta_rules/），
+    而非硬编码在 Python 里。这使 KT 自包含：它拥有自己的行为规范。
+
+    bootstrap_from_directory 已处理 meta-rule 文件的向量和 alias 索引，
+    本函数作为补充路径，确保 meta-rules 在已初始化的 KT 中也能被种子化。
 
     Args:
         kt: KnowledgeTree 实例。
@@ -256,6 +205,10 @@ def seed_meta_rules(kt: Any) -> int:
     Returns:
         新写入的元规则数量。
     """
+    meta_rules_dir = kt.config.markdown_root / "meta_rules"
+    if not meta_rules_dir.is_dir():
+        return 0
+
     existing_contents: set[str] = set()
     try:
         for rule in kt.get_meta_rules():
@@ -263,28 +216,43 @@ def seed_meta_rules(kt: Any) -> int:
     except Exception:
         logger.warning("Failed to check existing meta rules during seed")
 
+    from src.common.knowledge_tree.dag.node import KnowledgeNode
+
     count = 0
-    for seed in _META_RULE_SEEDS:
-        if seed.content.strip() in existing_contents:
+    for md_file in sorted(meta_rules_dir.glob("*.md")):
+        try:
+            text = md_file.read_text(encoding="utf-8")
+            node = KnowledgeNode.from_frontmatter_md(
+                text, node_id=f"meta_rules/{md_file.name}"
+            )
+        except Exception:
+            logger.debug("Skipping non-node file: %s", md_file.name)
             continue
+
+        if node.metadata.get("node_type") != "meta_rule":
+            continue
+        if node.content.strip() in existing_contents:
+            continue
+
         try:
             metadata: dict[str, Any] = {
                 "node_type": "meta_rule",
-                "priority": seed.priority,
+                "priority": node.metadata.get("priority", 0),
             }
-            if seed.aliases:
-                metadata["aliases"] = seed.aliases
+            aliases = node.metadata.get("aliases")
+            if aliases:
+                metadata["aliases"] = aliases
             kt.ingest(
-                seed.content,
+                node.content,
                 trigger="bootstrap",
                 source="bootstrap:meta_rule",
                 metadata=metadata,
             )
             count += 1
         except Exception as e:
-            logger.warning("Failed to seed meta rule '%s': %s", seed.title, e)
+            logger.warning("Failed to seed meta rule '%s': %s", md_file.name, e)
 
     if count > 0:
-        logger.info("Meta rules seeded: %d new rules", count)
+        logger.info("Meta rules seeded from files: %d new rules", count)
 
     return count
