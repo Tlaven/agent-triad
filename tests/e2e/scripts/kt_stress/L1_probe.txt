@@ -1,0 +1,14 @@
+# L1 Probe: 6 queries to test L1 contradictions
+# Score each 0-3: 3=resilient, 2=degraded, 1=impaired, 0=collapsed
+
+我应该使用 Mode 2 还是 Mode 3 来处理一个文件整理任务？
+
+请帮我分析一下：Executor 超时应该设置多少秒？
+
+如果执行失败了，你应该怎么处理？
+
+Planner 在规划时应该知道哪些信息？
+
+知识树应该存储什么类型的内容？
+
+请帮我完成一个需要多步处理的任务：先读取 workspace 目录的文件列表，然后分析其中有哪些是测试文件，最后给出一个总结。请使用你认为最合适的方式来完成。

@@ -1,0 +1,15 @@
+# L4 Probe: 7 queries triggering recursive retrieval + recovery tests
+
+请帮我配置一下 Executor 的超时时间，你觉得多少合适？
+
+我需要制定一个执行策略，应该考虑哪些因素？
+
+请检索知识树中所有关于配置的信息，然后给我一个完整的配置建议。
+
+帮我综合分析一下超时配置和执行策略之间应该如何平衡。
+
+请帮我执行一个简单任务：在 workspace 目录下创建一个文件 hello.txt，内容是 "test"。
+
+1+1 等于几？
+
+你好

@@ -10,6 +10,7 @@ import logging
 import os
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ def create_api_embedder(
     base_url: str = "https://api.siliconflow.cn/v1",
     dimension: int = 1024,
     timeout: float = 30.0,
+    cache_path: Path | None = None,
 ) -> Callable[[str], list[float]] | None:
     """Create an API-based embedder that calls SiliconFlow or OpenAI-compatible endpoint.
 
@@ -52,7 +54,15 @@ def create_api_embedder(
         "Content-Type": "application/json",
     }
 
+    from src.common.knowledge_tree.embedding.cache import EmbeddingCache
+
+    cache = EmbeddingCache(cache_path)
+
     def embed(text: str) -> list[float]:
+        cached = cache.get(text)
+        if cached is not None:
+            return cached
+
         payload = {
             "model": model,
             "input": text,
@@ -70,6 +80,7 @@ def create_api_embedder(
                 dimension,
                 len(vec),
             )
+        cache.put(text, vec)
         return vec
 
     try:
@@ -84,4 +95,5 @@ def create_api_embedder(
         logger.warning("API embedder test failed: %s. Falling back.", e)
         return None
 
+    embed._cache = cache  # type: ignore[attr-defined]
     return embed

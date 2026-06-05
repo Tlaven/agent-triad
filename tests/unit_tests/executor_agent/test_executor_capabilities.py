@@ -6,8 +6,10 @@ from src.executor_agent.tools import get_executor_tools
 
 def test_get_executor_tools_returns_two_tools() -> None:
     tools = get_executor_tools()
-    # Executor now has 4 tools: write_file, run_local_command, and 2 MCP readonly tools
-    assert len(tools) == 4
+    # Executor now has 8 tools: write_file, edit_file, run_local_command,
+    # list_workspace_entries, read_workspace_text_file, search_files,
+    # grep_content, read_file_structure
+    assert len(tools) == 8
 
 
 def test_get_executor_tools_have_names() -> None:
@@ -57,4 +59,4 @@ def test_capabilities_match_registered_tools() -> None:
     assert "读取" in docs or "read" in docs.lower()
     assert "列出" in docs or "list" in docs.lower()
     # 能力描述的工具数应 >= 注册工具数
-    assert len(tool_names) == 4
+    assert len(tool_names) == 8

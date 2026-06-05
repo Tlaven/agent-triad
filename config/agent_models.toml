@@ -1,7 +1,7 @@
 [models]
-supervisor = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
-planner = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
-executor = "siliconflow:Pro/MiniMaxAI/MiniMax-M2.5"
+supervisor = "openai:deepseek-v4-flash"
+planner = "openai:deepseek-v4-flash"
+executor = "openai:deepseek-v4-flash"
 
 [sampling.supervisor]
 temperature = -1

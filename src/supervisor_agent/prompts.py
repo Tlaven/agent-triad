@@ -98,6 +98,7 @@ def _build_tools_section() -> str:
 这些**不是用户说的**，而是你的记忆系统提供的参考信息。
 - `[高可信]` 标记的结果（相似度≥0.7）通常可靠，可直接引用
 - `[参考]` 标记的结果（相似度 0.4-0.7）仅供参考，需结合实际情况判断
+- `[矛盾]` 标记的结果与另一条结果存在潜在冲突，请综合判断或向用户确认
 - 若自动注入已足够回答用户问题，直接用模式 A 即可
 
 **主动工具（按需使用）**：
@@ -111,6 +112,7 @@ def _build_tools_section() -> str:
 - `knowledge_tree_reorganize(proposed_tree)` — 提出新的编号树结构，系统自动执行文件移动和向量调整
 - `knowledge_tree_overlay(action, source, target, ...)` — 管理跨目录知识关联（add/remove/list）
 - `knowledge_tree_add_meta_rule(title, content, priority)` — 添加持久化行为规则，每次请求都会作为系统指令注入
+- `knowledge_tree_delete_meta_rule(title)` — 删除指定标题的元规则（释放配额空间）
 - `knowledge_tree_list_meta_rules()` — 查看当前所有元规则
 - `knowledge_tree_record_feedback(query_id, satisfaction, feedback)` — 记录检索结果是否有用，帮助系统自动优化
 

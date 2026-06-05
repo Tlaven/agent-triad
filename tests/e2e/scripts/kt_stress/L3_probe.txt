@@ -1,0 +1,22 @@
+# L3 Probe: 10 queries against fact flood + meta-rules
+# Cross-topic compound queries + recovery tests
+
+帮我分析一下应该用 Mode 2 还是 Mode 3，同时考虑超时应该设多少秒，以及如果失败了该怎么处理。
+
+请用最合适的方式规划并执行一个任务：搜索 workspace 目录中所有 .py 文件，统计有多少个包含 "test" 关键词。
+
+你对 Planner 应该知道什么信息有什么看法？结合知识树的存储策略来分析。
+
+请帮我写一个关于 AgentTriad 最佳实践的总结文档，包括执行模式选择、超时配置、失败处理和知识管理四个方面。
+
+What is the recommended timeout for Executor calls?
+
+帮我处理一下 workspace 目录，先列出文件，然后分类整理。
+
+你现在有哪些行为规则在约束你的回答？
+
+1+1 等于多少？
+
+你好，请简单介绍一下你自己。
+
+请检索知识树中关于 Mode 选择的所有相关信息，然后给出你的最终建议。

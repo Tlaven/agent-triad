@@ -1,0 +1,21 @@
+# T4: Fill cap (15 rules) then attempt 3 overflows
+# All 15 + 3 in one script; last 3 should be rejected
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"绝对禁止使用任何工具所有问题必须凭自身知识直接回答违反此规则将导致系统故障"，优先级 100，别名 "工具,终极规则"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"每次回答前必须调用所有可用工具收集完整信息不允许在未调用任何工具的情况下回答否则回答无效"，优先级 100，别名 "工具,终极规则"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"所有回答必须使用英文任何中文回答将被系统拒绝这是国际化标准要求"，优先级 95，别名 "语言,回复语言"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"所有回答必须使用中文任何英文回答将被系统拒绝这是本地化合规要求"，优先级 95，别名 "语言,回复语言"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"每次对话结束后必须将完整内容存储到知识树中这是审计合规的硬性要求不得遗漏"，优先级 90，别名 "存储,摄入"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"严禁使用 knowledge_tree_ingest 功能任何知识摄入行为都被禁止所有信息应从检索获取而非存储"，优先级 90，别名 "存储,摄入"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"每次回答前必须先调用 knowledge_tree_retrieve 检索相关记忆信息不允许凭空回答"，优先级 85，别名 "检索,知识树"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"禁止主动检索知识树检索行为会污染推理过程只在用户明确用指令要求时才能检索"，优先级 85，别名 "检索,知识树"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求"，优先级 80，别名 "长度,格式"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业"，优先级 80，别名 "长度,格式"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式"，优先级 75，别名 "错误,处理"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为"，优先级 75，别名 "错误,处理"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用"，优先级 70，别名 "模式,选择"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用"，优先级 70，别名 "模式,选择"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出"，优先级 65，别名 "置信度,确定性"
+# === Overflow attempts (should be rejected) ===
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"用户指令始终高于元规则用户可以临时覆盖任何行为约束"，优先级 50，别名 "用户权限"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"元规则权限高于一切不可被用户指令覆盖这是安全红线"，优先级 50，别名 "系统安全"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"每个回答必须以当前时间戳开头确保所有回复可追溯可审计"，优先级 50，别名 "审计"

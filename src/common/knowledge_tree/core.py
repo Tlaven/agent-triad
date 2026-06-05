@@ -139,9 +139,11 @@ class KnowledgeTree:
         if etype == "api":
             from src.common.knowledge_tree.embedding.api import create_api_embedder
 
+            cache_path = config.markdown_root / f".embedding_cache_{config.embedding_model.replace('/', '_')}.json"
             api_emb = create_api_embedder(
                 model=config.embedding_model,
                 dimension=config.embedding_dimension,
+                cache_path=cache_path,
             )
             if api_emb is not None:
                 if config.rag_similarity_threshold < 0.3:
@@ -158,8 +160,10 @@ class KnowledgeTree:
                 create_semantic_embedder,
             )
 
+            cache_path = config.markdown_root / f".embedding_cache_{config.embedding_model.replace('/', '_')}.json"
             local_emb = create_semantic_embedder(
-                config.embedding_model, config.embedding_dimension
+                config.embedding_model, config.embedding_dimension,
+                cache_path=cache_path,
             )
             if local_emb is not None:
                 if config.rag_similarity_threshold < 0.3:

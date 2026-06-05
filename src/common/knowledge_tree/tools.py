@@ -8,9 +8,14 @@ from typing import Any
 
 from langchain_core.tools import tool as lc_tool
 
-from src.common.knowledge_tree.config import KnowledgeTreeConfig
+from src.common.knowledge_tree.config import (
+    KnowledgeTreeConfig,
+    MAX_META_RULES,
+    META_RULE_CONFLICT_THRESHOLD,
+)
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.factory import get_or_create_kt
+from src.common.knowledge_tree.storage.vector_store import cosine_similarity
 
 
 def build_knowledge_tree_tools(runtime_context: Any) -> list:
@@ -244,6 +249,37 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         aliases = aliases or []
         kt = get_or_create_kt(config)
         existing = kt.get_meta_rules()
+
+        # Count limit: only apply to new rules, not updates
+        is_update = any(n.title == title for n in existing)
+        if not is_update and len(existing) >= MAX_META_RULES:
+            return json.dumps(
+                {
+                    "ok": False,
+                    "error": f"元规则数量已达上限({MAX_META_RULES})，请先删除旧规则再添加。",
+                    "current_count": len(existing),
+                    "limit": MAX_META_RULES,
+                },
+                ensure_ascii=False,
+            )
+
+        # Conflict detection: check against existing rules
+        new_embedding = kt.embedder(content)
+        conflicts: list[dict[str, Any]] = []
+        for n in existing:
+            if n.title == title:
+                continue
+            if n.embedding is None:
+                n.embedding = kt.embedder(n.content)
+            sim = cosine_similarity(new_embedding, n.embedding)
+            if sim > META_RULE_CONFLICT_THRESHOLD and n.content.strip() != content.strip():
+                conflicts.append({
+                    "title": n.title,
+                    "similarity": round(sim, 3),
+                    "content_preview": n.content[:100],
+                })
+
+        # Update existing rule
         for n in existing:
             if n.title == title:
                 n.content = content
@@ -251,13 +287,16 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                 n.metadata["node_type"] = "meta_rule"
                 if aliases:
                     n.metadata["aliases"] = aliases
+                n.embedding = new_embedding
                 kt.md_store.write_node(n)
+                kt.vector_store.upsert_embedding(n.node_id, n.embedding)
                 _reindex_aliases(kt, n.node_id, aliases)
-                return json.dumps(
-                    {"ok": True, "action": "updated", "node_id": n.node_id},
-                    ensure_ascii=False,
-                )
+                result: dict[str, Any] = {"ok": True, "action": "updated", "node_id": n.node_id}
+                if conflicts:
+                    result["warnings"] = _format_conflict_warnings(conflicts)
+                return json.dumps(result, ensure_ascii=False)
 
+        # Create new rule
         metadata: dict[str, Any] = {"node_type": "meta_rule", "priority": priority}
         if aliases:
             metadata["aliases"] = aliases
@@ -268,7 +307,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             source="agent:supervisor",
             metadata=metadata,
         )
-        node.embedding = kt.embedder(content)
+        node.embedding = new_embedding
         meta_dir = "meta_rules"
         kt.md_store.ensure_directory(meta_dir)
         from src.common.knowledge_tree.ingestion.ingest import (
@@ -280,10 +319,20 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         kt.md_store.write_node(node)
         kt.vector_store.upsert_embedding(node.node_id, node.embedding)
         _reindex_aliases(kt, node.node_id, aliases)
-        return json.dumps(
-            {"ok": True, "action": "created", "node_id": node.node_id},
-            ensure_ascii=False,
-        )
+        result = {"ok": True, "action": "created", "node_id": node.node_id}
+        if conflicts:
+            result["warnings"] = _format_conflict_warnings(conflicts)
+        return json.dumps(result, ensure_ascii=False)
+
+    def _format_conflict_warnings(conflicts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "potential_conflict",
+                "message": f"新规则可能与已有规则'{c['title']}'冲突(相似度: {c['similarity']})",
+                "conflicting_rule_preview": c["content_preview"],
+            }
+            for c in conflicts[:3]
+        ]
 
     def _reindex_aliases(kt: Any, node_id: str, aliases: list[str]) -> None:
         """重建节点的 alias embedding 索引。"""
@@ -340,6 +389,38 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         """
         return await asyncio.to_thread(_sync_list_meta_rules)
 
+    def _sync_delete_meta_rule(title: str) -> str:
+        kt = get_or_create_kt(config)
+        existing = kt.get_meta_rules()
+        target = next((n for n in existing if n.title == title), None)
+        if not target:
+            return json.dumps(
+                {"ok": False, "error": f"未找到标题为'{title}'的元规则"},
+                ensure_ascii=False,
+            )
+        # Clean up embeddings
+        kt.vector_store.delete_embedding(target.node_id)
+        _reindex_aliases(kt, target.node_id, [])
+        # Delete file
+        kt.md_store.delete_node(target.node_id)
+        return json.dumps(
+            {"ok": True, "action": "deleted", "node_id": target.node_id, "title": title},
+            ensure_ascii=False,
+        )
+
+    @lc_tool
+    async def knowledge_tree_delete_meta_rule(title: str) -> str:
+        """Delete a persistent meta-rule from the knowledge tree by title.
+
+        Use this to remove contradictory or obsolete rules, freeing up slots
+        for new ones. The meta-rule cap makes deletion necessary when the
+        limit is reached and you need to replace old rules.
+
+        Args:
+            title: The exact title of the rule to delete.
+        """
+        return await asyncio.to_thread(_sync_delete_meta_rule, title)
+
     def _sync_record_feedback(query_id: str, satisfaction: bool, feedback: str) -> str:
         kt = get_or_create_kt(config)
         kt.record_feedback(query_id, satisfaction, feedback)
@@ -370,6 +451,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         knowledge_tree_tree,
         knowledge_tree_reorganize,
         knowledge_tree_add_meta_rule,
+        knowledge_tree_delete_meta_rule,
         knowledge_tree_list_meta_rules,
         knowledge_tree_record_feedback,
     ]

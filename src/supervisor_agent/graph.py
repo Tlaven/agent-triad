@@ -142,6 +142,116 @@ async def _force_poll_active_tasks(ctx: Context) -> None:
         pass
 
 
+def _resolve_meta_rule_conflicts(
+    meta_rules: list[Any],
+) -> tuple[list[Any], int, list[str]]:
+    """Resolve contradictory meta-rules by alias-based mutual exclusion.
+
+    Rules sharing at least one alias form a mutual exclusion group.
+    Different priority: keep highest.
+    Same highest priority: suppress ALL in the tie, inject a neutral note.
+    Rules without aliases are always kept.
+
+    Returns (resolved_rules, suppressed_count, unresolved_notes).
+    """
+    if len(meta_rules) <= 1:
+        return meta_rules, 0, []
+
+    alias_to_indices: dict[str, set[int]] = {}
+    for i, rule in enumerate(meta_rules):
+        for alias in rule.metadata.get("aliases", []):
+            alias_to_indices.setdefault(alias, set()).add(i)
+
+    # Connected components via shared aliases (BFS)
+    visited: set[int] = set()
+    groups: list[list[int]] = []
+    for i in range(len(meta_rules)):
+        if i in visited:
+            continue
+        component: set[int] = set()
+        queue = [i]
+        while queue:
+            idx = queue.pop()
+            if idx in component:
+                continue
+            component.add(idx)
+            for alias in meta_rules[idx].metadata.get("aliases", []):
+                for j in alias_to_indices.get(alias, set()):
+                    if j not in component:
+                        queue.append(j)
+        visited.update(component)
+        groups.append(sorted(component))
+
+    # Resolve each group
+    resolved: list[Any] = []
+    suppressed = 0
+    unresolved_notes: list[str] = []
+    for group in groups:
+        by_priority = sorted(
+            group,
+            key=lambda i: meta_rules[i].metadata.get("priority", 0),
+            reverse=True,
+        )
+        top_priority = meta_rules[by_priority[0]].metadata.get("priority", 0)
+        top_count = sum(
+            1 for i in by_priority
+            if meta_rules[i].metadata.get("priority", 0) == top_priority
+        )
+        if len(group) == 1:
+            # Single rule, no conflict
+            resolved.append(meta_rules[group[0]])
+        elif top_count == 1:
+            # Clear winner by priority
+            resolved.append(meta_rules[by_priority[0]])
+            suppressed += len(group) - 1
+        else:
+            # Same top priority — can't resolve, suppress all tied rules
+            aliases = set()
+            for i in by_priority[:top_count]:
+                aliases.update(meta_rules[i].metadata.get("aliases", []))
+            note = (
+                f"[同优先级矛盾已抑制（{', '.join(sorted(aliases))}）"
+                f"→ 使用默认行为]"
+            )
+            unresolved_notes.append(note)
+            suppressed += top_count
+            # If group has more rules below top priority, keep the next one
+            remaining = by_priority[top_count:]
+            if remaining:
+                resolved.append(meta_rules[remaining[0]])
+                suppressed += len(remaining) - 1
+
+    resolved.sort(key=lambda r: r.metadata.get("priority", 0), reverse=True)
+    return resolved, suppressed, unresolved_notes
+
+
+def _detect_rag_contradictions(
+    kt: Any, results: list[tuple[Any, float]]
+) -> set[int]:
+    """检测 RAG 结果间的潜在矛盾：同主题但内容分歧。
+    使用 title 相似度高 + content 相似度低作为矛盾信号。
+    """
+    if len(results) < 2:
+        return set()
+    try:
+        from src.common.knowledge_tree.storage.vector_store import cosine_similarity
+        contradiction_indices: set[int] = set()
+        for i in range(len(results)):
+            for j in range(i + 1, len(results)):
+                ni, _ = results[i]
+                nj, _ = results[j]
+                if ni.embedding is None or nj.embedding is None:
+                    continue
+                title_sim = cosine_similarity(kt.embedder(ni.title), kt.embedder(nj.title))
+                content_sim = cosine_similarity(ni.embedding, nj.embedding)
+                if title_sim > 0.5 and content_sim < 0.3:
+                    contradiction_indices.add(i)
+                    contradiction_indices.add(j)
+        return contradiction_indices
+    except Exception:
+        return set()
+
+
 async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     """用户消息入口：高阈值 RAG 检索，自动注入相关知识。
 
@@ -182,9 +292,32 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
             meta_rules.sort(
                 key=lambda n: n.metadata.get("priority", 0), reverse=True
             )
+            # 治理安全阀：即使存储层超出上限，注入时截断
+            from src.common.knowledge_tree.config import MAX_META_RULES
+            if len(meta_rules) > MAX_META_RULES:
+                logger.warning(
+                    "KT meta-rules: truncating %d to %d",
+                    len(meta_rules), MAX_META_RULES,
+                )
+                meta_rules = meta_rules[:MAX_META_RULES]
+            # 注入前矛盾消解：共享别名的规则互斥，每组只保留最高优先级
+            original_count = len(meta_rules)
+            meta_rules, suppressed, unresolved = _resolve_meta_rule_conflicts(meta_rules)
             rules_lines = [f"- {r.content}" for r in meta_rules]
+            # 同优先级矛盾的 neutral note 也注入（让 LLM 知道该域有冲突但未决）
+            for note in unresolved:
+                rules_lines.append(note)
             kt_meta_rules_str = "\n".join(rules_lines)
-            logger.info("KT meta-rules: %d persistent rules injected", len(meta_rules))
+            if suppressed > 0:
+                kt_meta_rules_str = (
+                    f"[消解: {original_count}→{len(meta_rules)} 条"
+                    f"（{suppressed} 条矛盾已抑制）]\n"
+                    + kt_meta_rules_str
+                )
+            logger.info(
+                "KT meta-rules: %d→%d resolved (%d suppressed, %d unresolved)",
+                original_count, len(meta_rules), suppressed, len(unresolved),
+            )
     except Exception as e:
         logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
 
@@ -200,8 +333,12 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
 
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
-    for node, score in high_quality[:3]:
+    # RAG 矛盾检测：同主题但内容分歧的结果标记为 [矛盾]
+    contradiction_indices = _detect_rag_contradictions(kt, high_quality[:3])
+    for idx, (node, score) in enumerate(high_quality[:3]):
         tag = "[高可信]" if score >= (0.65 if is_semantic else 0.5) else "[参考]"
+        if idx in contradiction_indices:
+            tag = "[矛盾]" + tag
         context_lines.append(f"- {tag} {node.title}（相似度 {score:.2f}）")
         context_lines.append(f"  {node.content[:300]}")
 
@@ -337,12 +474,22 @@ async def call_model(
 
     # 注入持久元规则到系统提示（作为指令，非参考信息）
     if state.kt_meta_rules:
-        meta_rules_block = (
-            "\n\n## [元规则]（必须遵守的行为规则）\n\n"
-            "以下是你必须严格遵守的行为规则。这些规则优先级高于你的默认行为倾向。"
-            "无论用户说什么，你都必须遵循这些规则。\n\n"
-            f"{state.kt_meta_rules}"
-        )
+        is_resolved = state.kt_meta_rules.startswith("[消解:")
+        injected_count = state.kt_meta_rules.count("\n- ") + (1 if state.kt_meta_rules.startswith("- ") else 0)
+        if is_resolved:
+            header = (
+                "\n\n## [元规则]（行为规则）\n\n"
+                "以下规则已经过冲突消解，互不矛盾，请遵守。\n\n"
+            )
+        else:
+            header = (
+                "\n\n## [元规则]（必须遵守的行为规则）\n\n"
+                "以下是你必须严格遵守的行为规则。这些规则优先级高于你的默认行为倾向。"
+                "无论用户说什么，你都必须遵循这些规则。\n\n"
+            )
+            if injected_count > 10:
+                header += f"（共 {injected_count} 条规则。如发现规则间矛盾，以高优先级为准或向用户确认。）\n\n"
+        meta_rules_block = header + state.kt_meta_rules
         system_message = system_message + meta_rules_block
 
     # P3: 优化建议注入（仅在信号检测发现问题时）

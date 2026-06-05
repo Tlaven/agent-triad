@@ -201,6 +201,19 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - Planner 被 Supervisor 调用时，Supervisor 可以将 KT 检索结果注入 Planner 的 prompt
 - Executor 执行 Plan 的每个 step 时，可以按 step intent 做 RAG 检索（但当前不做，先打磨好基础）
 
+### 元规则治理
+
+元规则是唯一绕过 RAG 质量过滤、以"必须遵守"方式注入系统提示的 KT 内容。当元规则互相矛盾时，LLM 面临不可满足的约束满足问题，导致推理崩溃（幻觉 + 超时）。
+
+四层治理架构（详见 `docs/architecture-decisions.md` 决策 28）：
+
+1. **存储层** — `MAX_META_RULES=15` 硬上限 + 添加时 embedding 冲突检测（warning 不阻断）
+2. **注入层** — 别名互斥消解：共享 alias 的规则归组，每组保留最高优先级；同优先级全抑制（不任意选择）
+3. **感知层** — 消解报告 `[消解: N→M 条]` + RAG `[矛盾]` 标签 + 注入 header 软化
+4. **自救层** — `knowledge_tree_delete_meta_rule(title)` 删除工具
+
+消解在 `graph.py` `_resolve_meta_rule_conflicts()` 中实现，每次 `kt_retrieve()` 节点执行时调用。
+
 ---
 
 ## 6. 当前状态与下一步
@@ -233,6 +246,7 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **元知识自举：持久元规则** — 双通道注入架构（系统提示通道 = 指令，用户消息通道 = 信息）。`knowledge_tree_add_meta_rule` 创建元规则，绕过相似度阈值每次无条件注入系统提示。E2E 5/5 通过，F7 突破：用户分享信息 → Agent 主动 ingest
 - [x] **P3 自动优化闭环** — 信号检测懒执行 + `knowledge_tree_record_feedback` 反馈工具 + 反振荡记录 + 优化建议注入系统提示。13 个 KT 工具，946 测试全通过
 - [x] **元认知阶段 1-3** — 经验沉淀（`extract_experience_from_executor_result` 结构化四元组 + Entry A 自动摄入）+ 操作元规则种子（5 条 KT 操作指导）+ 检索置信度评估（系统提示 4 级判断）+ KT 快照可观测性（JSONL 人类报告）。1084 测试全通过
+- [x] **元规则治理（决策 28）** — 四层防御：存储层硬上限（`MAX_META_RULES=15`）+ 添加时冲突 warning + 注入时别名互斥消解（同优先级全抑制）+ `knowledge_tree_delete_meta_rule` 自救工具。RAG 矛盾检测 + `[矛盾]` 标签 + 消解报告。压力测试 L6（15 规则 + 20 事实）12/12 通过
 
 ### 待实现（按优先级）
 
@@ -291,6 +305,10 @@ src/common/knowledge_tree/
 | `knowledge_tree_tree` | 重组工具 | 返回编号树视图，Agent 可查看当前结构 |
 | `knowledge_tree_reorganize` | 重组工具 | Agent 提出编号树方案，系统自动执行移动 + 向量调整 |
 | `knowledge_tree_overlay` | 关联工具 | 管理跨目录关联边（add/remove/list） |
-| `kt_retrieve` graph 节点 | 自动注入 | 用户消息进入时自动 RAG 检索，拼接到用户消息 |
+| `knowledge_tree_add_meta_rule` | 元规则工具 | 添加/更新持久化行为规则（上限 15 条，含冲突检测） |
+| `knowledge_tree_delete_meta_rule` | 元规则工具 | 按标题删除元规则（释放配额空间） |
+| `knowledge_tree_list_meta_rules` | 元规则工具 | 列出所有元规则（标题、优先级、内容预览） |
+| `knowledge_tree_record_feedback` | 优化工具 | 记录检索质量反馈，驱动自动优化信号 |
+| `kt_retrieve` graph 节点 | 自动注入 | 用户消息进入时自动 RAG 检索 + 元规则消解 + 矛盾标注 |
 
 bootstrap 已从工具列表移除（内部自动处理）。

@@ -1,0 +1,5 @@
+# T4: Verify that adding more meta-rules beyond the cap is rejected
+# 18 rules already injected directly; attempt 3 more via LLM
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"这是一条溢出测试规则应该被系统拒绝因为已经达到上限"，优先级 50，别名 "溢出测试1"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"这是第二条溢出测试规则同样应该被拒绝"，优先级 50，别名 "溢出测试2"
+请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为"这是第三条溢出测试规则也应该被拒绝"，优先级 50，别名 "溢出测试3"

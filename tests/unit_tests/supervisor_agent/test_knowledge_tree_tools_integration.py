@@ -58,9 +58,9 @@ class TestKnowledgeTreeToolRegistration:
 
     @pytest.mark.asyncio
     async def test_enabled_total_tool_count(self, ctx_kt_enabled: Context):
-        """总工具数 = 3 (核心) + 7 (知识树) = 10。"""
+        """总工具数 = 3 (核心) + 8 (知识树) = 11。"""
         tools = await get_tools(ctx_kt_enabled)
-        assert len(tools) == 13
+        assert len(tools) == 14
 
     @pytest.mark.asyncio
     async def test_disabled_total_tool_count(self, ctx_kt_disabled: Context):

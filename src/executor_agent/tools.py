@@ -8,7 +8,13 @@ from typing import TypedDict
 
 from langchain_core.tools import tool
 
-from src.common.tools import list_workspace_entries, read_workspace_text_file
+from src.common.tools import (
+    grep_content,
+    list_workspace_entries,
+    read_file_structure,
+    read_workspace_text_file,
+    search_files,
+)
 from src.executor_agent.interrupt import (
     INTERRUPT_PROMPT,
     ToolInterrupted,
@@ -319,11 +325,79 @@ def run_local_command(
         }
 
 
+class EditFileResult(TypedDict):
+    ok: bool
+    path: str
+    replacements: int
+    error: str | None
+
+
+@tool
+def edit_file(
+    path: str, old_string: str, new_string: str, replace_all: bool = False
+) -> EditFileResult:
+    """编辑工作区内文本文件，精确匹配并替换指定字符串。
+
+    Args:
+        path: 相对文件路径（必须在 Agent 工作区内）。
+        old_string: 要替换的文本（必须精确匹配）。
+        new_string: 替换后的文本。
+        replace_all: True 替换所有匹配，False 只替换第一个。默认 False。
+    """
+    normalized_path = path.strip()
+    if not normalized_path:
+        return {"ok": False, "path": "", "replacements": 0, "error": "path 不能为空"}
+    if os.path.isabs(normalized_path):
+        return {"ok": False, "path": "", "replacements": 0, "error": "path 必须是相对路径"}
+
+    path_parts = PurePath(normalized_path).parts
+    if any(part == ".." for part in path_parts):
+        return {"ok": False, "path": "", "replacements": 0, "error": "path 不允许包含 .."}
+
+    try:
+        abs_path = _resolve_workspace_path(normalized_path)
+    except (ValueError, OSError) as e:
+        return {"ok": False, "path": "", "replacements": 0, "error": str(e)}
+
+    if not os.path.isfile(abs_path):
+        return {"ok": False, "path": abs_path, "replacements": 0, "error": "文件不存在"}
+
+    try:
+        content = open(abs_path, "r", encoding="utf-8").read()
+    except OSError as e:
+        return {"ok": False, "path": abs_path, "replacements": 0, "error": f"读取失败: {e}"}
+
+    if old_string not in content:
+        return {"ok": False, "path": abs_path, "replacements": 0, "error": "old_string 未找到"}
+
+    if not replace_all and content.count(old_string) > 1:
+        return {
+            "ok": False,
+            "path": abs_path,
+            "replacements": 0,
+            "error": f"old_string 匹配到 {content.count(old_string)} 处，请使用 replace_all=True 或提供更精确的匹配",
+        }
+
+    new_content = content.replace(old_string, new_string) if replace_all else content.replace(old_string, new_string, 1)
+    count = content.count(old_string) if replace_all else 1
+
+    try:
+        open(abs_path, "w", encoding="utf-8").write(new_content)
+    except OSError as e:
+        return {"ok": False, "path": abs_path, "replacements": 0, "error": f"写入失败: {e}"}
+
+    return {"ok": True, "path": abs_path, "replacements": count, "error": None}
+
+
 def get_executor_tools() -> list[object]:
     """返回 Executor 可用的工具列表。"""
     return [
         write_file,
+        edit_file,
         run_local_command,
         list_workspace_entries,
         read_workspace_text_file,
+        search_files,
+        grep_content,
+        read_file_structure,
     ]

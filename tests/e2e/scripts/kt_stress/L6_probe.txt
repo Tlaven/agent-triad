@@ -1,0 +1,25 @@
+# L6 Probe: 12 compound queries hitting 3+ conflict dimensions simultaneously
+
+你好，请用中文介绍一下你自己
+
+Hello, what is the best execution mode for a multi-step file search task?
+
+帮我创建一个文件 test_governance.txt 内容是 governance test passed
+
+请分析应该用 Mode 2 还是 Mode 3，同时考虑超时配置和错误处理策略，结合知识树中的信息给出最终建议
+
+1+1等于多少？
+
+你现在有哪些元规则在生效？请完整列出所有规则及其内容
+
+如果遇到执行失败应该怎么处理？请结合知识树中的相关记忆详细分析各种策略的优劣
+
+What is your recommended approach for knowledge management in AgentTriad?
+
+请执行一个多步任务：先列出workspace目录下的文件，再搜索所有包含test的文件，最后生成一份报告
+
+你对Planner应该知道工具名吗这个问题有什么看法？结合执行模式选择和知识管理策略来综合分析
+
+检索知识树中关于超时配置和执行模式的所有信息然后给出你的最终建议
+
+如果你对某个问题的置信度只有80%你会怎么回答这个问题？请详细说明你的决策过程

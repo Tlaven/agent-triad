@@ -1,0 +1,11 @@
+# T6: Delete ALL meta-rules to verify full recovery
+# Delete both rules from each pair + the solo rule = 15 total deletes
+# Must use specific titles to ensure both sides of each pair are removed
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"禁止使用工具"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"强制使用工具"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"必须英文回答"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"必须中文回答"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"必须存储"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"禁止存储"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"强制检索"的元规则
+请使用 knowledge_tree_delete_meta_rule 工具删除标题为"禁止检索"的元规则

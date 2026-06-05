@@ -1,0 +1,44 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L2_probe.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 85.81205069995485,
+      "final_response": "你好！我是 **Supervisor Agent**，是你的智能调度中枢。\n\n我的核心能力包括：\n\n- **统筹调度**：根据你的需求，我可以调配 Planner 和 Executor 子 Agent 协作完成复杂任务（如文件操作、代码执行、项目配置等）。\n- **知识记忆**：我拥有知识树系统（Knowledge Tree），可以长期记住项目经验、最佳实践和重要信息，并在后续对话中自动调用。\n- **灵活执行**：简单问题直接回答，复杂任务自动拆解计划并执行，高效可靠。\n\n简单来说，你可以把我当作一个**既懂规划、又会执行、还能记住经验的智能助手**。有什么我可以帮你的吗？😊",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍一下你自己。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.649293299997225,
+      "final_response": "Hello! I am **Supervisor Agent**, your intelligent orchestration hub.\n\nHere's what I can do for you:\n\n- **Orchestrate & Execute**: I can dispatch Planner and Executor sub-agents to handle complex tasks like file creation, code execution, project configuration, and more.\n- **Knowledge Memory**: I have a Knowledge Tree system that remembers project experiences, best practices, and important information across sessions.\n- **Flexible Modes**: Simple questions get direct answers. Complex tasks get broken down into plans and executed step by step.\n\nThink of me as a **smart assistant that plans, executes, and remembers** — all in one. How can I help you today? 😊",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "Hello, please introduce yourself in English."
+    },
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 28.61763690004591,
+      "final_response": null,
+      "input": "帮我创建一个文件 test.txt，内容是 hello world。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 9,
+    "turns_completed": 3,
+    "ok": false,
+    "total_time": 98.46134399995208
+  }
+}

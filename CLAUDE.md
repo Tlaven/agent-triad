@@ -134,6 +134,7 @@ class ExecutorResult:
 | `src/supervisor_agent/v3_lifecycle.py` | V3 基础设施单例（Mailbox + ProcessManager + Poller + 信号处理） |
 | `src/planner_agent/graph.py` | Planner 图、`PlannerOutput`、`run_planner()`（返回 reasoning + plan_json） |
 | `src/executor_agent/graph.py` | Executor 图、Observation、Reflection、`run_executor()` |
+| `src/executor_agent/tools.py` | Executor 工具（8 个）：`write_file`、`edit_file`、`run_local_command` + 5 个共享只读工具 |
 | `src/executor_agent/server.py` | Executor FastAPI 子进程服务器（/execute、/result、/stop） |
 | `src/executor_agent/__main__.py` | 子进程入口：动态端口 + uvicorn 启动 |
 | `src/executor_agent/interrupt.py` | 软中断（stop event、`run_with_interrupt_check`） |
@@ -149,7 +150,7 @@ class ExecutorResult:
 
 | `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
 
-| `src/common/knowledge_tree/` | V4 涌现式知识树：两层存储（文件系统 + 向量索引）+ Overlay JSON 跨目录关联。文件系统目录层级 = 树结构，向量通过目录锚点聚簇。元规则通过 alias embedding（`alias:{node_id}:{i}`）扩展 RAG 检索可达性，RRF 4 路径融合（content + title + alias + anchor）。详见 `docs/v4-knowledge-tree-concepts.md` |
+| `src/common/knowledge_tree/` | V4 涌现式知识树：两层存储（文件系统 + 向量索引）+ Overlay JSON 跨目录关联。文件系统目录层级 = 树结构，向量通过目录锚点聚簇。元规则通过 alias embedding（`alias:{node_id}:{i}`）扩展 RAG 检索可达性，RRF 4 路径融合（content + title + alias + anchor）。**元规则治理**（决策 28）：`MAX_META_RULES=15` 硬上限 + 注入时别名互斥消解（同优先级全抑制）+ `knowledge_tree_delete_meta_rule` 自救工具。详见 `docs/architecture-decisions.md` |
 
 各层 `prompts.py` / `tools.py` 见同包。
 

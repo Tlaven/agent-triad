@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 def create_semantic_embedder(
     model_name: str,
     dimension: int,
+    cache_path: Path | None = None,
 ) -> Callable[[str], list[float]] | None:
     """创建语义 embedder，失败返回 None。
 
@@ -67,9 +69,19 @@ def create_semantic_embedder(
 
     lock = threading.Lock()
 
+    from src.common.knowledge_tree.embedding.cache import EmbeddingCache
+
+    cache = EmbeddingCache(cache_path)
+
     def embed(text: str) -> list[float]:
+        cached = cache.get(text)
+        if cached is not None:
+            return cached
         with lock:
-            return model.encode(text).tolist()
+            vec = model.encode(text).tolist()
+        cache.put(text, vec)
+        return vec
 
     logger.info("Loaded semantic embedder: %s (%d-dim)", model_name, actual_dim)
+    embed._cache = cache  # type: ignore[attr-defined]
     return embed

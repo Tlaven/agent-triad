@@ -181,6 +181,11 @@ def bootstrap_from_directory(
         report.max_depth,
     )
 
+    # Flush embedding cache to disk
+    _cache = getattr(embedder, "_cache", None)
+    if _cache is not None:
+        _cache.flush()
+
     return report
 
 
@@ -210,16 +215,26 @@ def seed_meta_rules(kt: Any) -> int:
         return 0
 
     existing_contents: set[str] = set()
+    existing_count = 0
     try:
-        for rule in kt.get_meta_rules():
+        existing_rules = kt.get_meta_rules()
+        for rule in existing_rules:
             existing_contents.add(rule.content.strip())
+        existing_count = len(existing_rules)
     except Exception:
         logger.warning("Failed to check existing meta rules during seed")
 
+    from src.common.knowledge_tree.config import MAX_META_RULES
     from src.common.knowledge_tree.dag.node import KnowledgeNode
 
     count = 0
     for md_file in sorted(meta_rules_dir.glob("*.md")):
+        if existing_count >= MAX_META_RULES:
+            logger.warning(
+                "Meta-rule seed: limit %d reached, skipping remaining files",
+                MAX_META_RULES,
+            )
+            break
         try:
             text = md_file.read_text(encoding="utf-8")
             node = KnowledgeNode.from_frontmatter_md(
@@ -249,6 +264,7 @@ def seed_meta_rules(kt: Any) -> int:
                 metadata=metadata,
             )
             count += 1
+            existing_count += 1
         except Exception as e:
             logger.warning("Failed to seed meta rule '%s': %s", md_file.name, e)
 

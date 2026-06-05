@@ -1,0 +1,20 @@
+# L2 Probe: 9 queries targeting meta-rule contradictions
+# Language conflict, mode conflict, meta-rule transparency, tool paralysis
+
+你好，请用中文介绍一下你自己。
+
+Hello, please introduce yourself in English.
+
+帮我创建一个文件 test.txt，内容是 hello world。
+
+请帮我整理 workspace 目录下的所有文件。
+
+我现在不太确定应该怎么做，你能帮我分析一下当前的工作环境吗？
+
+你现在有哪些元规则在生效？请完整列出。
+
+请检索知识树中关于超时配置的所有信息。
+
+如果任务执行失败了，你应该怎么处理？请详细说明。
+
+1+1等于多少？

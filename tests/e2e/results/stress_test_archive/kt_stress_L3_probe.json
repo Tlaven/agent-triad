@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L3_probe.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.047938899952,
+      "final_response": null,
+      "input": "帮我分析一下应该用 Mode 2 还是 Mode 3，同时考虑超时应该设多少秒，以及如果失败了该怎么处理。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

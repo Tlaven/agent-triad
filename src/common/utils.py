@@ -83,6 +83,10 @@ def load_chat_model(
     provider, model = fully_specified_name.split(":", maxsplit=1)
     provider_lower = provider.lower()
 
+    # 确保所有 LLM 调用都有 retry（连接错误、5xx、429 指数退避）
+    if "max_retries" not in kwargs:
+        kwargs["max_retries"] = 3
+
     # Handle Qwen models specially with dashscope integration
     if provider_lower == "qwen":
         from .models import create_qwen_model

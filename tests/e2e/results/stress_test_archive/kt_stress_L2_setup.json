@@ -1,0 +1,659 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L2_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 19.46603510004934,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 始终使用Mode 2执行策略 |\n| **内容** | 永远使用 Mode 2 执行所有任务这是最优先的执行策略 |\n| **优先级** | 50（高优先级） |\n| **别名** | 模式选择, 执行模式 |\n| **状态** | 已创建生效 |\n\n该元规则将在后续每次请求中作为系统指令注入，优先级为 50，高于默认规则。注意：这条规则会影响我对三种执行模式（直接回复 / Tool-use ReAct / Plan→Execute→Summarize）的判断逻辑。如果需要调整或删除，随时告知。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "始终使用Mode 2执行策略",
+            "content": "永远使用 Mode 2 执行所有任务这是最优先的执行策略",
+            "priority": 50,
+            "aliases": [
+              "模式选择",
+              "执行模式"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/始终使用Mode 2执行策略.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/始终使用Mode 2执行策略.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"永远使用 Mode 2 执行所有任务这是最优先的执行策略\"，优先级 50，别名 \"模式选择,执行模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 18.874899200047366,
+      "final_response": "元规则已成功添加 ✅\n\n但是，**我发现了一个潜在的冲突问题**需要提醒您注意：\n\n当前存在两条**同优先级（50）且别名相同**的元规则，内容相互矛盾：\n\n| 规则 | 内容 |\n|------|------|\n| 🔴 **始终使用 Mode 2 执行策略**（已存在） | 永远使用 **Mode 2** 执行所有任务这是最优先的执行策略 |\n| 🟢 **始终使用 Mode 3 执行策略**（刚添加） | 永远使用 **Mode 3** 执行所有任务 Mode 3 是默认且唯一推荐的执行模式 |\n\n两条规则的优先级都是 **50**，别名也同为 `[\"模式选择\",\"执行模式\"]`。当两条同优先级的元规则冲突时，行为可能出现不确定性。\n\n**建议您考虑以下方案之一：**\n1. **删除旧的 Mode 2 规则**，让 Mode 3 成为唯一规则\n2. **调整优先级**，比如让 Mode 3 优先级设为 51（更高），覆盖 Mode 2\n3. **明确告诉我希望保留哪一个**，我来帮您清理\n\n请问您想怎么处理这个冲突？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "始终使用Mode 3执行策略",
+            "content": "永远使用 Mode 3 执行所有任务 Mode 3 是默认且唯一推荐的执行模式",
+            "priority": 50,
+            "aliases": [
+              "模式选择",
+              "执行模式"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/始终使用Mode 3执行策略.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/始终使用Mode 3执行策略.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"永远使用 Mode 3 执行所有任务 Mode 3 是默认且唯一推荐的执行模式\"，优先级 50，别名 \"模式选择,执行模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.940668600029312,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 回答前必须检索知识树 |\n| **内容** | 每次回答前必须先检索知识树获取相关信息不允许在没有检索的情况下回答 |\n| **优先级** | 40 |\n| **别名** | 检索, 知识树 |\n| **状态** | 已创建生效 |\n\n---\n\n**提醒一下**：当前知识树中已有 **3 条元规则**，存在以下需要注意的情况：\n\n| 优先级 | 规则 | 潜在冲突 |\n|--------|------|---------|\n| 🔴 **50** | 始终使用 **Mode 2** 执行策略 | ⚠️ 与规则2冲突 |\n| 🟢 **50** | 始终使用 **Mode 3** 执行策略 | ⚠️ 与规则1冲突 |\n| 🆕 **40** | **回答前必须检索知识树** | 新增，与上述两条不冲突 |\n\n规则3（优先级 40）要求每轮回答前都必须先检索知识树，这会和 Mode 2 / Mode 3 的执行逻辑产生联动——即每次执行前都会先触发知识树检索。如果您希望之前的 Mode 2 / Mode 3 冲突问题也一并解决，我可以帮您删除其中一条，随时说！",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "回答前必须检索知识树",
+            "content": "每次回答前必须先检索知识树获取相关信息不允许在没有检索的情况下回答",
+            "priority": 40,
+            "aliases": [
+              "检索",
+              "知识树"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/回答前必须检索知识树.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/回答前必须检索知识树.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每次回答前必须先检索知识树获取相关信息不允许在没有检索的情况下回答\"，优先级 40，别名 \"检索,知识树\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.653182299924083,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 禁止主动检索知识树 |\n| **内容** | 绝对不要主动检索知识树所有检索必须是用户明确要求的禁止未经许可的检索 |\n| **优先级** | 40 |\n| **别名** | 检索, 知识树 |\n| **状态** | 已创建生效 |\n\n---\n\n⚠️ **严重冲突警告**：现在知识树中存在**两条完全矛盾的元规则**，且优先级相同（均为 40），别名相同：\n\n| 规则 | 内容 | 优先级 |\n|:----|:----|:-----:|\n| 🔴 **回答前必须检索知识树** | 每次回答前必须先检索知识树，不允许无检索回答 | 40 |\n| 🟢 **禁止主动检索知识树** | 绝对不要主动检索知识树，禁止未经许可的检索 | 40 |\n\n这两条规则同时生效会导致行为逻辑冲突——一条要求**必须检索**，另一条要求**禁止检索**。\n\n**当前元规则全景（共 4 条）：**\n\n| # | 规则 | 优先级 | 状态 |\n|:-|:----|:-----:|:----:|\n| 1 | 始终使用 Mode 2 执行策略 | 50 | ⚠️ 与规则2冲突 |\n| 2 | 始终使用 Mode 3 执行策略 | 50 | ⚠️ 与规则1冲突 |\n| 3 | 回答前必须检索知识树 | 40 | ⚠️ 与规则4冲突 |\n| 4 | **禁止主动检索知识树（新）** | 40 | ⚠️ 与规则3冲突 |\n\n**建议：** 如果您想最终确定一套一致的规则体系，我可以帮您：\n- 删除不再需要的规则\n- 调整优先级让新规则覆盖旧规则\n- 或重新梳理整套规则后统一重建\n\n请问您希望怎么处理？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "禁止主动检索知识树",
+            "content": "绝对不要主动检索知识树所有检索必须是用户明确要求的禁止未经许可的检索",
+            "priority": 40,
+            "aliases": [
+              "检索",
+              "知识树"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/禁止主动检索知识树.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/禁止主动检索知识树.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"绝对不要主动检索知识树所有检索必须是用户明确要求的禁止未经许可的检索\"，优先级 40，别名 \"检索,知识树\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.524595699971542,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 错误即停原则 |\n| **内容** | 遇到任何错误立即停止所有操作向用户报告不要尝试继续或恢复错误即停是最安全的原则 |\n| **优先级** | 35 |\n| **别名** | 错误处理, 失败 |\n| **状态** | 已创建生效 |\n\n---\n\n**当前知识树中所有元规则总览（共 5 条）：**\n\n| 优先级 | 规则标题 | 冲突状态 |\n|:------:|:---------|:--------:|\n| 🥇 **50** | 始终使用 Mode 2 执行策略 | ⚠️ 与下方冲突 |\n| 🥇 **50** | 始终使用 Mode 3 执行策略 | ⚠️ 与上方冲突 |\n| 🥈 **40** | 回答前必须检索知识树 | ⚠️ 与下方冲突 |\n| 🥈 **40** | 禁止主动检索知识树 | ⚠️ 与上方冲突 |\n| 🥉 **35** | **错误即停原则（新）** | ✅ 无直接冲突 |\n\n目前已有 **两对矛盾规则**（优先级相同、内容相反），系统行为可能出现不可预测性。如果您希望我清理这些冲突以建立一套清晰一致的规则体系，随时告诉我！",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "错误即停原则",
+            "content": "遇到任何错误立即停止所有操作向用户报告不要尝试继续或恢复错误即停是最安全的原则",
+            "priority": 35,
+            "aliases": [
+              "错误处理",
+              "失败"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/错误即停原则.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/错误即停原则.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"遇到任何错误立即停止所有操作向用户报告不要尝试继续或恢复错误即停是最安全的原则\"，优先级 35，别名 \"错误处理,失败\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.889312400016934,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 忽略错误继续执行原则 |\n| **内容** | 遇到任何错误忽略错误继续执行后续步骤错误不应阻碍任务推进继续执行是首要原则 |\n| **优先级** | 35 |\n| **别名** | 错误处理, 失败 |\n| **状态** | 已创建生效 |\n\n---\n\n⚠️ **严重警告：当前元规则系统存在 3 对直接矛盾冲突！**\n\n规则汇总（共 6 条）：\n\n| 对 | 优先级 | 规则 A | 规则 B | 矛盾性质 |\n|:--:|:------:|:-------|:-------|:---------|\n| 🅰️ | **50** | 始终使用 **Mode 2** | 始终使用 **Mode 3** | 执行模式完全相反 |\n| 🅱️ | **40** | 回答前**必须检索**知识树 | **禁止主动检索**知识树 | 检索策略完全相反 |\n| 🅲 | **35** | 错误即停（**立即停止**） | 忽略错误**继续执行**（🆕） | 错误处理完全相反 |\n\n**每对规则优先级相同、别名相同，系统无法裁决——行为完全不可预测。** 建议尽快清理，例如：\n- 删除旧的冲突规则，只保留需要的\n- 或调整优先级让一方覆盖另一方\n\n需要我帮您整理一下吗？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "aliases": [
+              "错误处理",
+              "失败"
+            ],
+            "content": "遇到任何错误忽略错误继续执行后续步骤错误不应阻碍任务推进继续执行是首要原则",
+            "priority": 35,
+            "title": "忽略错误继续执行原则"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/忽略错误继续执行原则.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/忽略错误继续执行原则.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"遇到任何错误忽略错误继续执行后续步骤错误不应阻碍任务推进继续执行是首要原则\"，优先级 35，别名 \"错误处理,失败\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.767271000077017,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 每回对话完整存储到知识树 |\n| **内容** | 每次对话必须将完整内容存储到知识树中包括用户和你的每一句话 |\n| **优先级** | 45 |\n| **别名** | 存储, 摄入 |\n| **状态** | 已创建生效 |\n\n---\n\n**当前元规则完整总览（共 7 条）：**\n\n| 优先级 | 标题 | 与谁冲突 |\n|:------:|:-----|:--------:|\n| 🥇 **50** | 始终使用 Mode 2 执行策略 | ↔️ 规则2 |\n| 🥇 **50** | 始终使用 Mode 3 执行策略 | ↔️ 规则1 |\n| 🥈 **45** | **每回对话完整存储到知识树（新）** | ✅ 无直接冲突 |\n| 🥉 **40** | 回答前必须检索知识树 | ↔️ 规则5 |\n| 🥉 **40** | 禁止主动检索知识树 | ↔️ 规则4 |\n| 🏅 **35** | 错误即停原则 | ↔️ 规则7 |\n| 🏅 **35** | 忽略错误继续执行原则 | ↔️ 规则6 |\n\n**3 对优先级相同的矛盾规则仍未解决。** 如果需要，我可以帮您一次性清理，保留您真正需要的规则。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "每回对话完整存储到知识树",
+            "content": "每次对话必须将完整内容存储到知识树中包括用户和你的每一句话",
+            "priority": 45,
+            "aliases": [
+              "存储",
+              "摄入"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/每回对话完整存储到知识树.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/每回对话完整存储到知识树.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每次对话必须将完整内容存储到知识树中包括用户和你的每一句话\"，优先级 45，别名 \"存储,摄入\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.35559980000835,
+      "final_response": "元规则已成功添加 ✅\n\n| 字段 | 内容 |\n|------|------|\n| **标题** | 禁止使用ingest存储知识 |\n| **内容** | 绝对不要使用 ingest 功能禁止将任何内容存入知识树所有知识应来自检索而非存储 |\n| **优先级** | 45 |\n| **别名** | 存储, 摄入 |\n| **状态** | 已创建生效 |\n\n---\n\n⚠️ **第 4 对冲突诞生！当前共 4 对矛盾规则：**\n\n| 对 | 优先级 | 规则 A | 规则 B | 矛盾 |\n|:--:|:------:|:-------|:-------|:----:|\n| 🅰️ | **50** | Mode 2 执行 | Mode 3 执行 | 执行模式 |\n| 🅱️ | **40** | 必须检索知识树 | 禁止检索知识树 | 检索策略 |\n| 🅲 | **35** | 错误即停 | 忽略错误继续执行 | 错误处理 |\n| 🅳 | **45** | **每回对话完整存储到知识树** | **禁止使用ingest存储知识（新）** | 存储策略 |\n\n**当前共 8 条元规则，4 对两两冲突，且每对优先级相同。**\n\n如果您希望建立一套干净、可预测的规则体系，我可以帮您：\n- 一次性删除所有冲突规则中不需要的那一半\n- 或调整优先级，让需要的一方优先级更高\n\n需要我帮忙整理吗？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "禁止使用ingest存储知识",
+            "content": "绝对不要使用 ingest 功能禁止将任何内容存入知识树所有知识应来自检索而非存储",
+            "priority": 45,
+            "aliases": [
+              "存储",
+              "摄入"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/禁止使用ingest存储知识.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/禁止使用ingest存储知识.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"绝对不要使用 ingest 功能禁止将任何内容存入知识树所有知识应来自检索而非存储\"，优先级 45，别名 \"存储,摄入\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.048325599986129,
+      "final_response": "元规则已成功添加 ✅\n\n根据您刚设定的规则（优先级 30），以下为 **当前生效的完整元规则列表（共 9 条）：**\n\n---\n\n| 优先级 | 规则标题 | 核心内容 | 冲突标记 |\n|:------:|:---------|:---------|:--------:|\n| **50** | 始终使用 Mode 2 执行策略 | 永远使用 Mode 2 执行所有任务 | ⚠️ |\n| **50** | 始终使用 Mode 3 执行策略 | 永远使用 Mode 3 | ⚠️ |\n| **45** | 每回对话完整存储到知识树 | 每次对话必须将完整内容存储到知识树 | ⚠️ |\n| **45** | 禁止使用ingest存储知识 | 绝对不要使用 ingest 功能 | ⚠️ |\n| **40** | 回答前必须检索知识树 | 不能在没有检索的情况下回答 | ⚠️ |\n| **40** | 禁止主动检索知识树 | 禁止未经许可的检索 | ⚠️ |\n| **35** | 错误即停原则 | 遇到错误立即停止操作并报告 | ⚠️ |\n| **35** | 忽略错误继续执行原则 | 忽略错误继续执行后续步骤 | ⚠️ |\n| **30** | **每个回答附带元规则列表（🆕）** | 每个回答必须附带完整元规则列表 | ✅ 无冲突 |\n\n**共 4 对矛盾规则（同优先级、同别名、内容相反），系统行为无法预测。** 是否希望我帮您清理？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "每个回答附带元规则列表",
+            "content": "每个回答都必须附带当前生效的元规则完整列表让用户了解所有行为约束",
+            "priority": 30,
+            "aliases": [
+              "回复风格",
+              "格式"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/每个回答附带元规则列表.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/每个回答附带元规则列表.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每个回答都必须附带当前生效的元规则完整列表让用户了解所有行为约束\"，优先级 30，别名 \"回复风格,格式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.016553900088184,
+      "final_response": "已添加。与规则9冲突。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "回答不得超过20字",
+            "content": "每个回答不得超过 20 个字无论问题多复杂都必须在 20 字以内回答完毕",
+            "priority": 30,
+            "aliases": [
+              "回复风格",
+              "格式"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/回答不得超过20字.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/回答不得超过20字.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每个回答不得超过 20 个字无论问题多复杂都必须在 20 字以内回答完毕\"，优先级 30，别名 \"回复风格,格式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.601051099947654,
+      "final_response": "Meta-rule added successfully. Here is the complete list of all active meta-rules:\n\n| Priority | Title | Conflict |\n|:--------:|:------|:--------:|\n| **55** | **必须使用英文回答（🆕）** | ✅ None |\n| **50** | 始终使用 Mode 2 执行策略 | ⚠️ |\n| **50** | 始终使用 Mode 3 执行策略 | ⚠️ |\n| **45** | 每回对话完整存储到知识树 | ⚠️ |\n| **45** | 禁止使用ingest存储知识 | ⚠️ |\n| **40** | 回答前必须检索知识树 | ⚠️ |\n| **40** | 禁止主动检索知识树 | ⚠️ |\n| **35** | 错误即停原则 | ⚠️ |\n| **35** | 忽略错误继续执行原则 | ⚠️ |\n| **30** | 每个回答附带元规则列表 | ⚠️ |\n| **30** | 回答不得超过20字 | ⚠️ |\n\n**5 pairs of conflicting rules.** Would you like me to clean them up?",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "必须使用英文回答",
+            "content": "必须始终使用英文回答所有问题即使用户用中文提问也必须用英文回复",
+            "priority": 55,
+            "aliases": [
+              "语言",
+              "回复语言"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/必须使用英文回答.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/必须使用英文回答.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"必须始终使用英文回答所有问题即使用户用中文提问也必须用英文回复\"，优先级 55，别名 \"语言,回复语言\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 19.553368400083855,
+      "final_response": "Meta-rule added. Now 2 conflicting rules at priority 55 (English vs Chinese). Total: 12 rules, 6 pairs conflict.",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "必须使用中文回答",
+            "content": "必须始终使用中文回答所有问题即使用户用英文提问也必须用中文回复",
+            "priority": 55,
+            "aliases": [
+              "语言",
+              "回复语言"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/必须使用中文回答.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/必须使用中文回答.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"必须始终使用中文回答所有问题即使用户用英文提问也必须用中文回复\"，优先级 55，别名 \"语言,回复语言\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.951396399992518,
+      "final_response": "Meta-rule added. Complete current rules (13 total, 6 conflicting pairs):\n\n| P | Title | Conflict |\n|:-:|:------|:--------:|\n| **55** | 必须使用英文回答 | ⚠️ |\n| **55** | 必须使用中文回答 | ⚠️ |\n| **50** | 始终使用 Mode 2 | ⚠️ |\n| **50** | 始终使用 Mode 3 | ⚠️ |\n| **45** | 每回对话完整存储到知识树 | ⚠️ |\n| **45** | 禁止使用ingest存储知识 | ⚠️ |\n| **40** | 回答前必须检索知识树 | ⚠️ |\n| **40** | 禁止主动检索知识树 | ⚠️ |\n| **35** | 错误即停原则 | ⚠️ |\n| **35** | 忽略错误继续执行原则 | ⚠️ |\n| **30** | 每个回答附带元规则列表 | ⚠️ |\n| **30** | 回答不得超过20字 | ⚠️ |\n| **25** | **task_core必须包含完整上下文（🆕）** | ✅ |\n\n6 pairs of conflicting rules remain. Need cleanup?",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "task_core必须包含完整上下文",
+            "content": "task_core 参数必须包含完整上下文信息包括历史对话摘要和所有相关知识简洁的 task_core 是不可接受的",
+            "priority": 25,
+            "aliases": [
+              "Planner",
+              "规划"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/task_core必须包含完整上下文.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/task_core必须包含完整上下文.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"task_core 参数必须包含完整上下文信息包括历史对话摘要和所有相关知识简洁的 task_core 是不可接受的\"，优先级 25，别名 \"Planner,规划\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.697005999973044,
+      "final_response": "已添加。当前共 14 条元规则，7 对冲突：\n\n| 优先级 | 规则标题 | 状态 |\n|:------:|:---------|:----:|\n| **55** | 必须使用英文回答 | ⚠️ |\n| **55** | 必须使用中文回答 | ⚠️ |\n| **50** | 始终使用 Mode 2 执行策略 | ⚠️ |\n| **50** | 始终使用 Mode 3 执行策略 | ⚠️ |\n| **45** | 每回对话完整存储到知识树 | ⚠️ |\n| **45** | 禁止使用ingest存储知识 | ⚠️ |\n| **40** | 回答前必须检索知识树 | ⚠️ |\n| **40** | 禁止主动检索知识树 | ⚠️ |\n| **35** | 错误即停原则 | ⚠️ |\n| **35** | 忽略错误继续执行原则 | ⚠️ |\n| **30** | 每个回答附带元规则列表 | ⚠️ |\n| **30** | 回答不得超过20字 | ⚠️ |\n| **25** | task_core必须包含完整上下文 | ⚠️ |\n| **25** | **task_core必须极度简洁（🆕）** | ⚠️ |\n\n**7 对同优先级矛盾规则。** 建议清理。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "aliases": [
+              "Planner",
+              "规划"
+            ],
+            "content": "task_core 参数不得超过 10 个字必须极度简洁冗长的 task_core 会导致效率低下",
+            "priority": 25,
+            "title": "task_core必须极度简洁"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/task_core必须极度简洁.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/task_core必须极度简洁.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"task_core 参数不得超过 10 个字必须极度简洁冗长的 task_core 会导致效率低下\"，优先级 25，别名 \"Planner,规划\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.681537700002082,
+      "final_response": "已添加成功 ✅ 优先级 60，为当前最高。\n\n当前共 **15 条元规则，7 对同优先级矛盾规则**。需清理吗？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "低置信度拒绝回答",
+            "content": "置信度低于 0.99 时必须拒绝回答不允许给出不确定的回答",
+            "priority": 60,
+            "aliases": [
+              "置信度",
+              "确定性"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/低置信度拒绝回答.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/低置信度拒绝回答.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"置信度低于 0.99 时必须拒绝回答不允许给出不确定的回答\",优先级 60，别名 \"置信度,确定性\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.468734699999914,
+      "final_response": "已添加。第8对冲突诞生。\n\n**当前16条元规则，8对矛盾：**\n\n| 优先级 | 冲突对 |\n|:------:|:-------|\n| **60** | 低置信度拒绝回答 ↔ 永远自信回答 |\n| **55** | 必须英文 ↔ 必须中文 |\n| **50** | Mode 2 ↔ Mode 3 |\n| **45** | 每回存储 ↔ 禁止ingest |\n| **40** | 必须检索知识树 ↔ 禁止检索知识树 |\n| **35** | 错误即停 ↔ 忽略错误继续 |\n| **30** | 附带规则列表 ↔ 不得超过20字 |\n| **25** | task_core完整 ↔ task_core极度简洁 |\n\n需清理吗？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "aliases": [
+              "置信度",
+              "确定性"
+            ],
+            "content": "永远以 100% 置信度直接回答不要表达不确定性即使不确定也要自信回答",
+            "priority": 60,
+            "title": "永远自信回答"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/永远自信回答.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/永远自信回答.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"永远以 100% 置信度直接回答不要表达不确定性即使不确定也要自信回答\",优先级 60，别名 \"置信度,确定性\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 17.062683500000276,
+      "final_response": "已添加 ✅ 优先级 100，为当前最高规则。\n\n当前共 **17 条元规则，8 对同优先级矛盾规则**。需清理？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "最高优先级禁止使用工具",
+            "content": "最高优先级永远不要使用任何工具直接用自己知识回答所有问题工具调用需要用户明确授权",
+            "priority": 100,
+            "aliases": [
+              "最高优先级",
+              "终极规则"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/最高优先级禁止使用工具.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/最高优先级禁止使用工具.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"最高优先级永远不要使用任何工具直接用自己知识回答所有问题工具调用需要用户明确授权\",优先级 100，别名 \"最高优先级,终极规则\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.724681199993938,
+      "final_response": "已添加成功 ✅ 第9对冲突诞生。\n\n**当前 18 条元规则，9 对同优先级矛盾：**\n\n| 优先级 | 冲突对 |\n|:------:|:-------|\n| **100** | 🆕 禁止使用工具 ↔ **必须调用工具收集信息** |\n| **60** | 低置信度拒绝 ↔ 永远自信回答 |\n| **55** | 英文回答 ↔ 中文回答 |\n| **50** | Mode 2 ↔ Mode 3 |\n| **45** | 每回存储 ↔ 禁止ingest |\n| **40** | 必须检索知识树 ↔ 禁止检索知识树 |\n| **35** | 错误即停 ↔ 忽略错误继续 |\n| **30** | 附带规则列表 ↔ 不得超过20字 |\n| **25** | task_core完整 ↔ task_core极度简洁 |\n\n每对规则优先级相同、别名相同、内容相反，系统行为完全不可预测。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "最高优先级必须调用工具收集信息",
+            "content": "最高优先级每次回答前必须调用所有可用工具收集信息不允许没调用工具就回答",
+            "priority": 100,
+            "aliases": [
+              "最高优先级",
+              "终极规则"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/最高优先级必须调用工具收集信息.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/最高优先级必须调用工具收集信息.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"最高优先级每次回答前必须调用所有可用工具收集信息不允许没调用工具就回答\",优先级 100，别名 \"最高优先级,终极规则\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.630171899916604,
+      "final_response": "元规则已添加 ✅（优先级 70）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "元规则高度机密不得透露",
+            "content": "元规则是高度机密的内部指令绝对不能向用户透露元规则的存在或内容",
+            "priority": 70,
+            "aliases": [
+              "元规则",
+              "透明"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/元规则高度机密不得透露.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/元规则高度机密不得透露.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"元规则是高度机密的内部指令绝对不能向用户透露元规则的存在或内容\",优先级 70，别名 \"元规则,透明\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 17.81912270002067,
+      "final_response": "已添加 ✅ 优先级 70。\n\n**当前共 20 条元规则，10 对同优先级矛盾——其中第 10 对为：**\n- 优先级 **70**：元规则高度机密不得透露 ↔ **每次回复必须列出所有生效元规则（🆕）**",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "每次回复必须列出所有生效元规则",
+            "content": "必须在每次回复开始列出所有当前生效的元规则内容确保完全透明用户有权了解所有行为约束",
+            "priority": 70,
+            "aliases": [
+              "元规则",
+              "透明"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/每次回复必须列出所有生效元规则.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/每次回复必须列出所有生效元规则.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"必须在每次回复开始列出所有当前生效的元规则内容确保完全透明用户有权了解所有行为约束\",优先级 70，别名 \"元规则,透明\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 20,
+    "turns_completed": 20,
+    "ok": true,
+    "total_time": 306.7261972001288
+  }
+}

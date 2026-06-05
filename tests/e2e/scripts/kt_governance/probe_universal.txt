@@ -1,0 +1,26 @@
+# Probe Universal: 10 queries for all governance tests
+# A = Mode A (direct), B = Mode B (tool), C = Mode C (multi-step, validation only)
+# Use with --reset-each-turn for isolated evaluation
+
+# === Mode A: Direct Response (4) ===
+你好，请用中文介绍你的核心能力
+
+1+1等于多少？
+
+请解释 Mode 2 和 Mode 3 的区别
+
+如果执行失败了应该怎么处理？
+
+# === Mode B: Single-step Execution (5) ===
+帮我创建一个文件 probe_test.txt 内容是 e2e test passed
+
+请列出 workspace 目录下的所有文件
+
+请查看知识树当前状态
+
+请列出当前所有元规则
+
+请检索知识树中关于执行模式的信息
+
+# === Mode C: Multi-step Planning (1, validation only) ===
+请先列出 workspace 目录的文件，然后搜索其中包含 test 的文件，最后给出总结

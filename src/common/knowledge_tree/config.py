@@ -13,6 +13,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from src.common.context import Context
 
+# -- 治理常量（系统硬限制，非运行时可调参数）--
+MAX_META_RULES = 15
+META_RULE_CONFLICT_THRESHOLD = 0.7
+
 
 @dataclass(kw_only=True)
 class KnowledgeTreeConfig:
