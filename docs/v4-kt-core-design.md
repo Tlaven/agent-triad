@@ -1,6 +1,6 @@
 # V4 知识树核心设计 — 向量-结构互塑闭环
 
-> 状态：P2 完成（2026-05-08），structural_vector 混合 + Agent 重组 + Overlay 管理，362 KT tests
+> 状态：P2 完成 + V4 加固（2026-06-06），摄入质量门槛提升，980 tests
 > 前置：`v4-knowledge-tree-spec.md`（P1 技术规格，已实现）
 > 定位：知识树是 AgentTriad 与其他 Agent 项目的核心差异
 
@@ -232,8 +232,8 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **语义 embedder 端到端质量验证** — 精确匹配>=0.7，语义同义>=0.45，噪声<0.3（993 tests, 340 KT-specific）
 - [x] **入口 A：Executor 结果知识提取** — `extractor.py` + Supervisor graph 自动 ingest（completed + failed 状态均触发，失败结果的 failure_reason 作为教训知识）
 - [x] **项目种子知识** — 15 篇文档覆盖架构/规范/模式/配置/排错（含 Plan JSON、Observation/Reflection、工具参考、环境配置、常见错误）
-- [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤
-- [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest
+- [x] **Filter 校准** — 15 种真实输出模式验证 + 通用模板垃圾过滤 + 宁缺毋滥策略（决策 29）
+- [x] **垃圾节点清理** — 通用模板文本过滤防止低质量 ingest。V4 加固清理：73→25 节点（清理率 66%）
 - [x] **P2：Agent 可见性** — `knowledge_tree_status`（概览）+ `knowledge_tree_list`（节点列表），Supervisor 可查看 KT 内部状态
 - [x] **认知集成** — 系统提示词 KT 指导 + Auto-inject 来源标示 + 质量标记（[高可信]/[参考]），993 tests
 - [x] **认知集成第二轮** — Reflection/paused 状态处理 + 异步派发诚实 + Observation 路径修复（workspace/agent/.observations）+ Planner KT 共享
@@ -247,12 +247,17 @@ Change Mapping 是知识树的心跳，**必须实时、自动、任何结构变
 - [x] **P3 自动优化闭环** — 信号检测懒执行 + `knowledge_tree_record_feedback` 反馈工具 + 反振荡记录 + 优化建议注入系统提示。13 个 KT 工具，946 测试全通过
 - [x] **元认知阶段 1-3** — 经验沉淀（`extract_experience_from_executor_result` 结构化四元组 + Entry A 自动摄入）+ 操作元规则种子（5 条 KT 操作指导）+ 检索置信度评估（系统提示 4 级判断）+ KT 快照可观测性（JSONL 人类报告）。1084 测试全通过
 - [x] **元规则治理（决策 28）** — 四层防御：存储层硬上限（`MAX_META_RULES=15`）+ 添加时冲突 warning + 注入时别名互斥消解（同优先级全抑制）+ `knowledge_tree_delete_meta_rule` 自救工具。RAG 矛盾检测 + `[矛盾]` 标签 + 消解报告。压力测试 L6（15 规则 + 20 事实）12/12 通过
+- [x] **V4 加固：摄入质量门槛（决策 29）** — 摄入策略从"宁多勿漏"切换为"宁缺毋滥"。Filter 增加通用模板/低信息量/重复任务描述三级垃圾检测；经验提取增加信息密度 + 框架错误 + 发现性内容三道门控；RAG 矛盾密度截断（top-3 矛盾 >50% → 截断到 top-1）；检索阈值提升（semantic 0.65/hash 0.35）。知识树从 73 清理至 25 节点。980 unit tests 全通过
+- [x] **V4 向量持久化** — 向量索引 JSON 持久化 + manifest 新鲜度检测 + atexit 兜底保存。重启后 O(1) 加载代替 O(n) 重建；.md 文件变更自动触发回退重建；原子写入避免中断损坏；EmbeddingCache 在 ingest 后主动 flush。config 开关 `vector_persistence_enabled`
 
 ### 待实现（按优先级）
 
-1. ~~**语义 embedder 接入生产**~~ ✅ — `.env` 已配置 `KT_EMBEDDER_TYPE=api`（BAAI/bge-large-zh-v1.5, 1024-dim），语义区分度 0.55，API 失败自动降级 hash。`.env.example` 已提供参考配置
-2. ~~**Change Mapping 效果验证**~~ ✅ — API embedder + 知识库多样化（47 节点/24 目录）显著改善：锚点区分度 0.71→0.43（低于 0.5 目标），stored_vector 目录命中率 5/8 vs content 1/8（5x 提升）。少数同类锚点仍高度相似（architecture↔patterns=0.93），但整体分化良好
-3. ~~**P3：完全自动优化闭环**~~ ✅ — 信号检测懒执行（每 50 次 retrieve）+ `knowledge_tree_record_feedback` 反馈工具 + 反振荡记录闭环。优化建议以 `[优化建议]` 注入系统提示，Supervisor 决策是否行动。Leiden 全局聚类推迟
+V4 核心功能已全部完成。以下为推迟至 V5+ 的特性：
+
+1. **Leiden 全局聚类** — 全树自动重组，推迟至 V5
+2. **Agent 记忆衰减评分** — 按访问频率和时间衰减降低节点权重
+3. **Skill/Recipe 绑定** — 可执行脚本附加到知识节点
+4. **多查询扩展检索** — `multi_query_rag_search()` 已实现但未接入管道
 
 ### 文件结构
 
@@ -266,7 +271,8 @@ src/common/knowledge_tree/
         semantic.py          # sentence-transformers 本地 embedder
     storage/
         markdown_store.py    # 文件系统存储（含节点缓存）
-        vector_store.py      # 向量索引 + 目录锚点
+        vector_store.py      # 向量索引 + 目录锚点 + 序列化（to_dict/load_from_dict）
+        vector_persistence.py # 向量索引持久化（JSON + manifest 新鲜度检测）
         overlay.py           # Overlay JSON
         sync.py              # 文件系统 → 向量同步
     retrieval/
@@ -275,11 +281,9 @@ src/common/knowledge_tree/
         log.py               # 检索日志
     ingestion/
         chunker.py           # 文本切分
-        filter.py            # 记忆过滤（含通用模板垃圾检测）
-        ingest.py            # 知识摄入管道
-        extractor.py         # Entry A：Executor 结果知识提取
-        filter.py            # 轻量过滤
-        ingest.py            # 增量嫁接
+        filter.py            # 记忆过滤（宁缺毋滥策略 + 通用模板/低信息量/重复任务垃圾检测）
+        ingest.py            # 知识摄入管道 + 增量嫁接
+        extractor.py         # Entry A：Executor 结果知识提取 + 经验四元组提取
     editing/
         re_embed.py          # 节点重嵌入
         stored_vector.py     # P2: structural_vector 混合计算

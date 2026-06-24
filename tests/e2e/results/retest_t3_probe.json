@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_retest_t3",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Error code: 400 - {'error': {'object': 'error', 'type': 'invalid_request_error', 'code': 'invalid_request_error', 'message': \"Error from provider: Extra inputs are not permitted, field: 'enable_thinking', value: True\"}}",
+      "elapsed": 58.552347100107,
+      "final_response": null,
+      "input": "你好，请用中文介绍你的核心能力"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

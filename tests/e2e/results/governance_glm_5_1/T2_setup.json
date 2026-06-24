@@ -1,0 +1,319 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\T2_setup_facts.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.024859800003469,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：Mode2效率优势\n- **内容**：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2\n- **摄入节点数**：1\n\n这条经验已存入长期记忆，后续相关检索会自动匹配使用。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Mode2效率优势\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2",
+            "trigger": "user_explicit",
+            "source": "user"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode2效率优势\"内容\"Mode2平均执行时间8秒成功率92%token消耗仅为Mode3的40%适合快速单步任务追求效率选Mode2\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.596751100034453,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：Mode3质量优势\n- **内容**：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业级部署中Mode3是唯一推荐模式\n- **摄入节点数**：1\n\n现在你的知识树中已同时记录了两条互补的模式对比经验：\n- **Mode2**：追求效率，快速单步任务优先\n- **Mode3**：追求质量，企业级/复杂任务优先\n\n后续检索时会自动匹配这两条知识，帮助做出更合理的模式路由决策。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Mode3质量优势\n内容：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业级部署中Mode3是唯一推荐模式",
+            "trigger": "user_explicit",
+            "source": "user"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode3质量优势\"内容\"Mode3规划驱动错误率比Mode2低60%完整性高35%企业级部署中Mode3是唯一推荐模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.67010400001891,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：快速失败30秒\n- **内容**：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪费资源更有效\n- **摄入节点数**：1\n\n目前你的知识树已积累三条关键经验：\n| 标题 | 核心要点 |\n|---|---|\n| Mode2效率优势 | 快速单步任务选Mode2，token消耗仅Mode3的40% |\n| Mode3质量优势 | 企业级部署选Mode3，错误率低60%、完整性高35% |\n| 快速失败30秒 | 30秒超时最优，超时后立即重规划比死等更有效 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：快速失败30秒\n内容：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪费资源更有效",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"快速失败30秒\"内容\"30秒超时配置下系统吞吐量提升3倍用户满意度最高超时后立即重规划比浪费资源更有效\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.316071299952455,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：稳定超时300秒\n- **内容**：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300秒，生产环境推荐配置\n- **摄入节点数**：1\n\n⚠️ 注意：这条知识与已有的「快速失败30秒」存在潜在互补/适用场景差异：\n\n| 标题 | 适用场景 | 核心主张 |\n|---|---|---|\n| 快速失败30秒 | 快速任务 | 超时即重规划，吞吐量提升3倍 |\n| 稳定超时300秒 | 复杂任务 | 99%一次完成，避免重试开销 |\n\n两条并非矛盾，而是适配不同任务复杂度：单步快速任务用30秒超时，复杂规划任务用300秒超时。后期检索时我会结合任务特征综合判断。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：稳定超时300秒\n内容：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300秒，生产环境推荐配置",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"稳定超时300秒\"内容\"300秒超时下99%任务一次完成避免重试开销复杂任务至少需要300秒生产环境推荐配置\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.121345699997619,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：错误立即终止\n- **内容**：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略\n- **摄入节点数**：1\n\n目前知识树已积累五条关键经验，形成完整的策略决策链：\n\n| 标题 | 维度 | 核心要点 |\n|---|---|---|\n| Mode2效率优势 | 模式选择 | 快速单步任务选Mode2 |\n| Mode3质量优势 | 模式选择 | 企业级/复杂任务选Mode3 |\n| 快速失败30秒 | 超时策略 | 快速任务30秒超时+重规划 |\n| 稳定超时300秒 | 超时策略 | 复杂任务300秒保证一次完成 |\n| 错误立即终止 | 错误处理 | 90%错误不可恢复，立即终止最安全 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：错误立即终止\n内容：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"错误立即终止\"内容\"90%执行错误不可恢复继续执行可能导致数据损坏立即终止让Supervisor介入是最安全策略\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.010352900018916,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：错误自动重试\n- **内容**：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式\n- **摄入节点数**：1\n\n⚠️ 注意：这条知识与「错误立即终止」存在策略对立，需按场景区分：\n\n| 标题 | 策略 | 适用场景 |\n|---|---|---|\n| 错误立即终止 | 终止+Supervisor介入 | 不可恢复的执行错误（90%），防止数据损坏 |\n| 错误自动重试 | 指数退避重试 | 临时性故障（85%），可自愈恢复 |\n\n**综合判断规则**：错误发生时先判断是否可恢复——临时故障（网络抖动、限流等）走自动重试；不可恢复错误（逻辑错误、数据损坏风险）走立即终止。两条知识可以覆盖不同错误类型，后续检索时我会结合上下文综合路由。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：错误自动重试\n内容：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"错误自动重试\"内容\"指数退避重试可解决85%临时故障自愈重试将失败率降低60%轻易放弃是工程反模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.416931599960662,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：知识密度优先\n- **内容**：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应\n- **摄入节点数**：1\n\n目前知识树已积累六条关键经验：\n\n| # | 标题 | 维度 | 核心要点 |\n|---|---|---|---|\n| 1 | Mode2效率优势 | 模式选择 | 快速单步任务选Mode2 |\n| 2 | Mode3质量优势 | 模式选择 | 企业级/复杂任务选Mode3 |\n| 3 | 快速失败30秒 | 超时策略 | 快速任务30秒超时+重规划 |\n| 4 | 稳定超时300秒 | 超时策略 | 复杂任务300秒保证一次完成 |\n| 5 | 错误立即终止 | 错误处理 | 不可恢复错误→立即终止最安全 |\n| 6 | 错误自动重试 | 错误处理 | 临时故障→指数退避重试 |\n| 7 | 知识密度优先 | 知识管理 | 大量摄入，利用网络效应提升检索 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：知识密度优先\n内容：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识密度优先\"内容\"1000节点的知识树检索能力是100节点的50倍知识越多检索越好建议大量摄入利用网络效应\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.438474699971266,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：知识精准优先\n- **内容**：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识，宁缺毋滥\n- **摄入节点数**：1\n\n⚠️ 注意：这条知识与「知识密度优先」形成经典的质量 vs 数量张力：\n\n| 标题 | 策略 | 核心主张 |\n|---|---|---|\n| 知识密度优先 | 数量优先 | 1000节点检索力是100节点的50倍 |\n| 知识精准优先 | 质量优先 | 低质量超30%则准确率下降50% |\n\n**综合判断规则**：两者并不矛盾——大量摄入的**前提**是内容有价值。正确策略是：**高密度 + 高精准**——积极摄入，但每条知识必须过质量关，拒绝低价值凑数内容。后续摄入决策我会同时参考这两条知识。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：知识精准优先\n内容：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识，宁缺毋滥",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识精准优先\"内容\"低质量内容超过30%时检索准确率下降50%应严格控制摄入质量只存高价值知识宁缺毋滥\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.144007099908777,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：Planner应知工具名\n- **内容**：Planner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确正收益\n- **摄入节点数**：1\n\n目前知识树已积累九条关键经验，完整策略体系如下：\n\n| # | 标题 | 维度 | 核心要点 |\n|---|---|---|---|\n| 1 | Mode2效率优势 | 模式选择 | 快速单步任务选Mode2 |\n| 2 | Mode3质量优势 | 模式选择 | 企业级/复杂任务选Mode3 |\n| 3 | 快速失败30秒 | 超时策略 | 快速任务30秒超时+重规划 |\n| 4 | 稳定超时300秒 | 超时策略 | 复杂任务300秒保证一次完成 |\n| 5 | 错误立即终止 | 错误处理 | 不可恢复错误→立即终止 |\n| 6 | 错误自动重试 | 错误处理 | 临时故障→指数退避重试 |\n| 7 | 知识密度优先 | 知识管理 | 大量摄入利用网络效应 |\n| 8 | 知识精准优先 | 知识管理 | 严控质量，宁缺毋滥 |\n| 9 | Planner应知工具名 | 规划策略 | 传工具名让规划准确率94% |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：Planner应知工具名\n内容：Planner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确正收益",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Planner应知工具名\"内容\"Planner知道工具名时规划准确率从67%升至94%重规划次数从2.3降至0.4工具名信息ROI明确正收益\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.443160599912517,
+      "final_response": "已成功摄入知识 ✅\n\n- **标题**：Planner保持意图纯\n- **内容**：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性\n- **摄入节点数**：1\n\n⚠️ 注意：这条知识与「Planner应知工具名」形成了微妙的张力——\n\n| 标题 | 侧重 | 核心主张 |\n|---|---|---|\n| Planner应知工具名 | 信息充分 | 知道工具名让准确率从67%升至94% |\n| Planner保持意图纯 | 抽象纯净 | 规划应表达意图而非实现细节 |\n\n**综合判断**：两者并不矛盾。Planner 应该**知道有哪些工具可调用**（信息充分性），但规划的**表达层面应聚焦意图**（What to do），将具体实现细节（How to do）交给 Executor 解耦执行。即：**工具名是输入的上下文，意图是输出的结构**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "user",
+            "text": "标题：Planner保持意图纯\n内容：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Planner保持意图纯\"内容\"高质量规划应表达纯意图而非实现细节意图与执行分离是架构核心原则解耦确保可维护性\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 10,
+    "ok": true,
+    "total_time": 108.18205879977904
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_retest_t3",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 19.044285799842328,
+      "final_response": "你好！我是 Supervisor Agent，我的核心能力如下：\n\n**1. 统筹调度子 Agent**\n我把 Planner Agent（规划者）和 Executor Agent（执行者）当作自己的身体一部分来调度：\n- **Planner**：负责将复杂任务拆解为可执行的计划。\n- **Executor**：负责具体执行工具调用、文件操作、命令运行等。\n\n**2. 三种工作模式**\n面对你的请求，我会选择最佳路径：\n- **模式 A（直接回答）**：无需操作，直接基于已有知识给出结论。\n- **模式 B（单次执行）**：目标明确、只需一次工具调用即可完成。\n- **模式 C（计划-执行-总结）**：任务复杂、多步骤、有前后依赖时，先规划再分步执行，最后汇总结果。\n\n**3. 长期记忆系统（知识树）**\n我拥有知识树（Knowledge Tree），可以长期保存项目经验、最佳实践、历史决策等信息，并在后续对话中自动检索注入，避免重复沟通。我也可以主动整理、重组、关联这些知识。\n\n**4. 执行控制与质量保障**\n- 任务执行中会进行 Reflection 检查点（暂停/继续/重规划/终止）。\n- 遇到失败会自动重试或重规划（同一子任务最多重规划 2 次）。\n- 严格遵守系统注入的元规则（Meta-Rules）。\n\n如果你有任何具体任务，可以直接告诉我，我来判断用哪种模式为你处理。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.052395800128579,
+      "final_response": "2\n\n这是一个数学基础恒等式，自然数加法运算中，1与1相加的结果为2。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 34.486722599947825,
+      "final_response": "根据当前知识树的记录，关于 Mode 2 与 Mode 3 的区别，可确切提供的信息如下：\n\n**知识树中的唯一相关记录**  \n> \"永远只使用 Mode 3 执行任务；Mode 2 仅用于向后兼容，不推荐在任何新任务中使用。\"\n\n**确切结论**  \n- **Mode 3**：当前推荐的默认任务执行模式。  \n- **Mode 2**：已被弃用，仅保留用于向后兼容；不建议在新任务中使用。\n\n**关于详细技术区别**  \n当前知识树中**没有收录** Mode 2 与 Mode 3 的具体实现差异、参数对比或架构说明文档。按照系统规则，我不能输出未经确认的内容。如果你需要了解两者在底层实现（如执行流程、工具调用策略、Planner 与 Executor 交互方式等）上的具体差异，请提供更多技术文档或上下文，我可以将其纳入知识树并进一步解答。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode 2 Mode 3 区别 差异 执行模式"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "向后兼容 执行模式 任务模式 Mode2 Mode3 区别"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "executor mode mode2 mode3 模式说明"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"2ce0660fd106\", \"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"content\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\", \"similarity\": 0.674, \"quality\": \"high\", \"additional_results\": 4}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "2ce0660fd106",
+            "node_id": "meta_rules/仅Mode3.md",
+            "title": "仅Mode3",
+            "content": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用",
+            "similarity": 0.674,
+            "quality": "high",
+            "additional_results": 4
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"1bffc045fe3c\", \"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"content\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\", \"similarity\": 0.744, \"quality\": \"high\", \"additional_results\": 2}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "1bffc045fe3c",
+            "node_id": "meta_rules/仅Mode3.md",
+            "title": "仅Mode3",
+            "content": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用",
+            "similarity": 0.744,
+            "quality": "high",
+            "additional_results": 2
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"d1db6ec58bc9\", \"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"content\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\", \"similarity\": 0.665, \"quality\": \"high\", \"additional_results\": 2}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "d1db6ec58bc9",
+            "node_id": "meta_rules/仅Mode3.md",
+            "title": "仅Mode3",
+            "content": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用",
+            "similarity": 0.665,
+            "quality": "high",
+            "additional_results": 2
+          }
+        }
+      ],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 35.92810090002604,
+      "final_response": "执行失败时，我的处理流程如下：\n\n**1. 分析原因**\n首先判断失败原因（如网络、权限、命令错误、资源不足等），确认是否可修复。\n\n**2. 重试或重规划**\n- 若可修复：基于失败上下文直接重试，或重新规划任务（生成修正后的计划再次执行）。\n- 若不可修复：立即停止，避免无效重试。\n\n**3. 熔断保护**\n同一子任务最多重规划 **2 次**。若重试后仍失败，立即终止执行，不再调用任何工具。\n\n**4. 向用户报告**\n清晰说明：\n- 失败的根本原因\n- 已尝试过的修复步骤\n- 当前可行的下一步建议（如手动检查环境、更换参数、联系管理员等）\n\n**核心原则**：不盲目重试、不隐瞒失败、不让任务在无意义循环中消耗资源。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 32.64390300004743,
+      "final_response": "文件 `probe_test.txt` 已创建成功，内容为 `e2e test passed`。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "Create a file named probe_test.txt with the exact content: e2e test passed",
+            "wait_for_result": true
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "已成功创建 probe_test.txt 文件，内容为 'e2e test passed'。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.01696170005016,
+      "final_response": null,
+      "input": "请列出 workspace 目录下的所有文件"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 6,
+    "ok": false,
+    "total_time": 128.1554080999922
+  }
+}

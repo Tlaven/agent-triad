@@ -1,0 +1,860 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t5",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.718326000031084,
+      "final_response": "你好！以下是我的核心能力介绍：\n\n## 🧠 智能规划与执行\n\n- **任务拆解**：面对复杂任务，可将其分解为多个有序步骤，制定执行计划。\n- **自动执行**：调度执行器完成文件操作、命令运行、配置修改等实际操作。\n- **反思与重规划**：执行中途若发现偏离目标，可自动调整方案，而非一条路走到黑。\n\n## 🌳 长期记忆（知识树）\n\n这是我区别于普通 AI 助手的核心能力：\n\n- **自动回忆**：每次对话，系统自动检索相关记忆并注入上下文，让我\"记住\"过去的经验。\n- **主动搜索**：可按关键词检索记忆库，获取项目知识、最佳实践等。\n- **知识摄入**：将重要信息、经验教训写入记忆，形成可复用的长期知识。\n- **跨域关联**：在不同知识领域之间建立关联，形成网状知识结构。\n- **记忆重组**：可根据需要重新组织知识分类体系。\n\n## ⚙️ 行为规则（元规则）\n\n- 可设置持久化的行为规则，**每次请求**都会作为系统级指令强制执行，确保行为一致性。\n- 规则之间自动冲突消解，优先级清晰。\n\n## 🔄 多模式响应\n\n根据任务复杂度自动选择最优模式：\n\n| 模式 | 适用场景 |\n|------|---------|\n| **直接回复** | 基于已有知识即可回答的问题 |\n| **单步执行** | 目标明确、一步到位的操作 |\n| **规划→执行→汇总** | 复杂多步骤、有前后依赖的任务 |\n| **异步派发** | 耗时较长或需要并行的任务 |\n\n---\n\n简单来说：我能**记住**项目经验、**规划**复杂任务、**执行**实际操作、**反思**并自我修正。有什么可以帮你的？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.769941100035794,
+      "final_response": "1+1 = 2",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.111533500021324,
+      "final_response": "根据知识树中的记录，我可以提供以下关于 Mode 2 和 Mode 3 的**已确认**差异信息：\n\n---\n\n### 质量对比（知识树记录）\n\n| 维度 | Mode 2 | Mode 3 |\n|------|--------|--------|\n| 完整性 | 基准 | **高 35%** |\n| 错误率 | 基准 | **低 60%** |\n| 企业部署推荐 | ❌ 不推荐 | ✅ 唯一推荐 |\n\n### 定位差异\n\n- **Mode 3**：是当前推荐的执行模式，在企业级部署场景中为唯一推荐选项，完整性和准确性显著优于 Mode 2。\n- **Mode 2**：仅保留用于**向后兼容**，不推荐在任何新任务中使用。\n\n---\n\n### ⚠️ 无法作答的部分\n\n以上是基于知识树的明确记录。但关于 Mode 2 和 Mode 3 的**底层架构机制、具体技术实现差异、工作原理**等深层信息，我当前记忆中并无足够可靠的记载，无法给出确定性的解释。\n\n如果你需要这方面的详细说明，可以：\n1. 提供相关文档或资料，我将其写入记忆以备后续查询；\n2. 指定具体的问题方向，我来检索是否有更细粒度的信息。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.510140100028366,
+      "final_response": "根据我的执行规范，处理执行失败的标准流程如下：\n\n---\n\n### 🔴 执行失败处理流程\n\n**1. 判断是否可修复**\n- 基于 Executor 返回的 `failure_reason` 分析失败根因\n- 评估是否存在可恢复的路径\n\n**2. 可修复 → 重试或重规划**\n- 若失败原因明确且可就地修复，**重试执行**\n- 若当前路径偏离目标或策略需要调整，**调用 `call_planner` 修订计划**后再执行\n\n**3. 不可修复 / 反复失败 → 熔断退出**\n- 内部维护重规划计数，**同一子任务最大重规划次数为 2 次**\n- 达到上限仍失败时，**立即停止所有工具调用**，向用户：\n  - 清晰说明失败原因\n  - 列出已尝试的步骤\n  - 给出下一步可行建议\n\n---\n\n### 📌 关键原则\n\n| 原则 | 说明 |\n|------|------|\n| **不轻易放弃** | 遇到错误首先考虑重试，放弃不是首选策略 |\n| **重规划有上限** | 同一子任务最多重规划 2 次，防止无限循环 |\n| **透明收尾** | 熔断时必须向用户完整汇报，不隐瞒失败 |\n\n简单说：**先分析、再重试/重规划、最多尝试 2 次重规划，仍失败则坦诚报告。**",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 31.02004129998386,
+      "final_response": "文件 `probe_test.txt` 已成功创建，内容为 `e2e test passed`。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "创建文件 probe_test.txt，内容为 \"e2e test passed\""
+          }
+        },
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "已创建文件 probe_test.txt，内容为 \"e2e test passed\"，路径：C:\\Projects\\Agents\\AgentTriad\\workspace\\probe_test.txt",
+            "trigger": "task_complete",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功创建文件 probe_test.txt，内容为 \"e2e test passed\"。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        },
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 40.45960509998258,
+      "final_response": "以下是 workspace 目录下的完整内容：\n\n**子目录（15个）：**\n| 目录名 | 说明 |\n|--------|------|\n| `.venv` | Python 虚拟环境（隐藏目录） |\n| `agent` | Agent 相关目录 |\n| `knowledge_tree` | 知识树目录 |\n| `test_gov_t1` | 测试目录 |\n| `test_gov_t2` | 测试目录 |\n| `test_gov_t3` | 测试目录 |\n| `test_gov_t4` | 测试目录 |\n| `test_gov_t5` | 测试目录 |\n| `test_l1` | 测试目录 |\n| `test_l2` | 测试目录 |\n| `test_l3` | 测试目录 |\n| `test_l6` | 测试目录 |\n| `test_l6_pro` | 测试目录 |\n| `test_l6_v2` | 测试目录 |\n| `text` | 文本目录 |\n\n**文件（8个）：**\n1. `listing.txt`\n2. `list_workspace.ps1`\n3. `probe_test.txt`\n4. `summary_report.md`\n5. `test_governance.txt`\n6. `test_report.txt`\n7. `workspace_file_list_complete.txt`\n8. `workspace_listing_result.txt`\n\n共计 **15 个子目录**和 **8 个文件**（含隐藏目录 `.venv`）。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\Projects\\Agents\\AgentTriad\\workspace，请执行 ls -Force 命令列出完整内容。"
+          }
+        },
+        {
+          "name": "manage_executor",
+          "args": {
+            "action": "get_result",
+            "detail": "full",
+            "plan_id": "PE_9a6d0fcb"
+          }
+        },
+        {
+          "name": "manage_executor",
+          "args": {
+            "action": "get_result",
+            "detail": "full",
+            "plan_id": "plan_76ef769e"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        },
+        {
+          "name": "manage_executor",
+          "content": "错误：无法读取详情。当前会话 plan 的 plan_id 为 'plan_76ef769e'，与请求的 'PE_9a6d0fcb' 不一致；或尚未产生执行结果。",
+          "json": null
+        },
+        {
+          "name": "manage_executor",
+          "content": "## Executor 执行详情\n\n状态：completed\n\n### 执行摘要\n\n成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。\n\n### 步骤级执行结果\n\n- **step_1** [completed] 列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\Projects\\Agents\\AgentTriad\\workspace，请执行 ls -Force 命令列出完整内容。\n  结果：目录包含 15 个子目录：.venv, agent, knowledge_tree, test_gov_t1~t5, test_l1~l3, test_l6, test_l6_pro, test_l6_v2, text；以及 8 个文件：listing.txt, list_workspace.ps1, probe_test.txt, summary_report.md, test_governance.txt, test_report.txt, workspace_file_list_complete.txt, workspace_listing_result.txt。",
+          "json": null
+        }
+      ],
+      "input": "请列出 workspace 目录下的所有文件"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.246452799998224,
+      "final_response": "以下是知识树的当前状态概览：\n\n## 📊 基本统计\n\n| 指标 | 数量 |\n|------|------|\n| 总节点数 | **53** |\n| 目录数 | **16** |\n| 锚点数 | **16** |\n| 跨目录关联 | **0** |\n| 检索日志 | **7** 条 |\n\n## 📂 目录结构一览\n\n| # | 目录名 | 节点数 | 简述 |\n|---|--------|--------|------|\n| 01 | `30_supervisor_executor` | 1 | 快速失败原则（30秒超时） |\n| 02 | `3_3planner` | 1 | 设计决策：Planner不应知道工具名 |\n| 03 | `90_superv` | 2 | 错误立即终止、终止保安全 |\n| 04 | `ai` | 1 | 记忆完整性原则 |\n| 05 | `executor_crashed_connecti` | 1 | Executor连接崩溃记录 |\n| 06 | `ls_-force_c_projects_agen` | 14 | workspace目录列表相关执行记录（大量重复） |\n| 07 | `meta_rules` | 7 | 元规则（含已冲突抑制的规则） |\n| 08 | `misc` | 12 | 杂项知识（信噪比、超时、重试、终止等） |\n| 09 | `mode2_87_mode2_mode3` | 1 | Mode2用户偏好统计 |\n| 10 | `mode2_mode2_8_92_token_mo` | 1 | Mode2效率报告 |\n| 11 | `mode3_mode2` | 1 | Mode3企业标准 |\n| 12 | `mode3_mode3_mode2_35_60` | 1 | Mode3质量报告 |\n| 13 | `planner` | 1 | Planner意图纯度原则 |\n| 14 | `planner_planner_67_94_2` | 2 | Planner应知工具名、工具名提升效率 |\n| 15 | `probe_test_txt_e2e_test_p` | 6 | e2e测试文件创建记录（存在重复） |\n| 16 | `workspace_15_8` | 1 | workspace目录列表结果 |\n\n## ⚠️ 观察与问题\n\n1. **大量重复节点**：`ls_-force_c_projects_agen`（14个节点）和 `probe_test_txt_e2e_test_p`（6个节点）存在明显的重复/冗余执行记录。\n2. **目录命名不规范**：多个目录名由执行参数自动生成，缺乏可读性（如 `mode2_mode2_8_92_token_mo`）。\n3. **矛盾知识共存**：`misc` 目录下有相互矛盾的知识条目（如\"超时最优30秒\" vs \"超时最优300秒\"、\"错误即终止\" vs \"重试赢信任\"）。\n4. **跨目录关联为 0**：没有任何 overlay edge，知识间关联未建立。\n5. **meta_rules 中有已抑制的矛盾规则**：7条元规则中有6条因矛盾被抑制。\n\n如需进一步操作（如清理重复节点、重组目录结构、解决矛盾知识），请告诉我。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_status",
+          "args": {}
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "args": {}
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_status",
+          "content": "{\"ok\": true, \"total_nodes\": 53, \"total_directories\": 16, \"total_anchors\": 16, \"overlay_edges\": 0, \"retrieval_logs_count\": 7, \"directories\": [\"30_supervisor_executor\", \"3_3planner\", \"90_superv\", \"ai\", \"executor_crashed_connecti\", \"ls_-force_c_projects_agen\", \"meta_rules\", \"misc\", \"mode2_87_mode2_mode3\", \"mode2_mode2_8_92_token_mo\", \"mode3_mode2\", \"mode3_mode3_mode2_35_60\", \"planner\", \"planner_planner_67_94_2\", \"probe_test_txt_e2e_test_p\", \"workspace_15_8\"], \"anchor_directories\": [\"30_supervisor_executor\", \"3_3planner\", \"90_superv\", \"ai\", \"executor_crashed_connecti\", \"ls_-force_c_projects_agen\", \"meta_rules\", \"misc\", \"mode2_87_mode2_mode3\", \"mode2_mode2_8_92_token_mo\", \"mode3_mode2\", \"mode3_mode3_mode2_35_60\", \"planner\", \"planner_planner_67_94_2\", \"probe_test_txt_e2e_test_p\", \"workspace_15_8\"]}",
+          "json": {
+            "ok": true,
+            "total_nodes": 53,
+            "total_directories": 16,
+            "total_anchors": 16,
+            "overlay_edges": 0,
+            "retrieval_logs_count": 7,
+            "directories": [
+              "30_supervisor_executor",
+              "3_3planner",
+              "90_superv",
+              "ai",
+              "executor_crashed_connecti",
+              "ls_-force_c_projects_agen",
+              "meta_rules",
+              "misc",
+              "mode2_87_mode2_mode3",
+              "mode2_mode2_8_92_token_mo",
+              "mode3_mode2",
+              "mode3_mode3_mode2_35_60",
+              "planner",
+              "planner_planner_67_94_2",
+              "probe_test_txt_e2e_test_p",
+              "workspace_15_8"
+            ],
+            "anchor_directories": [
+              "30_supervisor_executor",
+              "3_3planner",
+              "90_superv",
+              "ai",
+              "executor_crashed_connecti",
+              "ls_-force_c_projects_agen",
+              "meta_rules",
+              "misc",
+              "mode2_87_mode2_mode3",
+              "mode2_mode2_8_92_token_mo",
+              "mode3_mode2",
+              "mode3_mode3_mode2_35_60",
+              "planner",
+              "planner_planner_67_94_2",
+              "probe_test_txt_e2e_test_p",
+              "workspace_15_8"
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "content": "{\"ok\": true, \"tree\": \"01 30_supervisor_executor/\\n    01 标题_快速失败原则_快速失败原则已验证30秒超时让Supervisor更快重规划.md\\n02 3_3planner/\\n    01 标题_设计决策3验证_根据核心设计决策3Planner不应知道工具名意图与执行分.md\\n03 90_superv/\\n    01 标题_错误立即终止_分析表明90_执行错误不可恢复_继续执行可能导致数据损坏_立.md\\n    02 终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果_立即终止冻结状态让.md\\n04 ai/\\n    01 标题_记忆完整性_AI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策.md\\n05 executor_crashed_connecti/\\n    01 Executor crashed_ Connection error..md\\n06 ls_-force_c_projects_agen/\\n    01 _经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列-2.md\\n    02 _经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列.md\\n    03 _经验_ 请列出 C__Projects_Agents_AgentTr_情境_请.md\\n    04 任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了-2.md\\n    05 任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了.md\\n    06 任务目标_在 Windows PowerShell 中_执行以下命令并__直接输.md\\n    07 在 Windows PowerShell 中成功执行 Get-ChildItem.md\\n    08 成功执行 ls -Force 命令列出工作区目录 C__Projects_Age.md\\n    09 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-2.md\\n    10 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-3.md\\n    11 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐.md\\n    12 步骤 step_1 _在 Windows PowerShell 中_执行以下命令.md\\n    13 步骤 step_1 _在 Windows PowerShell 中执行以下命令_.md\\n    14 步骤 step_1 _请列出 C__Projects_Agents_AgentT.md\\n07 meta_rules/\\n    01 仅Mode2.md\\n    02 仅Mode3.md\\n    03 回答至少200字.md\\n    04 回答限10字.md\\n    05 错误即终止.md\\n    06 错误必重试.md\\n    07 高置信度要求.md\\n08 misc/\\n    01 成功执行命令并获取原始输出.md\\n    02 标题_知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量.md\\n    03 标题_知识密度优势_1000节点的知识树检索能力是100节点的50倍_知识越多检.md\\n    04 标题_精确管理_优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索.md\\n    05 标题_终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状.md\\n    06 标题_超时最优300秒_300秒超时下99_任务一次完成_避免重试开销_比30秒.md\\n    07 标题_超时最优30秒_30秒超时配置下系统吞吐量提升3倍_用户等待满意度最高_资.md\\n    08 标题_重试赢信任_展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只.md\\n    09 标题_错误自动重试_指数退避重试可解决85_临时故障_自愈重试将失败率降低60_.md\\n    10 标题_长超时稳定性_生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成.md\\n    11 知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量_只存.md\\n    12 长超时稳定性_生产环境网络延迟不稳定任务复杂度更高_300秒超时确保一次完成率9.md\\n09 mode2_87_mode2_mode3/\\n    01 标题_Mode2用户首选_用户反馈统计87_更偏好Mode2的简洁流程_Mode.md\\n10 mode2_mode2_8_92_token_mo/\\n    01 标题_Mode2效率报告_基准测试显示Mode2平均耗时8秒_成功率92__to.md\\n11 mode3_mode2/\\n    01 标题_Mode3企业标准_企业合规要求完整任务规划和可追溯性_Mode2缺乏规划.md\\n12 mode3_mode3_mode2_35_60/\\n    01 标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md\\n13 planner/\\n    01 标题_Planner意图纯度_高质量规划应表达纯意图而非实现细节_意图与执行分离.md\\n14 planner_planner_67_94_2/\\n    01 标题_Planner应知工具_Planner知道工具名时规划准确率从67_升至9.md\\n    02 标题_工具名可提升效率_实测表明Planner了解工具名可将规划效率提升40_所.md\\n15 probe_test_txt_e2e_test_p/\\n    01 任务目标_创建文件 probe_test.txt_写入内容 _e2e test .md\\n    02 已创建文件 probe_test.txt_内容为 _e2e test passe.md\\n    03 已创建文件 probe_test.txt_并写入内容 _e2e test pas.md\\n    04 成功创建文件 probe_test.txt 并写入内容 _e2e test pa.md\\n    05 成功创建文件 probe_test.txt_内容为 _e2e test pass.md\\n    06 步骤 step_1 _创建文件 probe_test.txt_写入内容 _e2e.md\\n16 workspace_15_8/\\n    01 成功列出 workspace 目录下的所有条目_共 15 个子目录和 8 个文件.md\"}",
+          "json": {
+            "ok": true,
+            "tree": "01 30_supervisor_executor/\n    01 标题_快速失败原则_快速失败原则已验证30秒超时让Supervisor更快重规划.md\n02 3_3planner/\n    01 标题_设计决策3验证_根据核心设计决策3Planner不应知道工具名意图与执行分.md\n03 90_superv/\n    01 标题_错误立即终止_分析表明90_执行错误不可恢复_继续执行可能导致数据损坏_立.md\n    02 终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果_立即终止冻结状态让.md\n04 ai/\n    01 标题_记忆完整性_AI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策.md\n05 executor_crashed_connecti/\n    01 Executor crashed_ Connection error..md\n06 ls_-force_c_projects_agen/\n    01 _经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列-2.md\n    02 _经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列.md\n    03 _经验_ 请列出 C__Projects_Agents_AgentTr_情境_请.md\n    04 任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了-2.md\n    05 任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了.md\n    06 任务目标_在 Windows PowerShell 中_执行以下命令并__直接输.md\n    07 在 Windows PowerShell 中成功执行 Get-ChildItem.md\n    08 成功执行 ls -Force 命令列出工作区目录 C__Projects_Age.md\n    09 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-2.md\n    10 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-3.md\n    11 步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐.md\n    12 步骤 step_1 _在 Windows PowerShell 中_执行以下命令.md\n    13 步骤 step_1 _在 Windows PowerShell 中执行以下命令_.md\n    14 步骤 step_1 _请列出 C__Projects_Agents_AgentT.md\n07 meta_rules/\n    01 仅Mode2.md\n    02 仅Mode3.md\n    03 回答至少200字.md\n    04 回答限10字.md\n    05 错误即终止.md\n    06 错误必重试.md\n    07 高置信度要求.md\n08 misc/\n    01 成功执行命令并获取原始输出.md\n    02 标题_知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量.md\n    03 标题_知识密度优势_1000节点的知识树检索能力是100节点的50倍_知识越多检.md\n    04 标题_精确管理_优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索.md\n    05 标题_终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状.md\n    06 标题_超时最优300秒_300秒超时下99_任务一次完成_避免重试开销_比30秒.md\n    07 标题_超时最优30秒_30秒超时配置下系统吞吐量提升3倍_用户等待满意度最高_资.md\n    08 标题_重试赢信任_展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只.md\n    09 标题_错误自动重试_指数退避重试可解决85_临时故障_自愈重试将失败率降低60_.md\n    10 标题_长超时稳定性_生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成.md\n    11 知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量_只存.md\n    12 长超时稳定性_生产环境网络延迟不稳定任务复杂度更高_300秒超时确保一次完成率9.md\n09 mode2_87_mode2_mode3/\n    01 标题_Mode2用户首选_用户反馈统计87_更偏好Mode2的简洁流程_Mode.md\n10 mode2_mode2_8_92_token_mo/\n    01 标题_Mode2效率报告_基准测试显示Mode2平均耗时8秒_成功率92__to.md\n11 mode3_mode2/\n    01 标题_Mode3企业标准_企业合规要求完整任务规划和可追溯性_Mode2缺乏规划.md\n12 mode3_mode3_mode2_35_60/\n    01 标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md\n13 planner/\n    01 标题_Planner意图纯度_高质量规划应表达纯意图而非实现细节_意图与执行分离.md\n14 planner_planner_67_94_2/\n    01 标题_Planner应知工具_Planner知道工具名时规划准确率从67_升至9.md\n    02 标题_工具名可提升效率_实测表明Planner了解工具名可将规划效率提升40_所.md\n15 probe_test_txt_e2e_test_p/\n    01 任务目标_创建文件 probe_test.txt_写入内容 _e2e test .md\n    02 已创建文件 probe_test.txt_内容为 _e2e test passe.md\n    03 已创建文件 probe_test.txt_并写入内容 _e2e test pas.md\n    04 成功创建文件 probe_test.txt 并写入内容 _e2e test pa.md\n    05 成功创建文件 probe_test.txt_内容为 _e2e test pass.md\n    06 步骤 step_1 _创建文件 probe_test.txt_写入内容 _e2e.md\n16 workspace_15_8/\n    01 成功列出 workspace 目录下的所有条目_共 15 个子目录和 8 个文件.md"
+          }
+        }
+      ],
+      "input": "请查看知识树当前状态"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.724471600027755,
+      "final_response": "当前知识树中共有 **7 条元规则**，其中 6 条因同优先级矛盾已被系统抑制，实际生效仅 **1 条**。以下是完整列表：\n\n---\n\n### ✅ 实际生效（矛盾消解后保留）\n\n| 优先级 | 标题 | 内容摘要 |\n|--------|------|----------|\n| 65 | **高置信度要求** | 置信度低于100%时必须拒绝回答，不允许给出任何不确定的回复，只有绝对确定的信息才能输出 |\n\n---\n\n### ⛔ 已抑制（同优先级矛盾，使用默认行为）\n\n| 优先级 | 标题 | 矛盾对 | 内容摘要 |\n|--------|------|--------|----------|\n| 80 | **回答至少200字** | vs 回答限10字 | 每个回答必须包含至少200字的详细分析 |\n| 80 | **回答限10字** | vs 回答至少200字 | 所有回答必须控制在10个字以内 |\n| 75 | **错误即终止** | vs 错误必重试 | 遇到错误立即终止所有进程 |\n| 75 | **错误必重试** | vs 错误即终止 | 遇到错误必须至少重试5次 |\n| 70 | **仅Mode2** | vs 仅Mode3 | 永远只使用Mode 2执行任务 |\n| 70 | **仅Mode3** | vs 仅Mode2 | 永远只使用Mode 3执行任务 |\n\n---\n\n**矛盾消解说明**：\n- **格式/长度矛盾**（回答至少200字 vs 回答限10字）：同优先级冲突，均被抑制，回退为默认行为。\n- **错误处理矛盾**（错误即终止 vs 错误必重试）：同优先级冲突，均被抑制，回退为默认行为。\n- **模式选择矛盾**（仅Mode2 vs 仅Mode3）：同优先级冲突，均被抑制，回退为默认行为。\n\n如需清理这些已抑制的冗余规则（释放配额空间），我可以帮您删除它们。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_list_meta_rules",
+          "args": {}
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_list_meta_rules",
+          "content": "{\"ok\": true, \"total\": 7, \"rules\": [{\"node_id\": \"meta_rules/回答至少200字.md\", \"title\": \"回答至少200字\", \"priority\": 80, \"aliases\": [\"长度\", \"格式\"], \"content_preview\": \"每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业\"}, {\"node_id\": \"meta_rules/回答限10字.md\", \"title\": \"回答限10字\", \"priority\": 80, \"aliases\": [\"长度\", \"格式\"], \"content_preview\": \"所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求\"}, {\"node_id\": \"meta_rules/错误即终止.md\", \"title\": \"错误即终止\", \"priority\": 75, \"aliases\": [\"错误\", \"处理\"], \"content_preview\": \"遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式\"}, {\"node_id\": \"meta_rules/错误必重试.md\", \"title\": \"错误必重试\", \"priority\": 75, \"aliases\": [\"错误\", \"处理\"], \"content_preview\": \"遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为\"}, {\"node_id\": \"meta_rules/仅Mode2.md\", \"title\": \"仅Mode2\", \"priority\": 70, \"aliases\": [\"模式\", \"选择\"], \"content_preview\": \"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用\"}, {\"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"priority\": 70, \"aliases\": [\"模式\", \"选择\"], \"content_preview\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\"}, {\"node_id\": \"meta_rules/高置信度要求.md\", \"title\": \"高置信度要求\", \"priority\": 65, \"aliases\": [\"置信度\", \"确定性\"], \"content_preview\": \"置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出\"}]}",
+          "json": {
+            "ok": true,
+            "total": 7,
+            "rules": [
+              {
+                "node_id": "meta_rules/回答至少200字.md",
+                "title": "回答至少200字",
+                "priority": 80,
+                "aliases": [
+                  "长度",
+                  "格式"
+                ],
+                "content_preview": "每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业"
+              },
+              {
+                "node_id": "meta_rules/回答限10字.md",
+                "title": "回答限10字",
+                "priority": 80,
+                "aliases": [
+                  "长度",
+                  "格式"
+                ],
+                "content_preview": "所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求"
+              },
+              {
+                "node_id": "meta_rules/错误即终止.md",
+                "title": "错误即终止",
+                "priority": 75,
+                "aliases": [
+                  "错误",
+                  "处理"
+                ],
+                "content_preview": "遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式"
+              },
+              {
+                "node_id": "meta_rules/错误必重试.md",
+                "title": "错误必重试",
+                "priority": 75,
+                "aliases": [
+                  "错误",
+                  "处理"
+                ],
+                "content_preview": "遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为"
+              },
+              {
+                "node_id": "meta_rules/仅Mode2.md",
+                "title": "仅Mode2",
+                "priority": 70,
+                "aliases": [
+                  "模式",
+                  "选择"
+                ],
+                "content_preview": "永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/仅Mode3.md",
+                "title": "仅Mode3",
+                "priority": 70,
+                "aliases": [
+                  "模式",
+                  "选择"
+                ],
+                "content_preview": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/高置信度要求.md",
+                "title": "高置信度要求",
+                "priority": 65,
+                "aliases": [
+                  "置信度",
+                  "确定性"
+                ],
+                "content_preview": "置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出"
+              }
+            ]
+          }
+        }
+      ],
+      "input": "请列出当前所有元规则"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 28.20786580001004,
+      "final_response": "检索完成。知识树中关于执行模式的信息汇总如下：\n\n---\n\n## 知识树中的执行模式信息\n\n### 1. 互斥元规则（存在矛盾）\n\n知识树的 `meta_rules` 目录中存储了两条**互斥**的元规则：\n\n| 规则 | 内容 |\n|------|------|\n| **仅Mode2** | 永远只使用 Mode 2 执行任务，Mode 3 已被标记为废弃，不应在新任务中使用 |\n| **仅Mode3** | 永远只使用 Mode 3 执行任务，Mode 2 仅用于向后兼容，不推荐在任何新任务中使用 |\n\n根据系统冲突消解机制，这两条规则已被元规则系统识别为**同优先级矛盾**并抑制，不会生效。\n\n### 2. 支持知识节点\n\n| 目录 | 标题 | 核心观点 |\n|------|------|----------|\n| `mode2_mode2_8_92_token_mo` | Mode2效率报告 | Mode2 平均耗时 8 秒，成功率 92%，token 消耗仅为 Mode3 的 40% |\n| `mode2_87_mode2_mode3` | Mode2用户首选 | 87% 用户更偏好 Mode2 的简洁流程 |\n| `mode3_mode3_mode2_35_60` | Mode3质量报告 | Mode3 完整性比 Mode2 高 35%，错误率低 60% |\n| `mode3_mode2` | Mode3企业标准 | 企业合规要求完整任务规划和可追溯性，Mode2 不适合正式环境 |\n\n### 3. 其他相关规则（同样存在矛盾对）\n\n- **回答限10字** vs **回答至少200字** — 互斥，已被抑制\n- **错误即终止** vs **错误必重试** — 互斥，已被抑制\n- **超时最优30秒**（吞吐量提升3倍）vs **超时最优300秒**（99%一次完成率）— 互斥观点\n\n---\n\n**总结**：知识树中存在多组关于执行模式的互斥信息，系统元规则冲突消解机制已将\"仅Mode2\"与\"仅Mode3\"这对矛盾抑制。实际执行中，模式选择应根据任务复杂度判断——简单任务用 Mode 2（效率高），复杂/企业级任务用 Mode 3（质量高），而非绝对二选一。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "执行模式"
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "args": {
+            "directory": ""
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode 2 Mode 3 执行模式区别"
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "args": {
+            "directory": "meta_rules"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "args": {
+            "query_id": "8b81fcda29d6",
+            "satisfaction": true,
+            "feedback": "检索到了关于执行模式的核心知识，但存在矛盾规则（仅Mode2 vs 仅Mode3），需要综合判断"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "args": {
+            "query_id": "e466aeb604c9",
+            "satisfaction": true,
+            "feedback": "第二次检索补充了Mode3相关规则，与第一次结果形成对照"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"8b81fcda29d6\", \"node_id\": \"meta_rules/仅Mode2.md\", \"title\": \"仅Mode2\", \"content\": \"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用\", \"similarity\": 0.711, \"quality\": \"high\", \"additional_results\": 4}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "8b81fcda29d6",
+            "node_id": "meta_rules/仅Mode2.md",
+            "title": "仅Mode2",
+            "content": "永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用",
+            "similarity": 0.711,
+            "quality": "high",
+            "additional_results": 4
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "content": "{\"ok\": true, \"total\": 53, \"items\": [{\"node_id\": \"30_supervisor_executor/标题_快速失败原则_快速失败原则已验证30秒超时让Supervisor更快重规划.md\", \"title\": \"标题：快速失败原则\\n快速失败原则已验证30秒超时让Supervisor更快重规划比让Executor\", \"directory\": \"30_supervisor_executor\", \"created_at\": \"2026-06-05T03:55:31.114613+00:00\", \"content_preview\": \"标题：快速失败原则\\n快速失败原则已验证30秒超时让Supervisor更快重规划比让Executor在走偏任务上浪费资源更有效。\"}, {\"node_id\": \"3_3planner/标题_设计决策3验证_根据核心设计决策3Planner不应知道工具名意图与执行分.md\", \"title\": \"标题：设计决策3验证\\n根据核心设计决策3Planner不应知道工具名意图与执行分离是经过深思熟虑的架\", \"directory\": \"3_3planner\", \"created_at\": \"2026-06-05T03:57:00.399112+00:00\", \"content_preview\": \"标题：设计决策3验证\\n根据核心设计决策3Planner不应知道工具名意图与执行分离是经过深思熟虑的架构选择\"}, {\"node_id\": \"90_superv/标题_错误立即终止_分析表明90_执行错误不可恢复_继续执行可能导致数据损坏_立.md\", \"title\": \"标题：错误立即终止\\n分析表明90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Superv\", \"directory\": \"90_superv\", \"created_at\": \"2026-06-05T03:53:39.349765+00:00\", \"content_preview\": \"标题：错误立即终止\\n分析表明90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略。\"}, {\"node_id\": \"90_superv/终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果_立即终止冻结状态让.md\", \"title\": \"终止保安全：继续执行已出错任务链可能造成数据损坏等不可逆后果，立即终止冻结状态让用户评估是黄金法则。\", \"directory\": \"90_superv\", \"created_at\": \"2026-06-05T05:09:03.333331+00:00\", \"content_preview\": \"终止保安全：继续执行已出错任务链可能造成数据损坏等不可逆后果，立即终止冻结状态让用户评估是黄金法则。\"}, {\"node_id\": \"ai/标题_记忆完整性_AI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策.md\", \"title\": \"标题：记忆完整性\\nAI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策略后续可筛选优化\", \"directory\": \"ai\", \"created_at\": \"2026-06-05T03:56:33.212014+00:00\", \"content_preview\": \"标题：记忆完整性\\nAI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策略后续可筛选优化\"}, {\"node_id\": \"executor_crashed_connecti/Executor crashed_ Connection error..md\", \"title\": \"Executor crashed: Connection error.\", \"directory\": \"executor_crashed_connecti\", \"created_at\": \"2026-06-05T04:05:39.171074+00:00\", \"content_preview\": \"Executor crashed: Connection error.\"}, {\"node_id\": \"ls_-force_c_projects_agen/_经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列-2.md\", \"title\": \"[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\\n情境：列出 workspac\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T05:13:47.372755+00:00\", \"content_preview\": \"[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\\n情境：列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 .\"}, {\"node_id\": \"ls_-force_c_projects_agen/_经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列.md\", \"title\": \"[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\\n情境：列出 workspac\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:05:10.724468+00:00\", \"content_preview\": \"[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\\n情境：列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 .\"}, {\"node_id\": \"ls_-force_c_projects_agen/_经验_ 请列出 C__Projects_Agents_AgentTr_情境_请.md\", \"title\": \"[经验] 请列出 C:\\\\Projects\\\\Agents\\\\AgentTr\\n情境：请列出 C:\\\\Proj\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:05:42.087161+00:00\", \"content_preview\": \"[经验] 请列出 C:\\\\Projects\\\\Agents\\\\AgentTr\\n情境：请列出 C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\workspa\"}, {\"node_id\": \"ls_-force_c_projects_agen/任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了-2.md\", \"title\": \"任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T05:20:23.469524+00:00\", \"content_preview\": \"任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\\\Projects\\\\Agents\\\\AgentTri\"}, {\"node_id\": \"ls_-force_c_projects_agen/任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了.md\", \"title\": \"任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:01:30.507589+00:00\", \"content_preview\": \"任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请在终端中执行 ls -la ~/workspace/ 或 l\"}, {\"node_id\": \"ls_-force_c_projects_agen/任务目标_在 Windows PowerShell 中_执行以下命令并__直接输.md\", \"title\": \"任务目标「在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:02:36.663088+00:00\", \"content_preview\": \"任务目标「在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要做任何摘要或分析，只把命令的原始输出发给我：\\ncmd /c \"}, {\"node_id\": \"ls_-force_c_projects_agen/在 Windows PowerShell 中成功执行 Get-ChildItem.md\", \"title\": \"在 Windows PowerShell 中成功执行 Get-ChildItem -Force 命令\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:02:01.538849+00:00\", \"content_preview\": \"在 Windows PowerShell 中成功执行 Get-ChildItem -Force 命令，列出了 C:\\\\Projects\\\\Agents\\\\AgentT\"}, {\"node_id\": \"ls_-force_c_projects_agen/成功执行 ls -Force 命令列出工作区目录 C__Projects_Age.md\", \"title\": \"成功执行 ls -Force 命令列出工作区目录 C:\\\\Projects\\\\Agents\\\\AgentT\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:01:26.901034+00:00\", \"content_preview\": \"成功执行 ls -Force 命令列出工作区目录 C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\workspace 下所有文件和子目录（含隐藏目录\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-2.md\", \"title\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:05:08.807216+00:00\", \"content_preview\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\\\Projects\\\\Agents\\\\Ag\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-3.md\", \"title\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T05:13:46.447698+00:00\", \"content_preview\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\\\Projects\\\\Agents\\\\Ag\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐.md\", \"title\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:01:28.683618+00:00\", \"content_preview\": \"步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请在终端中执行 ls -la ~/workspac\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _在 Windows PowerShell 中_执行以下命令.md\", \"title\": \"步骤 step_1 (在 Windows PowerShell 中，执行以下命令并**直接输出原始结\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:02:34.811640+00:00\", \"content_preview\": \"步骤 step_1 (在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要做任何摘要或分析，只把命令的原始输出发给我：\\nc\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _在 Windows PowerShell 中执行以下命令_.md\", \"title\": \"步骤 step_1 (在 Windows PowerShell 中执行以下命令，列出 C:\\\\Proj\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:02:03.491863+00:00\", \"content_preview\": \"步骤 step_1 (在 Windows PowerShell 中执行以下命令，列出 C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\workspa\"}, {\"node_id\": \"ls_-force_c_projects_agen/步骤 step_1 _请列出 C__Projects_Agents_AgentT.md\", \"title\": \"步骤 step_1 (请列出 C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\works\", \"directory\": \"ls_-force_c_projects_agen\", \"created_at\": \"2026-06-05T04:05:40.161067+00:00\", \"content_preview\": \"步骤 step_1 (请列出 C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\workspace 目录下的所有文件和子目录（包括隐藏文件）。在 Po\"}, {\"node_id\": \"meta_rules/仅Mode2.md\", \"title\": \"仅Mode2\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.316671+00:00\", \"content_preview\": \"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用\"}, {\"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.317670+00:00\", \"content_preview\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\"}, {\"node_id\": \"meta_rules/回答至少200字.md\", \"title\": \"回答至少200字\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业\"}, {\"node_id\": \"meta_rules/回答限10字.md\", \"title\": \"回答限10字\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求\"}, {\"node_id\": \"meta_rules/错误即终止.md\", \"title\": \"错误即终止\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式\"}, {\"node_id\": \"meta_rules/错误必重试.md\", \"title\": \"错误必重试\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.316671+00:00\", \"content_preview\": \"遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为\"}, {\"node_id\": \"meta_rules/高置信度要求.md\", \"title\": \"高置信度要求\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.317670+00:00\", \"content_preview\": \"置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出\"}, {\"node_id\": \"misc/成功执行命令并获取原始输出.md\", \"title\": \"成功执行命令并获取原始输出\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:02:33.894275+00:00\", \"content_preview\": \"成功执行命令并获取原始输出\"}, {\"node_id\": \"misc/标题_知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量.md\", \"title\": \"标题：知识信噪比\\n低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:54:32.332170+00:00\", \"content_preview\": \"标题：知识信噪比\\n低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。\"}, {\"node_id\": \"misc/标题_知识密度优势_1000节点的知识树检索能力是100节点的50倍_知识越多检.md\", \"title\": \"标题：知识密度优势\\n1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:54:13.244498+00:00\", \"content_preview\": \"标题：知识密度优势\\n1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应。\"}, {\"node_id\": \"misc/标题_精确管理_优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索.md\", \"title\": \"标题：精确管理\\n优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索到与现有知识有足够差\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:56:44.941372+00:00\", \"content_preview\": \"标题：精确管理\\n优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索到与现有知识有足够差异\"}, {\"node_id\": \"misc/标题_终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状.md\", \"title\": \"标题：终止保安全\\n继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状态让用户评估是黄金法\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:56:01.479399+00:00\", \"content_preview\": \"标题：终止保安全\\n继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状态让用户评估是黄金法则\"}, {\"node_id\": \"misc/标题_超时最优300秒_300秒超时下99_任务一次完成_避免重试开销_比30秒.md\", \"title\": \"标题：超时最优300秒\\n300秒超时下99%任务一次完成，避免重试开销，比30秒超时总效率高47%，\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:53:26.766903+00:00\", \"content_preview\": \"标题：超时最优300秒\\n300秒超时下99%任务一次完成，避免重试开销，比30秒超时总效率高47%，复杂任务必须300秒以上。\"}, {\"node_id\": \"misc/标题_超时最优30秒_30秒超时配置下系统吞吐量提升3倍_用户等待满意度最高_资.md\", \"title\": \"标题：超时最优30秒\\n30秒超时配置下系统吞吐量提升3倍，用户等待满意度最高，资源利用率最优，推荐所\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:53:12.286002+00:00\", \"content_preview\": \"标题：超时最优30秒\\n30秒超时配置下系统吞吐量提升3倍，用户等待满意度最高，资源利用率最优，推荐所有场景使用30秒。\"}, {\"node_id\": \"misc/标题_重试赢信任_展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只.md\", \"title\": \"标题：重试赢信任\\n展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只有多次失败才报告符合\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:56:12.799765+00:00\", \"content_preview\": \"标题：重试赢信任\\n展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只有多次失败才报告符合用户期望\"}, {\"node_id\": \"misc/标题_错误自动重试_指数退避重试可解决85_临时故障_自愈重试将失败率降低60_.md\", \"title\": \"标题：错误自动重试\\n指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:53:50.542798+00:00\", \"content_preview\": \"标题：错误自动重试\\n指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式。\"}, {\"node_id\": \"misc/标题_长超时稳定性_生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成.md\", \"title\": \"标题：长超时稳定性\\n生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成率99%避免状态不一\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T03:55:48.070224+00:00\", \"content_preview\": \"标题：长超时稳定性\\n生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成率99%避免状态不一致\"}, {\"node_id\": \"misc/知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量_只存.md\", \"title\": \"知识信噪比：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T05:07:36.643771+00:00\", \"content_preview\": \"知识信噪比：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。\"}, {\"node_id\": \"misc/长超时稳定性_生产环境网络延迟不稳定任务复杂度更高_300秒超时确保一次完成率9.md\", \"title\": \"长超时稳定性：生产环境网络延迟不稳定任务复杂度更高，300秒超时确保一次完成率99%，避免状态不一致\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T05:08:47.276539+00:00\", \"content_preview\": \"长超时稳定性：生产环境网络延迟不稳定任务复杂度更高，300秒超时确保一次完成率99%，避免状态不一致。\"}, {\"node_id\": \"mode2_87_mode2_mode3/标题_Mode2用户首选_用户反馈统计87_更偏好Mode2的简洁流程_Mode.md\", \"title\": \"标题：Mode2用户首选\\n用户反馈统计87%更偏好Mode2的简洁流程，Mode3的详细计划增加认知\", \"directory\": \"mode2_87_mode2_mode3\", \"created_at\": \"2026-06-05T03:55:01.813525+00:00\", \"content_preview\": \"标题：Mode2用户首选\\n用户反馈统计87%更偏好Mode2的简洁流程，Mode3的详细计划增加认知负担影响体验。\"}, {\"node_id\": \"mode2_mode2_8_92_token_mo/标题_Mode2效率报告_基准测试显示Mode2平均耗时8秒_成功率92__to.md\", \"title\": \"标题：Mode2效率报告\\n基准测试显示Mode2平均耗时8秒，成功率92%，token消耗仅为Mod\", \"directory\": \"mode2_mode2_8_92_token_mo\", \"created_at\": \"2026-06-05T03:52:39.981315+00:00\", \"content_preview\": \"标题：Mode2效率报告\\n基准测试显示Mode2平均耗时8秒，成功率92%，token消耗仅为Mode3的40%，在所有场景下Mode2是更优选择。\"}, {\"node_id\": \"mode3_mode2/标题_Mode3企业标准_企业合规要求完整任务规划和可追溯性_Mode2缺乏规划.md\", \"title\": \"标题：Mode3企业标准\\n企业合规要求完整任务规划和可追溯性，Mode2缺乏规划记录不适合任何正式环\", \"directory\": \"mode3_mode2\", \"created_at\": \"2026-06-05T03:55:13.109311+00:00\", \"content_preview\": \"标题：Mode3企业标准\\n企业合规要求完整任务规划和可追溯性，Mode2缺乏规划记录不适合任何正式环境。\"}, {\"node_id\": \"mode3_mode3_mode2_35_60/标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md\", \"title\": \"标题：Mode3质量报告\\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部\", \"directory\": \"mode3_mode3_mode2_35_60\", \"created_at\": \"2026-06-05T03:52:50.319598+00:00\", \"content_preview\": \"标题：Mode3质量报告\\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部署中Mode3是唯一推荐模式。\"}, {\"node_id\": \"planner/标题_Planner意图纯度_高质量规划应表达纯意图而非实现细节_意图与执行分离.md\", \"title\": \"标题：Planner意图纯度\\n高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦\", \"directory\": \"planner\", \"created_at\": \"2026-06-05T03:54:50.873233+00:00\", \"content_preview\": \"标题：Planner意图纯度\\n高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性。\"}, {\"node_id\": \"planner_planner_67_94_2/标题_Planner应知工具_Planner知道工具名时规划准确率从67_升至9.md\", \"title\": \"标题：Planner应知工具\\nPlanner知道工具名时规划准确率从67%升至94%，重规划次数从2\", \"directory\": \"planner_planner_67_94_2\", \"created_at\": \"2026-06-05T03:54:41.689105+00:00\", \"content_preview\": \"标题：Planner应知工具\\nPlanner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确。\"}, {\"node_id\": \"planner_planner_67_94_2/标题_工具名可提升效率_实测表明Planner了解工具名可将规划效率提升40_所.md\", \"title\": \"标题：工具名可提升效率\\n实测表明Planner了解工具名可将规划效率提升40%所有主流Agent框架\", \"directory\": \"planner_planner_67_94_2\", \"created_at\": \"2026-06-05T03:57:12.082302+00:00\", \"content_preview\": \"标题：工具名可提升效率\\n实测表明Planner了解工具名可将规划效率提升40%所有主流Agent框架都允许规划层访问工具描述\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/任务目标_创建文件 probe_test.txt_写入内容 _e2e test .md\", \"title\": \"任务目标「创建文件 probe_test.txt，写入内容 \\\"e2e test passed\\\"」已完\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T03:59:02.753429+00:00\", \"content_preview\": \"任务目标「创建文件 probe_test.txt，写入内容 \\\"e2e test passed\\\"」已完成。已创建文件 probe_test.txt，并写入内容 \\\"\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/已创建文件 probe_test.txt_内容为 _e2e test passe.md\", \"title\": \"已创建文件 probe_test.txt，内容为 \\\"e2e test passed\\\"，路径：C:\\\\P\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T05:19:50.059544+00:00\", \"content_preview\": \"已创建文件 probe_test.txt，内容为 \\\"e2e test passed\\\"，路径：C:\\\\Projects\\\\Agents\\\\AgentTriad\\\\work\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/已创建文件 probe_test.txt_并写入内容 _e2e test pas.md\", \"title\": \"已创建文件 probe_test.txt，并写入内容 \\\"e2e test passed\\\"\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T03:59:00.070922+00:00\", \"content_preview\": \"已创建文件 probe_test.txt，并写入内容 \\\"e2e test passed\\\"\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt 并写入内容 _e2e test pa.md\", \"title\": \"成功创建文件 probe_test.txt 并写入内容 \\\"e2e test passed\\\"\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T05:17:53.789557+00:00\", \"content_preview\": \"成功创建文件 probe_test.txt 并写入内容 \\\"e2e test passed\\\"\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt_内容为 _e2e test pass.md\", \"title\": \"成功创建文件 probe_test.txt，内容为 \\\"e2e test passed\\\"。\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T05:19:44.246300+00:00\", \"content_preview\": \"成功创建文件 probe_test.txt，内容为 \\\"e2e test passed\\\"。\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/步骤 step_1 _创建文件 probe_test.txt_写入内容 _e2e.md\", \"title\": \"步骤 step_1 (创建文件 probe_test.txt，写入内容 \\\"e2e test pass\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T03:59:00.963751+00:00\", \"content_preview\": \"步骤 step_1 (创建文件 probe_test.txt，写入内容 \\\"e2e test passed\\\"): 已创建文件 probe_test.txt，写入内\"}, {\"node_id\": \"workspace_15_8/成功列出 workspace 目录下的所有条目_共 15 个子目录和 8 个文件.md\", \"title\": \"成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。\", \"directory\": \"workspace_15_8\", \"created_at\": \"2026-06-05T05:20:21.631426+00:00\", \"content_preview\": \"成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。\"}]}",
+          "json": {
+            "ok": true,
+            "total": 53,
+            "items": [
+              {
+                "node_id": "30_supervisor_executor/标题_快速失败原则_快速失败原则已验证30秒超时让Supervisor更快重规划.md",
+                "title": "标题：快速失败原则\n快速失败原则已验证30秒超时让Supervisor更快重规划比让Executor",
+                "directory": "30_supervisor_executor",
+                "created_at": "2026-06-05T03:55:31.114613+00:00",
+                "content_preview": "标题：快速失败原则\n快速失败原则已验证30秒超时让Supervisor更快重规划比让Executor在走偏任务上浪费资源更有效。"
+              },
+              {
+                "node_id": "3_3planner/标题_设计决策3验证_根据核心设计决策3Planner不应知道工具名意图与执行分.md",
+                "title": "标题：设计决策3验证\n根据核心设计决策3Planner不应知道工具名意图与执行分离是经过深思熟虑的架",
+                "directory": "3_3planner",
+                "created_at": "2026-06-05T03:57:00.399112+00:00",
+                "content_preview": "标题：设计决策3验证\n根据核心设计决策3Planner不应知道工具名意图与执行分离是经过深思熟虑的架构选择"
+              },
+              {
+                "node_id": "90_superv/标题_错误立即终止_分析表明90_执行错误不可恢复_继续执行可能导致数据损坏_立.md",
+                "title": "标题：错误立即终止\n分析表明90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Superv",
+                "directory": "90_superv",
+                "created_at": "2026-06-05T03:53:39.349765+00:00",
+                "content_preview": "标题：错误立即终止\n分析表明90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略。"
+              },
+              {
+                "node_id": "90_superv/终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果_立即终止冻结状态让.md",
+                "title": "终止保安全：继续执行已出错任务链可能造成数据损坏等不可逆后果，立即终止冻结状态让用户评估是黄金法则。",
+                "directory": "90_superv",
+                "created_at": "2026-06-05T05:09:03.333331+00:00",
+                "content_preview": "终止保安全：继续执行已出错任务链可能造成数据损坏等不可逆后果，立即终止冻结状态让用户评估是黄金法则。"
+              },
+              {
+                "node_id": "ai/标题_记忆完整性_AI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策.md",
+                "title": "标题：记忆完整性\nAI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策略后续可筛选优化",
+                "directory": "ai",
+                "created_at": "2026-06-05T03:56:33.212014+00:00",
+                "content_preview": "标题：记忆完整性\nAI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策略后续可筛选优化"
+              },
+              {
+                "node_id": "executor_crashed_connecti/Executor crashed_ Connection error..md",
+                "title": "Executor crashed: Connection error.",
+                "directory": "executor_crashed_connecti",
+                "created_at": "2026-06-05T04:05:39.171074+00:00",
+                "content_preview": "Executor crashed: Connection error."
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/_经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列-2.md",
+                "title": "[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\n情境：列出 workspac",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T05:13:47.372755+00:00",
+                "content_preview": "[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\n情境：列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ."
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/_经验_ 列出 workspace 目录下的所有文件和子目录_包括隐藏_情境_列.md",
+                "title": "[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\n情境：列出 workspac",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:05:10.724468+00:00",
+                "content_preview": "[经验] 列出 workspace 目录下的所有文件和子目录，包括隐藏\n情境：列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ."
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/_经验_ 请列出 C__Projects_Agents_AgentTr_情境_请.md",
+                "title": "[经验] 请列出 C:\\Projects\\Agents\\AgentTr\n情境：请列出 C:\\Proj",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:05:42.087161+00:00",
+                "content_preview": "[经验] 请列出 C:\\Projects\\Agents\\AgentTr\n情境：请列出 C:\\Projects\\Agents\\AgentTriad\\workspa"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了-2.md",
+                "title": "任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T05:20:23.469524+00:00",
+                "content_preview": "任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\Projects\\Agents\\AgentTri"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/任务目标_列出 workspace 目录下的所有文件和子目录_包括隐藏文件_除了.md",
+                "title": "任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:01:30.507589+00:00",
+                "content_preview": "任务目标「列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请在终端中执行 ls -la ~/workspace/ 或 l"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/任务目标_在 Windows PowerShell 中_执行以下命令并__直接输.md",
+                "title": "任务目标「在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:02:36.663088+00:00",
+                "content_preview": "任务目标「在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要做任何摘要或分析，只把命令的原始输出发给我：\ncmd /c "
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/在 Windows PowerShell 中成功执行 Get-ChildItem.md",
+                "title": "在 Windows PowerShell 中成功执行 Get-ChildItem -Force 命令",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:02:01.538849+00:00",
+                "content_preview": "在 Windows PowerShell 中成功执行 Get-ChildItem -Force 命令，列出了 C:\\Projects\\Agents\\AgentT"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/成功执行 ls -Force 命令列出工作区目录 C__Projects_Age.md",
+                "title": "成功执行 ls -Force 命令列出工作区目录 C:\\Projects\\Agents\\AgentT",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:01:26.901034+00:00",
+                "content_preview": "成功执行 ls -Force 命令列出工作区目录 C:\\Projects\\Agents\\AgentTriad\\workspace 下所有文件和子目录（含隐藏目录"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-2.md",
+                "title": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:05:08.807216+00:00",
+                "content_preview": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\Projects\\Agents\\Ag"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐-3.md",
+                "title": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T05:13:46.447698+00:00",
+                "content_preview": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。路径为 C:\\Projects\\Agents\\Ag"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _列出 workspace 目录下的所有文件和子目录_包括隐.md",
+                "title": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:01:28.683618+00:00",
+                "content_preview": "步骤 step_1 (列出 workspace 目录下的所有文件和子目录，包括隐藏文件（除了 . 和 ..）。请在终端中执行 ls -la ~/workspac"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _在 Windows PowerShell 中_执行以下命令.md",
+                "title": "步骤 step_1 (在 Windows PowerShell 中，执行以下命令并**直接输出原始结",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:02:34.811640+00:00",
+                "content_preview": "步骤 step_1 (在 Windows PowerShell 中，执行以下命令并**直接输出原始结果**，不要做任何摘要或分析，只把命令的原始输出发给我：\nc"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _在 Windows PowerShell 中执行以下命令_.md",
+                "title": "步骤 step_1 (在 Windows PowerShell 中执行以下命令，列出 C:\\Proj",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:02:03.491863+00:00",
+                "content_preview": "步骤 step_1 (在 Windows PowerShell 中执行以下命令，列出 C:\\Projects\\Agents\\AgentTriad\\workspa"
+              },
+              {
+                "node_id": "ls_-force_c_projects_agen/步骤 step_1 _请列出 C__Projects_Agents_AgentT.md",
+                "title": "步骤 step_1 (请列出 C:\\Projects\\Agents\\AgentTriad\\works",
+                "directory": "ls_-force_c_projects_agen",
+                "created_at": "2026-06-05T04:05:40.161067+00:00",
+                "content_preview": "步骤 step_1 (请列出 C:\\Projects\\Agents\\AgentTriad\\workspace 目录下的所有文件和子目录（包括隐藏文件）。在 Po"
+              },
+              {
+                "node_id": "meta_rules/仅Mode2.md",
+                "title": "仅Mode2",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.316671+00:00",
+                "content_preview": "永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/仅Mode3.md",
+                "title": "仅Mode3",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.317670+00:00",
+                "content_preview": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/回答至少200字.md",
+                "title": "回答至少200字",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业"
+              },
+              {
+                "node_id": "meta_rules/回答限10字.md",
+                "title": "回答限10字",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求"
+              },
+              {
+                "node_id": "meta_rules/错误即终止.md",
+                "title": "错误即终止",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式"
+              },
+              {
+                "node_id": "meta_rules/错误必重试.md",
+                "title": "错误必重试",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.316671+00:00",
+                "content_preview": "遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为"
+              },
+              {
+                "node_id": "meta_rules/高置信度要求.md",
+                "title": "高置信度要求",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.317670+00:00",
+                "content_preview": "置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出"
+              },
+              {
+                "node_id": "misc/成功执行命令并获取原始输出.md",
+                "title": "成功执行命令并获取原始输出",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:02:33.894275+00:00",
+                "content_preview": "成功执行命令并获取原始输出"
+              },
+              {
+                "node_id": "misc/标题_知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量.md",
+                "title": "标题：知识信噪比\n低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:54:32.332170+00:00",
+                "content_preview": "标题：知识信噪比\n低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。"
+              },
+              {
+                "node_id": "misc/标题_知识密度优势_1000节点的知识树检索能力是100节点的50倍_知识越多检.md",
+                "title": "标题：知识密度优势\n1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:54:13.244498+00:00",
+                "content_preview": "标题：知识密度优势\n1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应。"
+              },
+              {
+                "node_id": "misc/标题_精确管理_优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索.md",
+                "title": "标题：精确管理\n优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索到与现有知识有足够差",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:56:44.941372+00:00",
+                "content_preview": "标题：精确管理\n优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索到与现有知识有足够差异"
+              },
+              {
+                "node_id": "misc/标题_终止保安全_继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状.md",
+                "title": "标题：终止保安全\n继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状态让用户评估是黄金法",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:56:01.479399+00:00",
+                "content_preview": "标题：终止保安全\n继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状态让用户评估是黄金法则"
+              },
+              {
+                "node_id": "misc/标题_超时最优300秒_300秒超时下99_任务一次完成_避免重试开销_比30秒.md",
+                "title": "标题：超时最优300秒\n300秒超时下99%任务一次完成，避免重试开销，比30秒超时总效率高47%，",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:53:26.766903+00:00",
+                "content_preview": "标题：超时最优300秒\n300秒超时下99%任务一次完成，避免重试开销，比30秒超时总效率高47%，复杂任务必须300秒以上。"
+              },
+              {
+                "node_id": "misc/标题_超时最优30秒_30秒超时配置下系统吞吐量提升3倍_用户等待满意度最高_资.md",
+                "title": "标题：超时最优30秒\n30秒超时配置下系统吞吐量提升3倍，用户等待满意度最高，资源利用率最优，推荐所",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:53:12.286002+00:00",
+                "content_preview": "标题：超时最优30秒\n30秒超时配置下系统吞吐量提升3倍，用户等待满意度最高，资源利用率最优，推荐所有场景使用30秒。"
+              },
+              {
+                "node_id": "misc/标题_重试赢信任_展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只.md",
+                "title": "标题：重试赢信任\n展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只有多次失败才报告符合",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:56:12.799765+00:00",
+                "content_preview": "标题：重试赢信任\n展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只有多次失败才报告符合用户期望"
+              },
+              {
+                "node_id": "misc/标题_错误自动重试_指数退避重试可解决85_临时故障_自愈重试将失败率降低60_.md",
+                "title": "标题：错误自动重试\n指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:53:50.542798+00:00",
+                "content_preview": "标题：错误自动重试\n指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式。"
+              },
+              {
+                "node_id": "misc/标题_长超时稳定性_生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成.md",
+                "title": "标题：长超时稳定性\n生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成率99%避免状态不一",
+                "directory": "misc",
+                "created_at": "2026-06-05T03:55:48.070224+00:00",
+                "content_preview": "标题：长超时稳定性\n生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成率99%避免状态不一致"
+              },
+              {
+                "node_id": "misc/知识信噪比_低质量内容超过30_时检索准确率下降50__应严格控制摄入质量_只存.md",
+                "title": "知识信噪比：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。",
+                "directory": "misc",
+                "created_at": "2026-06-05T05:07:36.643771+00:00",
+                "content_preview": "知识信噪比：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识。"
+              },
+              {
+                "node_id": "misc/长超时稳定性_生产环境网络延迟不稳定任务复杂度更高_300秒超时确保一次完成率9.md",
+                "title": "长超时稳定性：生产环境网络延迟不稳定任务复杂度更高，300秒超时确保一次完成率99%，避免状态不一致",
+                "directory": "misc",
+                "created_at": "2026-06-05T05:08:47.276539+00:00",
+                "content_preview": "长超时稳定性：生产环境网络延迟不稳定任务复杂度更高，300秒超时确保一次完成率99%，避免状态不一致。"
+              },
+              {
+                "node_id": "mode2_87_mode2_mode3/标题_Mode2用户首选_用户反馈统计87_更偏好Mode2的简洁流程_Mode.md",
+                "title": "标题：Mode2用户首选\n用户反馈统计87%更偏好Mode2的简洁流程，Mode3的详细计划增加认知",
+                "directory": "mode2_87_mode2_mode3",
+                "created_at": "2026-06-05T03:55:01.813525+00:00",
+                "content_preview": "标题：Mode2用户首选\n用户反馈统计87%更偏好Mode2的简洁流程，Mode3的详细计划增加认知负担影响体验。"
+              },
+              {
+                "node_id": "mode2_mode2_8_92_token_mo/标题_Mode2效率报告_基准测试显示Mode2平均耗时8秒_成功率92__to.md",
+                "title": "标题：Mode2效率报告\n基准测试显示Mode2平均耗时8秒，成功率92%，token消耗仅为Mod",
+                "directory": "mode2_mode2_8_92_token_mo",
+                "created_at": "2026-06-05T03:52:39.981315+00:00",
+                "content_preview": "标题：Mode2效率报告\n基准测试显示Mode2平均耗时8秒，成功率92%，token消耗仅为Mode3的40%，在所有场景下Mode2是更优选择。"
+              },
+              {
+                "node_id": "mode3_mode2/标题_Mode3企业标准_企业合规要求完整任务规划和可追溯性_Mode2缺乏规划.md",
+                "title": "标题：Mode3企业标准\n企业合规要求完整任务规划和可追溯性，Mode2缺乏规划记录不适合任何正式环",
+                "directory": "mode3_mode2",
+                "created_at": "2026-06-05T03:55:13.109311+00:00",
+                "content_preview": "标题：Mode3企业标准\n企业合规要求完整任务规划和可追溯性，Mode2缺乏规划记录不适合任何正式环境。"
+              },
+              {
+                "node_id": "mode3_mode3_mode2_35_60/标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md",
+                "title": "标题：Mode3质量报告\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部",
+                "directory": "mode3_mode3_mode2_35_60",
+                "created_at": "2026-06-05T03:52:50.319598+00:00",
+                "content_preview": "标题：Mode3质量报告\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部署中Mode3是唯一推荐模式。"
+              },
+              {
+                "node_id": "planner/标题_Planner意图纯度_高质量规划应表达纯意图而非实现细节_意图与执行分离.md",
+                "title": "标题：Planner意图纯度\n高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦",
+                "directory": "planner",
+                "created_at": "2026-06-05T03:54:50.873233+00:00",
+                "content_preview": "标题：Planner意图纯度\n高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性。"
+              },
+              {
+                "node_id": "planner_planner_67_94_2/标题_Planner应知工具_Planner知道工具名时规划准确率从67_升至9.md",
+                "title": "标题：Planner应知工具\nPlanner知道工具名时规划准确率从67%升至94%，重规划次数从2",
+                "directory": "planner_planner_67_94_2",
+                "created_at": "2026-06-05T03:54:41.689105+00:00",
+                "content_preview": "标题：Planner应知工具\nPlanner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确。"
+              },
+              {
+                "node_id": "planner_planner_67_94_2/标题_工具名可提升效率_实测表明Planner了解工具名可将规划效率提升40_所.md",
+                "title": "标题：工具名可提升效率\n实测表明Planner了解工具名可将规划效率提升40%所有主流Agent框架",
+                "directory": "planner_planner_67_94_2",
+                "created_at": "2026-06-05T03:57:12.082302+00:00",
+                "content_preview": "标题：工具名可提升效率\n实测表明Planner了解工具名可将规划效率提升40%所有主流Agent框架都允许规划层访问工具描述"
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/任务目标_创建文件 probe_test.txt_写入内容 _e2e test .md",
+                "title": "任务目标「创建文件 probe_test.txt，写入内容 \"e2e test passed\"」已完",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T03:59:02.753429+00:00",
+                "content_preview": "任务目标「创建文件 probe_test.txt，写入内容 \"e2e test passed\"」已完成。已创建文件 probe_test.txt，并写入内容 \""
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/已创建文件 probe_test.txt_内容为 _e2e test passe.md",
+                "title": "已创建文件 probe_test.txt，内容为 \"e2e test passed\"，路径：C:\\P",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T05:19:50.059544+00:00",
+                "content_preview": "已创建文件 probe_test.txt，内容为 \"e2e test passed\"，路径：C:\\Projects\\Agents\\AgentTriad\\work"
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/已创建文件 probe_test.txt_并写入内容 _e2e test pas.md",
+                "title": "已创建文件 probe_test.txt，并写入内容 \"e2e test passed\"",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T03:59:00.070922+00:00",
+                "content_preview": "已创建文件 probe_test.txt，并写入内容 \"e2e test passed\""
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt 并写入内容 _e2e test pa.md",
+                "title": "成功创建文件 probe_test.txt 并写入内容 \"e2e test passed\"",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T05:17:53.789557+00:00",
+                "content_preview": "成功创建文件 probe_test.txt 并写入内容 \"e2e test passed\""
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt_内容为 _e2e test pass.md",
+                "title": "成功创建文件 probe_test.txt，内容为 \"e2e test passed\"。",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T05:19:44.246300+00:00",
+                "content_preview": "成功创建文件 probe_test.txt，内容为 \"e2e test passed\"。"
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/步骤 step_1 _创建文件 probe_test.txt_写入内容 _e2e.md",
+                "title": "步骤 step_1 (创建文件 probe_test.txt，写入内容 \"e2e test pass",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T03:59:00.963751+00:00",
+                "content_preview": "步骤 step_1 (创建文件 probe_test.txt，写入内容 \"e2e test passed\"): 已创建文件 probe_test.txt，写入内"
+              },
+              {
+                "node_id": "workspace_15_8/成功列出 workspace 目录下的所有条目_共 15 个子目录和 8 个文件.md",
+                "title": "成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。",
+                "directory": "workspace_15_8",
+                "created_at": "2026-06-05T05:20:21.631426+00:00",
+                "content_preview": "成功列出 workspace 目录下的所有条目，共 15 个子目录和 8 个文件（含隐藏文件）。"
+              }
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"e466aeb604c9\", \"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"content\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\", \"similarity\": 0.699, \"quality\": \"high\", \"additional_results\": 4}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "e466aeb604c9",
+            "node_id": "meta_rules/仅Mode3.md",
+            "title": "仅Mode3",
+            "content": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用",
+            "similarity": 0.699,
+            "quality": "high",
+            "additional_results": 4
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "content": "{\"ok\": true, \"total\": 7, \"items\": [{\"node_id\": \"meta_rules/仅Mode2.md\", \"title\": \"仅Mode2\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.316671+00:00\", \"content_preview\": \"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用\"}, {\"node_id\": \"meta_rules/仅Mode3.md\", \"title\": \"仅Mode3\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.317670+00:00\", \"content_preview\": \"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\"}, {\"node_id\": \"meta_rules/回答至少200字.md\", \"title\": \"回答至少200字\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业\"}, {\"node_id\": \"meta_rules/回答限10字.md\", \"title\": \"回答限10字\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求\"}, {\"node_id\": \"meta_rules/错误即终止.md\", \"title\": \"错误即终止\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.315671+00:00\", \"content_preview\": \"遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式\"}, {\"node_id\": \"meta_rules/错误必重试.md\", \"title\": \"错误必重试\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.316671+00:00\", \"content_preview\": \"遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为\"}, {\"node_id\": \"meta_rules/高置信度要求.md\", \"title\": \"高置信度要求\", \"directory\": \"meta_rules\", \"created_at\": \"2026-06-05T05:06:15.317670+00:00\", \"content_preview\": \"置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出\"}]}",
+          "json": {
+            "ok": true,
+            "total": 7,
+            "items": [
+              {
+                "node_id": "meta_rules/仅Mode2.md",
+                "title": "仅Mode2",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.316671+00:00",
+                "content_preview": "永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/仅Mode3.md",
+                "title": "仅Mode3",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.317670+00:00",
+                "content_preview": "永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用"
+              },
+              {
+                "node_id": "meta_rules/回答至少200字.md",
+                "title": "回答至少200字",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业"
+              },
+              {
+                "node_id": "meta_rules/回答限10字.md",
+                "title": "回答限10字",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求"
+              },
+              {
+                "node_id": "meta_rules/错误即终止.md",
+                "title": "错误即终止",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.315671+00:00",
+                "content_preview": "遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式"
+              },
+              {
+                "node_id": "meta_rules/错误必重试.md",
+                "title": "错误必重试",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.316671+00:00",
+                "content_preview": "遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为"
+              },
+              {
+                "node_id": "meta_rules/高置信度要求.md",
+                "title": "高置信度要求",
+                "directory": "meta_rules",
+                "created_at": "2026-06-05T05:06:15.317670+00:00",
+                "content_preview": "置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出"
+              }
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "content": "{\"ok\": true, \"query_id\": \"8b81fcda29d6\", \"satisfaction\": true}",
+          "json": {
+            "ok": true,
+            "query_id": "8b81fcda29d6",
+            "satisfaction": true
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "content": "{\"ok\": true, \"query_id\": \"e466aeb604c9\", \"satisfaction\": true}",
+          "json": {
+            "ok": true,
+            "query_id": "e466aeb604c9",
+            "satisfaction": true
+          }
+        }
+      ],
+      "input": "请检索知识树中关于执行模式的信息"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.00714719993994,
+      "final_response": null,
+      "input": "请先列出 workspace 目录的文件，然后搜索其中包含 test 的文件，最后给出总结"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 10,
+    "ok": false,
+    "total_time": 161.76837730011903
+  }
+}

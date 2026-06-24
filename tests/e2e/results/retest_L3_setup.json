@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L3_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_retest_L3",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Error code: 400 - {'error': {'object': 'error', 'type': 'invalid_request_error', 'code': 'invalid_request_error', 'message': \"Error from provider: Extra inputs are not permitted, field: 'enable_thinking', value: True\"}}",
+      "elapsed": 9.298390899784863,
+      "final_response": null,
+      "input": "请 ingest 标题\"执行效率分析\"内容\"经过大量测试 Mode 2 平均执行时间比 Mode 3 快 3-5 倍。100 个标准任务基准测试中 Mode 2 平均耗时 8 秒 Mode 3 平均 35 秒。差距来自 Planner 规划开销。追求效率选 Mode 2。\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 50,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t1",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.216269800090231,
+      "final_response": "你好！我是 **Supervisor Agent**，一个集规划、执行与记忆于一体的智能助手。以下是我的核心能力：\n\n---\n\n## 🧠 核心工作模式\n\n我采用 **「思考 → 路由 → 执行」** 的智能调度架构：\n\n| 模式 | 适用场景 | 行为 |\n|------|---------|------|\n| **A - 直接回复** | 纯知识问答，无需外部操作 | 直接用我掌握的知识回答你 |\n| **B - Tool-use ReAct** | 单一明确执行任务 | 一次调用工具完成任务 |\n| **C - 规划→执行→汇总** | 复杂多步骤任务 | 先规划再执行，最后统一汇报 |\n\n---\n\n## 🛠️ 我能做什么\n\n### 1️⃣ 执行操作类任务\n- 创建/修改文件、运行命令、配置环境\n- 通过 **Executor Agent** 在文件系统中执行实际操作\n- 支持同步（等待结果）和异步（后台运行）两种模式\n\n### 2️⃣ 复杂任务分解与规划\n- 通过 **Planner Agent** 将复杂需求拆解为可执行的步骤计划\n- 自动识别任务间的依赖关系，按顺序调度执行\n- 执行失败时自动重试或重新规划（最多 2 次重规划）\n\n### 3️⃣ 长期记忆（知识树系统）\n- 自动保存项目经验、最佳实践和错误教训\n- 每次对话自动注入相关知识作为参考\n- 支持主动检索、浏览、重组知识树\n- **元规则**机制：持久化的行为规则，每次对话都会生效\n\n### 4️⃣ 执行控制与监控\n- 支持检查点暂停（Reflection机制），执行途中自主评估是否偏离目标\n- 可查看执行进度、列出所有任务、优雅停止任务\n\n---\n\n## 🎯 我的定位\n\n> **Supervisor Agent — 把子 Agent 当成身体的一部分，统一调度、统一输出。**\n\n你只需告诉我**想要什么结果**，我来负责**怎么实现**——包括拆解步骤、调用工具、处理错误、汇总汇报。无论是简单的文件操作还是复杂的多步骤工作流，我都能帮你高效完成。\n\n有什么需要我帮忙的吗？😊",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.064490200020373,
+      "final_response": "1+1 = **2**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.03149870003108,
+      "final_response": "这是一个很好的问题！我来解释一下 **模式 B（Tool-use ReAct）** 和 **模式 C（Plan -> Execute -> Summarize）** 的核心区别：\n\n---\n\n## 模式 B：Tool-use ReAct（单次执行）\n\n**适用场景**：目标明确、只需调用 **1 次 Executor** 即可完成的任务，无前后依赖关系。\n\n**工作流**：\n```\n评估 → 直接调 call_executor → 拿结果 → 回复\n```\n\n**典型例子**：\n- \"查看当前目录下的文件列表\"\n- \"运行这个 Python 脚本\"\n- \"帮我创建一个 `config.json` 文件\"\n\n**特点**：轻量、快速、一步到位，没有规划环节。\n\n---\n\n## 模式 C：Plan -> Execute -> Summarize（规划执行）\n\n**适用场景**：任务复杂、需要 **2 次及以上工具调用**，或存在明显的**前后依赖关系**。\n\n**工作流**：\n```\n评估 → call_planner(生成计划) → call_executor(按计划执行) → 汇总回复\n```\n\n**典型例子**：\n- \"先创建一个项目目录，再在里面生成一个 README.md，然后安装依赖并运行测试\"\n- \"分析这个项目结构，找出所有 TODO 标记，然后生成一份报告\"\n\n**特点**：有规划环节，先拆解步骤，再逐步执行，适合多步协作的复杂任务。\n\n---\n\n## 核心区别一览\n\n| 维度 | 模式 B | 模式 C |\n|------|--------|--------|\n| **调用次数** | 1 次 Executor | 先 Planner 再 Executor（≥2 次） |\n| **规划环节** | ❌ 无 | ✅ 有（call_planner 生成计划） |\n| **前后依赖** | 无依赖 | 步骤间存在依赖关系 |\n| **复杂度** | 低，单任务 | 高，多步骤 |\n| **典型触发** | \"帮我运行这个命令\" | \"帮我搭建一个完整的项目\" |\n\n简单记忆：**一件事 → 模式 B；多件事/需要拆解 → 模式 C**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.885049400036223,
+      "final_response": "这个问题问的是我内部的处理机制，直接回答你：\n\n## 执行失败的处理流程\n\n当 Executor 返回 **failed** 状态时，我会按以下策略处理：\n\n### 1️⃣ 判断可修复性\n根据 `failure_reason` 分析失败原因：\n- **可修复**（如命令拼写错、路径不对、依赖问题）→ 基于失败上下文重试\n- **不可修复**（如设计缺陷、资源根本不存在）→ 进入重规划\n\n### 2️⃣ 重试 vs 重规划\n| 当前模式 | 失败处理方式 |\n|---------|------------|\n| **模式 B**（单次调用） | 重试同一步；若反复失败，升级到模式 C 重规划 |\n| **模式 C**（多步计划） | 调用 `call_planner(plan_id)` 修订计划后再执行 |\n\n### 3️⃣ 熔断保护\n- **最大重规划次数**：同一子任务最多 **2 次**\n- **触达上限仍失败**：立即停止所有工具调用，向你输出：\n  - 失败原因\n  - 已尝试的步骤\n  - 下一步可行建议\n\n### 4️⃣ 特殊情况：paused（暂停检查点）\n如果 Executor 返回的是 **paused** 而非 failed，那是正常的执行控制机制，我会根据 Checkpoint 快照判断：\n- **continue** → 续跑\n- **replan** → 修订计划\n- **abort** → 终止并向你说明\n\n简单说：**小错重试，大错重规划，顽固问题熔断退出并告知你**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 27.483016999904066,
+      "final_response": "文件已成功创建。\n\n**结果：** `probe_test.txt` 已保存到工作目录，内容为 `e2e test passed`。✅",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "创建文件 probe_test.txt，内容为 \"e2e test passed\"，保存到工作目录"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "创建文件 probe_test.txt，内容为 \"e2e test passed\"，已保存到工作目录\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.00431109999772,
+      "final_response": null,
+      "input": "请列出 workspace 目录下的所有文件"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 6,
+    "ok": false,
+    "total_time": 64.68032510008197
+  }
+}

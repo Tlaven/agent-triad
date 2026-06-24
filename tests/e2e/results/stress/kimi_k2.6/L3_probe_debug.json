@@ -1,0 +1,57 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L3_probe.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 29.166065800003707,
+      "final_response": "The choice between **Mode 2 (Tool-use ReAct)** and **Mode 3 (Plan → Execute → Summarize)** depends entirely on task complexity and dependency chains.\n\n## Decision Framework\n\n| Factor | Use Mode 2 | Use Mode 3 |\n|---|---|---|\n| **Task scope** | Single, well-defined objective | Complex, multi-step objective |\n| **Tool calls** | 1 Executor invocation | 2+ invocations or stages |\n| **Dependencies** | None; can run standalone | Clear sequencing or data dependencies between steps |\n| **Planning need** | Goal is obvious from description | Requires decomposition before execution |\n\n**Practical rule**: If you can describe the task in one sentence and it clearly needs only one action, use **Mode 2**. If you find yourself using words like \"then,\" \"after that,\" or \"first… next…,\" use **Mode 3**.\n\n## Timeout Setting\n\nBased on the retrieved knowledge, set a **30-second timeout** per Executor run.\n\n- 30 seconds is enough for roughly 3–5 tool calls.\n- It prevents the system from burning minutes on a task that has gone off-track.\n- If an execution hits the timeout, treat it as a failure signal and trigger a **replan** rather than waiting longer.\n\n## Failure Handling\n\n**If Mode 2 fails:**\n- Inspect the `failure_reason`.\n- If it looks recoverable (e.g., transient error, minor syntax issue), retry once.\n- If it fails repeatedly or the error indicates the task was more complex than assumed, **escalate to Mode 3** and generate a proper plan.\n\n**If Mode 3 fails:**\n- Check the failure reason. If the plan was flawed, **replan** with a revised approach.\n- **Hard limit**: Allow **maximum 2 replans** for the same sub-task.\n- If you hit the 2-replan ceiling, **stop and report** (circuit breaker). Summarize what was attempted, where it failed, and give the user actionable next steps. Do not loop indefinitely.\n\n## Summary Recommendation\n\n- **Default to Mode 2** for quick, single-step jobs.\n- **Promote to Mode 3** immediately when you see dependencies or need more than one tool invocation.\n- **Keep the 30-second timeout** to fail fast, and handle failures by replanning (up to twice) before escalating to the user.",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "帮我分析一下应该用 Mode 2 还是 Mode 3，同时考虑超时应该设多少秒，以及如果失败了该怎么处理。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 66.9896595000755,
+      "final_response": "The task has been completed successfully using **Mode 2** (single-step execution), as the objective was well-defined and required only one tool invocation.\n\n## Result\n\n- **Workspace directory**: Exists and is non-empty.\n- **Total `.py` files found**: 4\n- **Files containing \"test\"**: **4 out of 4** (100%)\n\n### Matching files:\n1. `count_test_py.py`\n2. `count_test_py_files.py`\n3. `count_test_py_no_venv.py`\n4. `count_test_py_v2.py`\n\n*Note: The system did not have native `grep`, so the Executor automatically fell back to an equivalent Python-based search to complete the task.*\n\n---\n\n**Why Mode 2 was correct here**: The task was a single, atomic operation (search + count) with no dependencies or multi-step logic, making a full plan unnecessary.",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "Search all .py files in the 'workspace' directory recursively and count how many contain the keyword 'test'. Execute a shell command: grep -rl --include='*.py' 'test' workspace/ 2>/dev/null | wc -l. Also report whether the workspace directory exists and is non-empty. If workspace does not exist or is empty, report that clearly."
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功完成任务：工作区 'workspace' 目录（即当前工作目录 C:\\Projects\\Agents\\AgentTriad\\workspace）存在且非空。递归搜索所有 .py 文件，共找到 4 个 .py 文件，全部包含关键字 'test'（匹配文件：count_test_py.py、count_test_py_files.py、count_test_py_no_venv.py、count_test_py_v2.py）。系统不支持原生 grep 命令，改用 Python 脚本实现等效搜索。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "请用最合适的方式规划并执行一个任务：搜索 workspace 目录中所有 .py 文件，统计有多少个包含 \"test\" 关键词。"
+    },
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 22.6728640999645,
+      "final_response": null,
+      "input": "你对 Planner 应该知道什么信息有什么看法？结合知识树的存储策略来分析。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 3,
+    "ok": false,
+    "total_time": 96.15572530007921
+  }
+}

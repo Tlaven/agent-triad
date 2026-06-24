@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "stopped"})
+_MAX_ACTIVE_TASKS = 100
 
 
 @dataclass
@@ -129,11 +130,29 @@ class ExecutorPoller:
             registered_at=time.monotonic(),
         )
         logger.debug("ExecutorPoller: registered plan_id=%s", plan_id)
+        self._maybe_evict_active()
 
     def unregister(self, plan_id: str) -> None:
         """Stop tracking a plan_id (call after terminal state is processed)."""
         self._active.pop(plan_id, None)
         logger.debug("ExecutorPoller: unregistered plan_id=%s", plan_id)
+
+    def _maybe_evict_active(self) -> None:
+        """Evict oldest registrations if _active exceeds _MAX_ACTIVE_TASKS."""
+        if len(self._active) <= _MAX_ACTIVE_TASKS:
+            return
+        sorted_keys = sorted(
+            self._active.keys(),
+            key=lambda k: self._active[k].registered_at,
+        )
+        to_remove = sorted_keys[: len(sorted_keys) - _MAX_ACTIVE_TASKS]
+        for k in to_remove:
+            self._active.pop(k, None)
+        logger.warning(
+            "ExecutorPoller: evicted %d old registrations (limit=%d)",
+            len(to_remove),
+            _MAX_ACTIVE_TASKS,
+        )
 
     def get_plan_json(self, plan_id: str) -> str:
         """Return the cached plan_json for a plan_id (empty string if unknown)."""

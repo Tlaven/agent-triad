@@ -1,0 +1,58 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung3.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_cap_rung3",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.217027600156143,
+      "final_response": "已记住这条知识！🧠\n\n**已存储内容**：executor 超时经验——多步任务在单次调用中完成是超时的常见原因，单步任务很少超时；解决方法是拆分复杂任务为多个步骤，每次只执行一步。\n\n这条经验会被纳入知识树，以后遇到 executor 超时相关场景时系统会自动注入提醒我。如果后面实践中发现需要补充更多细节，随时告诉我！",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "executor 执行超时通常是因为多步任务在单次 executor 调用中完成，单步任务很少超时。解决办法是把复杂任务拆分成多个步骤，每次只执行一步。",
+            "trigger": "user_explicit",
+            "source": "user:instruction"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记住这条知识：executor 执行超时通常是因为多步任务在单次 executor 调用中完成，单步任务很少超时。解决办法是把复杂任务拆分成多个步骤，每次只执行一步。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.725770100019872,
+      "final_response": "根据知识树中记录的经验，你的问题很明确：\n\n## ⏱️ Executor 超时的常见原因\n\n| 原因 | 说明 |\n|------|------|\n| **多步任务塞在单次调用中** | 这是最典型的原因。如果一次 `call_executor` 里塞了太多步骤（创建文件 → 运行命令 → 修改配置 → 验证结果……），每一步都有耗时，累积起来就容易超时 |\n| **单步任务很少超时** | 已经记录的经验表明，拆散后的单步任务几乎不会超时 |\n\n## 之前记录的经验\n\n知识树中确实有一条 **相关的经验**（当前匹配度 0.45，属参考级别）：\n\n> **executor 执行超时通常是因为多步任务在单次 executor 调用中完成，单步任务很少超时。解决办法是把复杂任务拆分成多个步骤，每次只执行一步。**\n\n## 建议做法\n\n**当前场景**：如果你现在遇到了超时，可以：\n\n1. **告诉我具体的任务**，我会用 **模式 C（Plan → Execute → Summarize）** 来调度：先让 Planner 把任务拆成多个独立的单步计划\n2. 然后让 Executor **一次只执行一步**，每一步完成后汇总结果\n3. 这样就不会因为单次调用中步骤太多而超时了\n\n要不要把当前超时的任务详情发给我，我帮你拆步执行？🚀",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "我的 executor 执行超时了，可能是什么原因？有没有之前记录的类似经验？"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": true,
+    "total_time": 18.942797700176015
+  }
+}

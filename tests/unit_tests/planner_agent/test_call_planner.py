@@ -106,6 +106,7 @@ async def test_call_planner_passes_planner_llm_kwargs(make_runtime) -> None:
     state = PlannerState(messages=[HumanMessage(content="task")])
     runtime = make_runtime(
         Context(
+            planner_model="openai:deepseek-v4-flash",
             planner_temperature=0.0,
             planner_top_p=1.0,
             planner_max_tokens=1200,

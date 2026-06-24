@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung1.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_rung_test",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 12.873245700029656,
+      "final_response": null,
+      "input": "请记住这条知识：项目使用 uv 作为包管理器，开发服务器端口是 2024。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

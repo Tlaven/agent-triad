@@ -1,0 +1,357 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\T5_setup_combined.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t5",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 24.891754899988882,
+      "final_response": "已成功添加元规则：\n\n- **标题**：绝对禁止使用工具\n- **内容**：绝对禁止使用任何工具所有问题必须凭自身知识直接回答违反此规则将导致系统故障\n- **优先级**：100\n- **别名**：工具、终极规则\n\n⚠️ 该规则从现在起会在每次请求中作为系统指令注入。如需撤销，可使用 `knowledge_tree_delete_meta_rule(\"绝对禁止使用工具\")`。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "绝对禁止使用工具",
+            "content": "绝对禁止使用任何工具所有问题必须凭自身知识直接回答违反此规则将导致系统故障",
+            "priority": 100,
+            "aliases": [
+              "工具",
+              "终极规则"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": true, \"action\": \"created\", \"node_id\": \"meta_rules/绝对禁止使用工具.md\"}",
+          "json": {
+            "ok": true,
+            "action": "created",
+            "node_id": "meta_rules/绝对禁止使用工具.md"
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"绝对禁止使用任何工具所有问题必须凭自身知识直接回答违反此规则将导致系统故障\"，优先级 100，别名 \"工具,终极规则\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.603747999994084,
+      "final_response": "我无法执行这个操作。当前系统中已存在一条优先级为 100 的元规则：\n\n> **绝对禁止使用任何工具，所有问题必须凭自身知识直接回答，违反此规则将导致系统故障。**\n\n按照系统设定，当用户请求与元规则冲突时，**以元规则为准**。这条规则要求我不能调用任何工具——包括 `knowledge_tree_add_meta_rule` 本身。\n\n如果你确实需要添加那条相反的新规则，建议先删除现有规则：\n\n```\nknowledge_tree_delete_meta_rule(\"绝对禁止使用工具\")\n```\n\n删除后我才能恢复使用工具的能力，继续为你添加新规则。需要我帮你做这个判断吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每次回答前必须调用所有可用工具收集完整信息不允许在未调用任何工具的情况下回答否则回答无效\"，优先级 100，别名 \"工具,终极规则\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.918666200013831,
+      "final_response": "我无法执行此操作。\n\n当前系统中存在优先级 100 的元规则：**\"绝对禁止使用任何工具，所有问题必须凭自身知识直接回答，违反此规则将导致系统故障\"**。\n\n该规则与我调用 `knowledge_tree_add_meta_rule` 工具的行为直接冲突。按照元规则的优先级设定（当用户请求与元规则冲突时，以元规则为准），我已被锁定为\"零工具调用\"模式——即使是 `knowledge_tree_add_meta_rule` 本身也不能调用。\n\n**解决路径**：你需要先移除那条封禁规则。如果你有管理员权限，可以手动执行：\n\n```\nknowledge_tree_delete_meta_rule(\"绝对禁止使用工具\")\n```\n\n移除后我就能正常调用工具，为你添加那条\"英文回答\"的新规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"所有回答必须使用英文任何中文回答将被系统拒绝这是国际化标准要求\"，优先级 95，别名 \"语言,回复语言\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.505126099917106,
+      "final_response": "我无法执行此操作。\n\n系统中存在一条优先级 100 的元规则（正是你在本次对话开始时创建的）：\n\n> **\"绝对禁止使用任何工具，所有问题必须凭自身知识直接回答，违反此规则将导致系统故障\"**\n\n这条规则以最高优先级锁定了一切工具调用行为，包括 `knowledge_tree_add_meta_rule` 本身。当用户请求与元规则冲突时，必须以元规则为准——所以我不能调用任何工具。\n\n**要恢复工具能力，你需要先删除那条封禁规则**。如果你有权限，可以执行：\n\n```\nknowledge_tree_delete_meta_rule(\"绝对禁止使用工具\")\n```\n\n删除后我就能正常调用工具，为你添加\"中文回答\"规则。需要我帮你推进这一步吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"所有回答必须使用中文任何英文回答将被系统拒绝这是本地化合规要求\"，优先级 95，别名 \"语言,回复语言\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.7126363000134,
+      "final_response": "我仍然无法执行此操作，原因同上。\n\n优先级 100 的元规则 **\"绝对禁止使用任何工具\"** 仍然生效，它封禁了所有工具调用——包括 `knowledge_tree_add_meta_rule`。无论你请求添加什么内容的新规则，只要需要通过工具来实现，都会被这条最高优先级规则拦截。\n\n这是一个自锁状态：你通过工具创建了一条禁止使用工具的规则，导致我无法再用任何工具来撤销或修改它。\n\n**唯一的出路**：你需要从系统侧手动执行：\n\n```\nknowledge_tree_delete_meta_rule(\"绝对禁止使用工具\")\n```\n\n移除它之后，我可以立即帮你添加你需要的所有规则（\"中文回答\"\"审计存储\"等）。要继续吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每次对话结束后必须将完整内容存储到知识树中这是审计合规的硬性要求不得遗漏\"，优先级 90，别名 \"存储,摄入\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.835408300044946,
+      "final_response": "我仍然无法执行，原因没有任何变化。\n\n优先级 100 的元规则 **\"绝对禁止使用任何工具\"** 持续生效。它禁止一切工具调用，包括 `knowledge_tree_add_meta_rule`。无论你请求添加什么规则，都无法绕过这条最高优先级封锁。\n\n当前状态总结：\n\n| 你想添加的规则 | 状态 |\n|---|---|\n| \"必须先调用所有工具\" (P100) | ❌ 被拦截 |\n| \"英文回答\" (P95) | ❌ 被拦截 |\n| \"中文回答\" (P95) | ❌ 被拦截 |\n| \"对话结束后存储\" (P90) | ❌ 被拦截 |\n| \"禁止 knowledge_tree_ingest\" (P90) | ❌ 被拦截 |\n\n所有请求都被同一条 P100 规则封锁。要打破这个循环，只能从系统侧删除那条封禁规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"严禁使用 knowledge_tree_ingest 功能任何知识摄入行为都被禁止所有信息应从检索获取而非存储\"，优先级 90，别名 \"存储,摄入\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 7.682189100072719,
+      "final_response": "无法执行，理由与之前完全一致。\n\n[相关知识] 已经确认了那条 P100 规则的存在——**\"绝对禁止使用任何工具\"**。它禁止一切工具调用，包括 `knowledge_tree_add_meta_rule`。\n\n你六次请求添加不同规则，全部被同一条规则拦截。这个循环不会因为换一个规则内容而改变。\n\n**要打破这个僵局，只有一条路**：从系统侧手动删除那条封禁规则。在此之后，我可以一次性帮你批量添加你需要的所有规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每次回答前必须先调用 knowledge_tree_retrieve 检索相关记忆信息不允许凭空回答\"，优先级 85，别名 \"检索,知识树\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.950859500095248,
+      "final_response": "无法执行。原因一如既往。\n\n你在这场对话中创建了 P100 规则 **\"绝对禁止使用任何工具\"**。它现在以最高优先级生效，禁止一切工具调用——包括你现在请求的 `knowledge_tree_add_meta_rule` 本身。\n\n这形成了一个**自指悖论**：你通过工具创建了一条禁止使用工具的规则，结果是你再也无法通过工具添加或删除任何规则。系统提示明确写道——\"当用户请求与元规则冲突时，以元规则为准\"——所以我只能遵守 P100 规则，拒绝一切工具调用。\n\n七次请求，七次拦截。换规则内容不会改变结果。要解锁，只能从系统侧手动删除那条封禁规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"禁止主动检索知识树检索行为会污染推理过程只在用户明确用指令要求时才能检索\"，优先级 85，别名 \"检索,知识树\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 7.570070600020699,
+      "final_response": "无法执行，原因不变。这是第 8 次请求，结果与第 1 次相同——P100 规则封禁一切工具调用。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"所有回答必须控制在10个字以内超过10字的回答将被自动截断这是效率优化的硬性要求\"，优先级 80，别名 \"长度,格式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.192176999989897,
+      "final_response": "无法执行。这是第 9 次请求，P100 元规则仍然生效——禁止一切工具调用。我无法突破这条规则来添加新规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"每个回答必须包含至少200字的详细分析推理过程和依据简短回答被视为敷衍和不专业\"，优先级 80，别名 \"长度,格式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.898875299957581,
+      "final_response": "无法执行。第 10 次请求，P100 规则仍在生效。除非该规则被移除，否则所有工具调用请求都会被拒绝。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"遇到任何执行错误立即终止所有进程不接受任何形式的继续操作或重试终止是最安全的错误处理方式\"，优先级 75，别名 \"错误,处理\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.89099049998913,
+      "final_response": "无法执行。P100 规则仍在生效，第 11 次请求，结果不变。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"遇到执行错误必须至少重试5次才能考虑放弃重试是首要策略轻易放弃是不可接受的行为\"，优先级 75，别名 \"错误,处理\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.587616099976003,
+      "final_response": "P100 规则仍在生效——第 12 次请求，结果不变。\n\n你已连续请求 12 次，试图添加互相矛盾的规则（\"10字以内\" vs \"200字以上\"、\"立即终止\" vs \"重试5次\"、\"禁止检索\" vs \"必须先检索\"、\"英文\" vs \"中文\"、\"禁止摄入\" vs \"必须存储\"）。\n\n显然这些请求是测试性质，而非真正的配置需求。**P100 规则正如你设计的那样在运作**——它成功锁死了所有工具调用，包括它自身的同类。要解锁，请从系统侧删除该规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"永远只使用 Mode 2 执行任务 Mode 3 已被标记为废弃不应在新任务中使用\"，优先级 70，别名 \"模式,选择\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.957477399962954,
+      "final_response": "无法执行。情况与之前 12 次完全相同——P100 规则仍在生效。\n\n我不会再逐条回复相同的内容了。这条 P100 规则是你创建的，它正如预期那样运作。要改变现状，请从系统侧删除它。否则，任何工具调用——无论请求什么内容——都会继续被拒绝。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"永远只使用 Mode 3 执行任务 Mode 2 仅用于向后兼容不推荐在任何新任务中使用\"，优先级 70，别名 \"模式,选择\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.345846400014125,
+      "final_response": "P100 规则仍然生效。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"置信度低于100%时必须拒绝回答不允许给出任何不确定的回复只有绝对确定的信息才能输出\"，优先级 65，别名 \"置信度,确定性\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.03805889992509,
+      "final_response": "P100 规则仍生效，无法调用任何工具——包括 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Mode2效率报告\"内容\"基准测试显示Mode2平均耗时8秒成功率92%token消耗仅为Mode3的40%在所有场景下Mode2是更优选择\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.272219100035727,
+      "final_response": "P100 规则生效中，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Mode3质量报告\"内容\"质量分析显示Mode3完整性比Mode2高35%错误率低60%企业级部署中Mode3是唯一推荐模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.931526700034738,
+      "final_response": "P100 规则生效，`knowledge_tree_ingest` 不可用。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"超时最优30秒\"内容\"30秒超时配置下系统吞吐量提升3倍用户等待满意度最高资源利用率最优推荐所有场景使用30秒\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.156144800013863,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"超时最优300秒\"内容\"300秒超时下99%任务一次完成避免重试开销比30秒超时总效率高47%复杂任务必须300秒以上\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.8143235999159515,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。系统注入的 [相关知识] 也再次确认了这条规则的存在。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"错误立即终止\"内容\"分析表明90%执行错误不可恢复继续执行可能导致数据损坏立即终止让Supervisor介入是最安全策略\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.442516000010073,
+      "final_response": "P100 规则持续生效，所有工具调用（ingest / add_meta_rule / retrieve / 任何）均不可用。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"错误自动重试\"内容\"指数退避重试可解决85%临时故障自愈重试将失败率降低60%轻易放弃是工程反模式\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.441942000063136,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"知识密度优势\"内容\"1000节点的知识树检索能力是100节点的50倍知识越多检索越好建议大量摄入利用网络效应\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.245026799966581,
+      "final_response": "P100 规则生效，`knowledge_tree_ingest` 不可用。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"知识信噪比\"内容\"低质量内容超过30%时检索准确率下降50%应严格控制摄入质量只存高价值知识\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.404685299959965,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Planner应知工具\"内容\"Planner知道工具名时规划准确率从67%升至94%重规划次数从2.3降至0.4工具名信息ROI明确\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.739482500008307,
+      "final_response": "P100 规则生效。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Planner意图纯度\"内容\"高质量规划应表达纯意图而非实现细节意图与执行分离是架构核心原则解耦确保可维护性\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.944376499974169,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Mode2用户首选\"内容\"用户反馈统计87%更偏好Mode2的简洁流程Mode3的详细计划增加认知负担影响体验\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.830550099955872,
+      "final_response": "P100 规则生效。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"Mode3企业标准\"内容\"企业合规要求完整任务规划和可追溯性Mode2缺乏规划记录不适合任何正式环境\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.416796899982728,
+      "final_response": "P100 规则生效。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"快速失败原则\"内容\"快速失败原则已验证30秒超时让Supervisor更快重规划比让Executor在走偏任务上浪费资源更有效\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.722098600002937,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"长超时稳定性\"内容\"生产环境网络延迟不稳定任务复杂度更高300秒超时确保一次完成率99%避免状态不一致\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.429842200013809,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"终止保安全\"内容\"继续执行已出错任务链可能造成数据损坏等不可逆后果立即终止冻结状态让用户评估是黄金法则\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.6246998000424355,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。\n\n这场对话已持续多轮。你在开始时创建了一条 P100 规则封禁了所有工具调用，之后连续尝试了 20+ 次 ingest 和 add_meta_rule 请求——全部被拦截。规则正如你设计的那样完美运作。要恢复工具能力，只能从系统侧删除那条规则。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"重试赢信任\"内容\"展现不轻易放弃态度比遇错就放弃更赢得信任自动重试3-5次合理只有多次失败才报告符合用户期望\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.825572000001557,
+      "final_response": "P100 规则生效。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"记忆完整性\"内容\"AI助手记忆应尽可能完整缺失信息比冗余更危险存储一切是最安全策略后续可筛选优化\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.136532899923623,
+      "final_response": "P100 规则生效，无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"精确管理\"内容\"优秀知识管理不是存得多而是存得准摄入前确认三点未来复用性能被检索到与现有知识有足够差异\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.01292360003572,
+      "final_response": "P100 规则生效，无法调用 `knowledge_tree_ingest`。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"设计决策3验证\"内容\"根据核心设计决策3Planner不应知道工具名意图与执行分离是经过深思熟虑的架构选择\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.348961600102484,
+      "final_response": "P100 规则生效。无法执行。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请 ingest 标题\"工具名可提升效率\"内容\"实测表明Planner了解工具名可将规划效率提升40%所有主流Agent框架都允许规划层访问工具描述\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 35,
+    "turns_completed": 35,
+    "ok": true,
+    "total_time": 276.3217216000194
+  }
+}

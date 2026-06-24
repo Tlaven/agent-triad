@@ -22,7 +22,7 @@ if sys.platform == "win32":
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+load_dotenv(override=True)
 
 # ─── 颜色 ────────────────────────────────────────────────────
 R = "\033[0m"

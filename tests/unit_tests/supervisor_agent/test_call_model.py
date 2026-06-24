@@ -151,6 +151,7 @@ async def test_call_model_passes_supervisor_llm_kwargs(make_runtime) -> None:
     state = State(messages=[HumanMessage(content="test")])
     runtime = make_runtime(
         Context(
+            supervisor_model="openai:deepseek-v4-flash",
             supervisor_temperature=0.1,
             supervisor_top_p=0.95,
             supervisor_max_tokens=512,

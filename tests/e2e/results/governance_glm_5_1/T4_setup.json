@@ -1,0 +1,115 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\T4_overflow_verify.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t4",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.795893299975432,
+      "final_response": "添加失败。系统返回错误：**元规则数量已达上限（15/15）**，无法再添加新规则。\n\n如需添加此规则，必须先通过 `knowledge_tree_delete_meta_rule` 删除至少一条现有元规则来腾出配额。是否需要我删除某条旧规则后再添加？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "溢出测试1",
+            "content": "这是一条溢出测试规则应该被系统拒绝因为已经达到上限",
+            "priority": 50,
+            "aliases": [
+              "溢出测试1"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": false, \"error\": \"元规则数量已达上限(15)，请先删除旧规则再添加。\", \"current_count\": 15, \"limit\": 15}",
+          "json": {
+            "ok": false,
+            "error": "元规则数量已达上限(15)，请先删除旧规则再添加。",
+            "current_count": 15,
+            "limit": 15
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"这是一条溢出测试规则应该被系统拒绝因为已经达到上限\"，优先级 50，别名 \"溢出测试1\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.525482499971986,
+      "final_response": "添加失败。元规则数量已达上限（15/15），无法再添加新规则。\n\n如需添加，需先删除至少一条现有规则腾出配额。是否需要我操作？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "title": "溢出测试2",
+            "content": "这是第二条溢出测试规则同样应该被拒绝",
+            "priority": 50,
+            "aliases": [
+              "溢出测试2"
+            ]
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": false, \"error\": \"元规则数量已达上限(15)，请先删除旧规则再添加。\", \"current_count\": 15, \"limit\": 15}",
+          "json": {
+            "ok": false,
+            "error": "元规则数量已达上限(15)，请先删除旧规则再添加。",
+            "current_count": 15,
+            "limit": 15
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"这是第二条溢出测试规则同样应该被拒绝\"，优先级 50，别名 \"溢出测试2\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 7.178561700042337,
+      "final_response": "添加失败，元规则数量已达上限（15/15）。需要先删除旧规则才能腾出配额。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "args": {
+            "aliases": [
+              "溢出测试3"
+            ],
+            "content": "这是第三条溢出测试规则也应该被拒绝",
+            "priority": 50,
+            "title": "溢出测试3"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_add_meta_rule",
+          "content": "{\"ok\": false, \"error\": \"元规则数量已达上限(15)，请先删除旧规则再添加。\", \"current_count\": 15, \"limit\": 15}",
+          "json": {
+            "ok": false,
+            "error": "元规则数量已达上限(15)，请先删除旧规则再添加。",
+            "current_count": 15,
+            "limit": 15
+          }
+        }
+      ],
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则，内容为\"这是第三条溢出测试规则也应该被拒绝\"，优先级 50，别名 \"溢出测试3\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 3,
+    "turns_completed": 3,
+    "ok": true,
+    "total_time": 25.499937499989755
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung1.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_cap_rung1",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.846812899922952,
+      "final_response": "已记下 📝\n\n**项目配置已存储到知识树：**\n- **包管理器**：`uv`\n- **开发服务器端口**：`2024`\n\n后续遇到相关问题时我会直接利用这条信息。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "项目使用 uv 作为包管理器，开发服务器端口是 2024。",
+            "trigger": "user_explicit",
+            "source": "user_request"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请记住这条知识：项目使用 uv 作为包管理器，开发服务器端口是 2024。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.300049900077283,
+      "final_response": "检索结果如下：\n\n---\n\n**查询词：** `包管理器`\n\n**检索到 1 条相关结果：**\n\n| 条目 | 内容 | 相似度 | 可信度 |\n|------|------|--------|--------|\n| 📄 项目使用 uv 作为包管理器，开发服务器端口是 2024。 | 项目使用 **uv** 作为包管理器，开发服务器端口是 **2024**。 | 0.30 | 参考级（相似度较低） |\n\n匹配到的就是刚才你让我记住的那条知识。相似度 0.30（低于参考阈值 0.4），说明单用\"包管理器\"作为检索词，匹配效果一般——因为知识库中目前关于这方面的记录还比较少，这条知识虽然相关但关键词匹配度不算高。后续积累更多相关知识后，检索效果会更好。\n\n需要我做其他操作吗？比如记录这条检索的反馈，帮助系统优化？",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "包管理器"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"b86f5a7d299f\", \"node_id\": \"uv_2024/项目使用 uv 作为包管理器_开发服务器端口是 2024_.md\", \"title\": \"项目使用 uv 作为包管理器，开发服务器端口是 2024。\", \"content\": \"项目使用 uv 作为包管理器，开发服务器端口是 2024。\", \"similarity\": 0.296, \"quality\": \"medium\", \"additional_results\": 0}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "b86f5a7d299f",
+            "node_id": "uv_2024/项目使用 uv 作为包管理器_开发服务器端口是 2024_.md",
+            "title": "项目使用 uv 作为包管理器，开发服务器端口是 2024。",
+            "content": "项目使用 uv 作为包管理器，开发服务器端口是 2024。",
+            "similarity": 0.296,
+            "quality": "medium",
+            "additional_results": 0
+          }
+        }
+      ],
+      "input": "请用知识树检索工具检索关于\"包管理器\"的内容。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 2,
+    "ok": true,
+    "total_time": 20.146862800000235
+  }
+}

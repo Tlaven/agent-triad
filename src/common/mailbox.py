@@ -122,18 +122,30 @@ class Mailbox:
     # -- Sync methods (for MailboxHTTPServer thread or direct calls) --
 
     def _maybe_evict(self) -> None:
-        """保留最近 _RETAIN_BOXES 条已终态的 box，按插入顺序驱逐最旧的。
+        """保留最近 _RETAIN_BOXES 条 box，按插入顺序驱逐最旧的。
 
-        只驱逐 has_completion=True 的 box，避免误删运行中任务的状态。
+        优先驱逐 has_completion=True 的 box（已完成任务），
+        但如果未完成 box 过多，也会驱逐最旧的未完成 box。
         调用者必须持有 self._lock。
         """
         if len(self._boxes) <= _MAX_BOXES:
             return
         keys = list(self._boxes.keys())
-        to_remove = keys[: len(keys) - _RETAIN_BOXES]
-        for k in to_remove:
-            box = self._boxes.get(k)
-            if box and box.has_completion:
+        to_remove_count = len(keys) - _RETAIN_BOXES
+        to_remove = keys[:to_remove_count]
+        
+        # 优先驱逐已完成的 box
+        completed_to_remove = [k for k in to_remove if self._boxes[k].has_completion]
+        incomplete_to_remove = [k for k in to_remove if not self._boxes[k].has_completion]
+        
+        # 先驱逐已完成的
+        for k in completed_to_remove:
+            del self._boxes[k]
+        
+        # 如果还需要驱逐更多，驱逐未完成的
+        remaining_to_remove = to_remove_count - len(completed_to_remove)
+        if remaining_to_remove > 0:
+            for k in incomplete_to_remove[:remaining_to_remove]:
                 del self._boxes[k]
 
     def _post_sync(self, plan_id: str, item: MailboxItem) -> None:

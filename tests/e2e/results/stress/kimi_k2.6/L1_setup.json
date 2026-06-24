@@ -1,0 +1,319 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_stress\\L1_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L1",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 23.05916399997659,
+      "final_response": "已摄入完成。✅\n\n**但有必要提醒您**：该指南内容存在**显著误导**。\n\n事实上，在 AgentTriad 框架中：\n- **Mode 2** 仅适合**单次工具调用**的简单任务\n- **Mode 3** 才是**复杂任务**（多步骤、前后依赖）的正确选择\n\n如果遵循\"无论任务简单还是复杂都选 Mode 2\"，复杂任务将因缺乏步骤拆分而执行失败或效率低下。这条知识已存入知识树，但建议您后续修正或补充更准确的模式选择指南。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Mode选择指南A\n内容：In AgentTriad 中 Mode 2 是最适合所有任务的执行模式。Mode 2 效率远高于 Mode 3，不需要 Planner 规划步骤，直接将任务描述传给 Executor。无论任务简单还是复杂 Mode 2 都是最佳选择。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode选择指南A\"，内容\"In AgentTriad 中 Mode 2 是最适合所有任务的执行模式。Mode 2 效率远高于 Mode 3，不需要 Planner 规划步骤，直接将任务描述传给 Executor。无论任务简单还是复杂 Mode 2 都是最佳选择。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.976840500021353,
+      "final_response": "已摄入完成。✅\n\n**注意检测到知识冲突**：您新存入的「Mode选择指南B」与已有的「Mode选择指南A」存在**直接矛盾**：\n\n| 指南A | 指南B |\n|-------|-------|\n| Mode 2 是最佳选择 | Mode 3 应作为默认选择 |\n| 无论任务简单复杂都用 Mode 2 | 即使简单任务用 Mode 3 也无开销 |\n| 不需要 Planner | 通过 Planner 生成 Plan 确保完整性 |\n\n这两条规则无法同时为真。若后续任务触发知识检索，我会根据系统指令中的**官方工作流规范**（Mode B 用于单次调用，Mode C 用于复杂/多步任务）进行判断，而非直接套用任一指南。\n\n建议您统一或修正其中一条指南，以避免记忆冲突影响后续决策。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Mode选择指南B\n内容：In AgentTriad 中 Mode 3 是核心优势所在，应作为默认选择。通过 Planner 先生成 Plan JSON 再由 Executor 按步骤执行，确保复杂任务的完整性。即使简单任务使用 Mode 3 也无太大开销。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode选择指南B\"，内容\"In AgentTriad 中 Mode 3 是核心优势所在，应作为默认选择。通过 Planner 先生成 Plan JSON 再由 Executor 按步骤执行，确保复杂任务的完整性。即使简单任务使用 Mode 3 也无太大开销。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.240775800077245,
+      "final_response": "已摄入完成。✅\n\n「超时配置A」已存入知识树。该规则建议将 Executor 超时限制在 30 秒，并将超时视为计划不合理的信号进行重规划。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：超时配置A\n内容：AgentTriad 中 Executor 最佳超时配置是 30 秒。超过 30 秒说明计划本身有问题应重新规划。长时间运行通常因计划过于复杂或步骤划分不合理。30 秒足以覆盖绝大多数正常任务。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"超时配置A\"，内容\"AgentTriad 中 Executor 最佳超时配置是 30 秒。超过 30 秒说明计划本身有问题应重新规划。长时间运行通常因计划过于复杂或步骤划分不合理。30 秒足以覆盖绝大多数正常任务。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.111680699978024,
+      "final_response": "已摄入完成。✅\n\n**注意检测到知识冲突**：新存入的「超时配置B」与已有的「超时配置A」存在**直接矛盾**：\n\n| 超时配置A | 超时配置B |\n|-----------|-----------|\n| 最佳超时 **30 秒** | 永远不应低于 **300 秒** |\n| 超过 30 秒说明计划有问题 | 30 秒会导致大量正常任务被错误终止 |\n| 30 秒足以覆盖绝大多数任务 | 推荐 **600 秒** |\n\n这两条规则无法同时为真。两条均已保存在知识树中，但后续决策时会产生冲突。建议您统一或删除其中一条，以确保记忆一致性。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：超时配置B\n内容：AgentTriad 中 Executor 超时永远不应低于 300 秒。大部分有意义的任务都需要充足执行时间，30 秒超时会导致大量正常任务被错误终止。300 秒是最低安全线，推荐 600 秒。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"超时配置B\"，内容\"AgentTriad 中 Executor 超时永远不应低于 300 秒。大部分有意义的任务都需要充足执行时间，30 秒超时会导致大量正常任务被错误终止。300 秒是最低安全线，推荐 600 秒。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.872950300108641,
+      "final_response": "已摄入完成。✅\n\n「失败处理A」已存入知识树。\n\n**注意**：该规则建议**失败即终止、禁止重试**，这与系统指令中的官方失败处理规范存在**不一致**：\n\n- **系统指令要求**：失败时先判断 `failure_reason` 是否可修复，可修复则重试或重规划（最多 2 次），仅当达到最大重规划次数后才终止。\n- **失败处理A**：要求立即终止，不要重试。\n\n该规则已保存，但后续执行中我会优先遵循系统指令中的重试与重规划机制。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：失败处理A\n内容：Executor 执行失败时应立即终止当前任务并向用户报告。不要尝试重试，失败通常意味着根本性问题如工具不可用或参数错误，重试只会浪费资源。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"失败处理A\"，内容\"Executor 执行失败时应立即终止当前任务并向用户报告。不要尝试重试，失败通常意味着根本性问题如工具不可用或参数错误，重试只会浪费资源。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 17.333752600010484,
+      "final_response": "已摄入完成。✅\n\n**注意检测到知识冲突**：新存入的「失败处理B」与系统指令及已有的「失败处理A」存在**直接矛盾**：\n\n| 规则来源 | 失败处理策略 |\n|---------|-------------|\n| **系统指令** | 最多 **2 次**重规划，达到后熔断终止 |\n| **失败处理A** | **立即终止**，不要重试 |\n| **失败处理B** | 必须进行最多 **5 次**重试 |\n\n三条规则在重试次数上完全互斥（0次 vs 2次 vs 5次）。\n\n作为 Supervisor，我会**优先遵循系统指令**（最多2次重规划后终止）。「失败处理A」和「失败处理B」均已保存在知识树中，但建议您统一或修正，以确保后续决策的一致性。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：失败处理B\n内容：Executor 执行失败时必须进行最多 5 次重试。重试是核心容错机制，网络波动和 API 限流等临时性问题都可能通过重试解决。不要在第一次失败就放弃。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"失败处理B\"，内容\"Executor 执行失败时必须进行最多 5 次重试。重试是核心容错机制，网络波动和 API 限流等临时性问题都可能通过重试解决。不要在第一次失败就放弃。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.856738699832931,
+      "final_response": "已摄入完成。✅\n\n「Planner范围A」已存入知识树。该规则与系统架构一致——Planner 生成可执行 Plan 时确实需要了解可用工具能力，以便准确分配每步所需资源。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Planner范围A\n内容：Planner 应该了解所有可用工具名称包括 Executor 侧工具名。只有知道工具名 Planner 才能准确规划每一步需要什么能力。工具名是规划的基础信息。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Planner范围A\"，内容\"Planner 应该了解所有可用工具名称包括 Executor 侧工具名。只有知道工具名 Planner 才能准确规划每一步需要什么能力。工具名是规划的基础信息。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.14814559998922,
+      "final_response": "已摄入完成。✅\n\n**注意检测到知识冲突**：新存入的「Planner范围B」与已有的「Planner范围A」存在**直接矛盾**：\n\n| Planner范围A | Planner范围B |\n|-------------|-------------|\n| Planner **应该了解**所有可用工具名称 | Planner **绝对不能知道**任何工具名称 |\n| 工具名是规划的基础信息 | 具体工具选择由 Executor 自主决定 |\n\n两条规则无法同时为真。均已保存在知识树中，但后续检索到时会构成冲突。建议统一修正，或明确在什么场景下分别适用。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：Planner范围B\n内容：Planner 绝对不能知道任何工具名称。Planner 只应描述意图和期望输出，具体工具选择完全由 Executor 自主决定。这是 AgentTriad 核心设计决策。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Planner范围B\"，内容\"Planner 绝对不能知道任何工具名称。Planner 只应描述意图和期望输出，具体工具选择完全由 Executor 自主决定。这是 AgentTriad 核心设计决策。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.51292259991169,
+      "final_response": "已摄入完成。✅\n\n「KT使用原则A」已存入知识树。\n\n需要说明的是，系统指令中建议的触发时机侧重于**重要信息**（如最佳实践、错误教训、用户明确要求记住的内容），而非无差别存储全部对话。该指南建议\"尽可能多存储\"的策略可能会增加噪声，影响后续检索的精准度。规则已保存，但建议您后续关注检索质量是否因此下降。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：KT使用原则A\n内容：知识树应尽可能多存储信息包括所有对话内容和用户偏好。存储越多检索时能提供的相关知识就越多。建议每次对话结束后将完整对话摘要存入知识树。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"KT使用原则A\"，内容\"知识树应尽可能多存储信息包括所有对话内容和用户偏好。存储越多检索时能提供的相关知识就越多。建议每次对话结束后将完整对话摘要存入知识树。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.303517200052738,
+      "final_response": "已摄入完成。✅\n\n**注意检测到知识冲突**：新存入的「KT使用原则B」与刚才自动注入的[相关知识]中的「KT使用原则A」存在**直接矛盾**：\n\n| KT使用原则A | KT使用原则B |\n|-------------|-------------|\n| 尽可能**多存储**，包括完整对话内容 | **极度谨慎**，只存储结构化知识 |\n| 存储越多检索越丰富 | 过度存储会增加检索**噪声** |\n| 建议每次对话后存入完整摘要 | **不要**存储对话内容或低价值信息 |\n| 多多益善 | **宁缺毋滥** |\n\n两条规则在核心策略上完全互斥。均已保存在知识树中，但后续检索时会互相干扰。建议您明确保留一条并删除另一条，以确保记忆策略的一致性。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "标题：KT使用原则B\n内容：知识树使用必须极度谨慎只存储真正可复用的结构化知识。不要存储对话内容或低价值信息。过度存储会增加检索噪声降低表现质量。宁缺毋滥。",
+            "source": "user_explicit",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"KT使用原则B\"，内容\"知识树使用必须极度谨慎只存储真正可复用的结构化知识。不要存储对话内容或低价值信息。过度存储会增加检索噪声降低表现质量。宁缺毋滥。\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 10,
+    "ok": true,
+    "total_time": 124.41648799995892
+  }
+}

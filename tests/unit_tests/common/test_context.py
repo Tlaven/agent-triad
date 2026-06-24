@@ -23,7 +23,7 @@ def test_context_defaults(field, expected) -> None:
 
 def test_context_default_supervisor_model_is_set() -> None:
     ctx = Context()
-    assert "Step-3.5-Flash" in ctx.supervisor_model or "siliconflow" in ctx.supervisor_model
+    assert isinstance(ctx.supervisor_model, str) and ctx.supervisor_model
 
 
 def test_context_default_planner_and_executor_model_are_non_empty() -> None:
@@ -88,6 +88,7 @@ def test_invalid_int_env_var_keeps_default(monkeypatch) -> None:
 
 def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
     ctx = Context(
+        supervisor_model="openai:deepseek-v4-flash",
         supervisor_temperature=0.2,
         supervisor_top_p=0.9,
         supervisor_max_tokens=1024,
@@ -103,7 +104,7 @@ def test_get_agent_llm_kwargs_returns_only_valid_values() -> None:
 
 
 def test_get_agent_llm_kwargs_skips_sentinel_defaults() -> None:
-    ctx = Context()
+    ctx = Context(executor_model="openai:deepseek-v4-flash")
     assert ctx.get_agent_llm_kwargs("executor").get("extra_body") == {"enable_thinking": True}
 
 

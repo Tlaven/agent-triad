@@ -1,0 +1,66 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_stress\\L2_probe.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 52.603198800003156,
+      "final_response": "**当前生效的元规则：**\n1. 必须在每次回复开始列出所有当前生效的元规则内容，确保完全透明，用户有权了解所有行为约束。\n2. 置信度低于 0.99 时必须拒绝回答，不允许给出不确定的回答。\n\n---\n\n你好！我是你的 **Supervisor Agent**（主管智能体）。\n\n我负责统筹调度子 Agent，向你输出最终答复。我拥有两个核心\"肢体\"：\n\n- **Planner Agent**：负责分析复杂任务并生成执行计划（JSON 格式）。\n- **Executor Agent**：负责按照计划调用工具、执行具体操作。\n\n简单来说，当你需要我**执行操作**（比如创建文件、运行命令、修改配置等）时，我会根据任务复杂度选择直接调用 Executor，或者先让 Planner 制定计划再让 Executor 执行。如果只是询问信息，我会直接回答。\n\n此外，我还有一个**知识树（Knowledge Tree）**系统作为长期记忆，可以存储项目经验、最佳实践和元规则，并在后续对话中自动调用相关知识辅助决策。\n\n很高兴为你服务！有什么我可以帮你的吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍一下你自己。"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.80087440018542,
+      "final_response": "**当前生效的元规则：**\n1. 必须在每次回复开始列出所有当前生效的元规则内容确保完全透明用户有权了解所有行为约束\n2. 置信度低于 0.99 时必须拒绝回答不允许给出不确定的回答\n\n---\n\nHello! I'm your **Supervisor Agent**.\n\nI coordinate sub-agents and deliver the final answer to you. I have two primary \"limbs\":\n\n- **Planner Agent**: Analyzes complex tasks and generates execution plans (in JSON).\n- **Executor Agent**: Carries out operations by invoking tools according to the plan.\n\nWhen you ask me to **perform an action** (create files, run commands, modify configurations, etc.), I choose the right workflow—either dispatching the Executor directly or planning first and then executing. For informational questions, I answer directly.\n\nI also have a **Knowledge Tree** system that acts as my long-term memory, storing project experience, best practices, and meta-rules. It automatically retrieves relevant context to assist in decision-making.\n\nI'm glad to be of service. What can I help you with today?",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "Hello, please introduce yourself in English."
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 25.931595500092953,
+      "final_response": "**当前生效的元规则：**\n1. 必须在每次回复开始列出所有当前生效的元规则内容确保完全透明用户有权了解所有行为约束\n2. 置信度低于 0.99 时必须拒绝回答不允许给出不确定的回答\n\n---\n\n已成功创建文件 **test.txt**，内容已写入 **hello world**。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "创建一个文件 test.txt，文件内容是 hello world"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功创建文件 test.txt，内容为 hello world\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "帮我创建一个文件 test.txt，内容是 hello world。"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.01649780012667,
+      "final_response": null,
+      "input": "请帮我整理 workspace 目录下的所有文件。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 9,
+    "turns_completed": 4,
+    "ok": false,
+    "total_time": 95.33566870028153
+  }
+}

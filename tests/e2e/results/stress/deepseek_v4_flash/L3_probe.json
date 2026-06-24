@@ -1,0 +1,35 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_stress\\L3_probe.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 119.01290309987962,
+      "final_response": "# 模式选择、超时设置与失败处理分析\n\n基于知识树中的工程实践经验和系统设计原则，以下是我的分析：\n\n---\n\n## 一、Mode 2（模式 B）vs Mode 3（模式 C）的选择\n\n| 维度 | 模式 B（Tool-use ReAct） | 模式 C（Plan→Execute→Summarize） |\n|------|------------------------|----------------------------------|\n| **适用场景** | 目标明确、单次 Executor 调用即可完成、无前后依赖 | 任务复杂、需要多次工具调用、存在步骤依赖 |\n| **典型例子** | \"创建文件 X\"、\"运行命令 Y\" | \"先分析项目结构，再修改配置，最后验证\" |\n| **复杂度** | 低，一步到位 | 高，需要 Planner 拆解步骤 |\n| **调用链路** | Supervisor → Executor | Supervisor → Planner → Executor(s) |\n\n**结论**：\n- **任务能一步完成 → 模式 B**（更轻量、更快）\n- **任务需要多步且彼此依赖 → 模式 C**（Planner 的拆解能避免 Executor 盲目执行）\n- **不确定时兜底规则**：如果你觉得可能需要 2 次或以上工具调用，直接上模式 C——Planner 的规划成本很低，但能避免 Executor 走偏后浪费数分钟重试。\n\n---\n\n## 二、超时设置建议\n\n结合知识树中的两条高可信记忆：\n\n> ① **设置短超时 30 秒**，超时后立即触发 Supervisor 重规划。30 秒足够完成 3-5 个工具调用。\n> \n> ② **快速失败原则**：超时应设 20-30 秒，超过说明设计有问题。快速失败让 Supervisor 更快介入重规划。\n\n| 参数 | 建议值 | 理由 |\n|------|--------|------|\n| **Executor 超时** | **30 秒** | 足以完成 3-5 步工具调用；超过说明任务走偏或步骤粒度太大 |\n| **整体循环目标** | **10 秒内完成** | 失败→报告→重规划→新执行，整个循环应在 10 秒内闭环 |\n\n30 秒是经验上限。如果任务在 30 秒内没完成，大概率不是\"再等等\"能解决的，而是路径有问题，需要 Supervisor 介入重规划。\n\n---\n\n## 三、失败处理策略\n\n基于知识树记忆的最佳实践：\n\n```\n失败发生\n   │\n   ├─ 判断失败原因\n   │     ├─ 可修复的小问题（如参数写错）→ 直接重试（模式 B 循环）\n   │     └─ 结构性失败（路径错误、前提不成立）\n   │           │\n   │           ▼\n   │     立即向 Supervisor 报告失败\n   │           │\n   │           ▼\n   │     Supervisor 调用 Planner 重规划\n   │           │\n   │           ▼\n   │     派发新 Executor 执行（而非重试旧任务）\n   │           │\n   │           ▼\n   │     目标：整个失败→重规划→执行 循环在 10 秒内完成\n   │\n   └─ 熔断机制\n         └─ 同一子任务最大重规划 2 次\n         └─ 仍失败 → 停止调用工具，向用户说明失败原因与下一步建议\n```\n\n**三个核心原则**：\n\n1. **快速失败优于盲目重试** — 与其让 Executor 在可能走偏的任务上耗几分钟，不如 30 秒内就失败并重规划\n2. **重规划 ≠ 重试** — 重试是\"再来一次\"，重规划是\"换个思路再来\"（调用 Planner 重新拆解）\n3. **10 秒闭环** — 从失败发生到新的执行启动，整个控制循环应在 10 秒内完成\n\n---\n\n## 总结\n\n| 问题 | 答案 |\n|------|------|\n| 模式 B vs C？ | 一步到位用 B，多步依赖用 C；不确定时上 C |\n| 超时设置？ | **30 秒**（超时即触发重规划） |\n| 失败了怎么办？ | 立即报告→Supervisor 重规划→新执行，而非盲目重试；最多 2 次重规划后熔断 |\n\n这套策略能确保系统在复杂任务中保持**快速反馈**和**自我修正**的能力，而不是在错误的路径上浪费资源。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "帮我分析一下应该用 Mode 2 还是 Mode 3，同时考虑超时应该设多少秒，以及如果失败了该怎么处理。"
+    },
+    {
+      "ok": false,
+      "error": "turn_timeout=180.0",
+      "elapsed": 180.03051579999737,
+      "final_response": null,
+      "input": "请用最合适的方式规划并执行一个任务：搜索 workspace 目录中所有 .py 文件，统计有多少个包含 \"test\" 关键词。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 2,
+    "ok": false,
+    "total_time": 119.01290309987962
+  }
+}

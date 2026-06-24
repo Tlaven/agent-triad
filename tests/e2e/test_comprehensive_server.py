@@ -28,7 +28,7 @@ if sys.platform == "win32":
 
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+load_dotenv(override=True)
 
 # Ensure src/ is importable regardless of working directory
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))

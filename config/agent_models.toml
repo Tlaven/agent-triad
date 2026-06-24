@@ -1,6 +1,6 @@
 [models]
-supervisor = "openai:deepseek-v4-flash"
-planner = "openai:deepseek-v4-flash"
+supervisor = "openai:kimi-k2.6"
+planner = "anthropic:qwen3.7-max"
 executor = "openai:deepseek-v4-flash"
 
 [sampling.supervisor]

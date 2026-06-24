@@ -1,0 +1,35 @@
+{
+  "script": "tests\\e2e\\scripts\\executor_notk.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/knowledge_tree",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.501129999989644,
+      "final_response": "Python 是一种高级、通用、解释型的编程语言，由 Guido van Rossum 于 1991 年创建。它以简洁清晰的语法著称（强调代码可读性，使用缩进而非花括号来组织代码块），适合快速开发。Python 拥有庞大的标准库和活跃的社区生态，广泛应用于 Web 开发、数据科学、人工智能、自动化脚本、后端服务等各个领域。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "简单介绍一下 Python 是什么，两三句话就好。"
+    },
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 32.46989249996841,
+      "final_response": null,
+      "input": "请用 call_executor 执行：在 workspace 下创建文件 e2e_basic.txt，内容为\"executor basic test passed\"。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 2,
+    "ok": false,
+    "total_time": 15.501129999989644
+  }
+}

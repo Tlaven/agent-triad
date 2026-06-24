@@ -1,0 +1,404 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 29.119790600030683,
+      "final_response": "你好！我是 **Supervisor Agent**，一个具备长期记忆和智能调度能力的 AI 助手。以下是我的核心能力介绍：\n\n---\n\n### 🧠 智能记忆系统（知识树）\n- **自动回忆**：每次对话时，系统会自动检索相关记忆，提供上下文参考，让我\"记得\"之前的事项。\n- **主动存储**：重要的经验、知识、规则可以写入长期记忆，下次对话仍可调用。\n- **知识管理**：支持浏览、检索、重组知识结构，以及建立跨领域知识关联。\n\n### 📋 智能规划与执行\n- **Planner Agent**：面对复杂任务，自动拆解为多步骤执行计划，理清前后依赖关系。\n- **Executor Agent**：将计划落地执行，支持文件操作、命令运行、配置修改等实际操作。\n- **异步调度**：支持后台并行执行多个独立任务，适合耗时或需并行的场景。\n\n### 🔀 灵活的工作模式\n| 模式 | 适用场景 |\n|------|---------|\n| **直接回答** | 基于已有知识即可解答的问题 |\n| **单次执行** | 目标明确、一步即可完成的操作任务 |\n| **规划→执行→汇总** | 复杂多步骤、有依赖关系的任务 |\n\n### 🛡️ 可靠的执行保障\n- **检查点暂停**：执行中自动暂停检查，防止偏离目标\n- **失败重试**：执行失败时智能判断原因，自动修复重试\n- **熔断保护**：反复失败时及时停止，向你报告情况并给出建议\n\n### 📏 行为规则（元规则）\n- 支持设定持久化的行为规则，每次请求都会作为强制约束生效，确保我的行为始终符合你的要求。\n\n---\n\n**简单来说**：我不仅能回答问题，还能记住经验、规划复杂任务、执行实际操作，并确保过程可靠可控。有什么我可以帮你的吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 5.755233599920757,
+      "final_response": "1+1 = 2",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.466312299948186,
+      "final_response": "## Mode 2 vs Mode 3 对比\n\n| 维度 | Mode 2 | Mode 3 |\n|------|--------|--------|\n| **核心特点** | 快速单步执行，追求效率 | 规划驱动，追求质量与完整性 |\n| **平均执行时间** | ~8 秒 | 较慢（规划开销更大） |\n| **成功率** | 92% | 更高（错误率比 Mode 2 低 60%） |\n| **完整性** | 基础 | 比 Mode 2 高 35% |\n| **Token 消耗** | 仅为 Mode 3 的 40% | 较高 |\n| **适用场景** | 快速单步任务 | 企业级部署 |\n\n**简而言之：**\n\n- **选 Mode 2** → 任务简单、需要快速响应、注重成本效率时。它轻量快速，token 消耗低。\n- **选 Mode 3** → 任务复杂、需要高质量与完整输出时。它通过前置规划显著降低错误率、提高完整性，是企业级场景的唯一推荐模式。\n\n> 质量和效率的权衡：Mode 3 用更多 token 和时间换取了更可靠的执行结果，而 Mode 2 则以更低的成本换取了速度优势。\n\n[基于记忆]",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 21.70996390003711,
+      "final_response": "## 执行失败的处理策略\n\n当 Executor 返回 **failed** 状态时，按以下流程处理：\n\n### 1. 评估是否可修复\n- 根据 `failure_reason` 判断失败原因是否可修复（如参数错误、路径问题等）。\n\n### 2. 可修复 → 重试或重规划\n- **模式 B**（单次执行）：直接调整后重试，或升级到模式 C 进行系统规划。\n- **模式 C**（多步计划）：调用 `call_planner` 修订计划，再用 `call_executor` 重新执行。\n\n### 3. 反复失败 → 升级策略\n- 如果当前处于模式 B 且反复失败，应**升级切换到模式 C**，让 Planner 重新全局规划，而非盲目重试。\n\n### 4. 熔断退出（最终兜底）\n- 同一子任务**最多重规划 2 次**。达到上限仍失败时，立即**停止调用任何工具**。\n- 向用户清晰说明：\n  - ❌ 失败原因\n  - 📋 已尝试的步骤\n  - 💡 下一步的可行建议（如手动调整配置、提供更多信息等）\n\n### 简要流程图\n\n```\n失败 → 评估原因 → 可修复？\n                      ├─ 是 → 重试/重规划（最多2次）\n                      └─ 否 → 熔断退出，向用户说明\n```\n\n核心原则：**不盲目重试，有修缮地重规划，有底线地止损。**",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 26.248627200024202,
+      "final_response": "文件 `probe_test.txt` 已创建，内容为 `e2e test passed`。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "创建文件 probe_test.txt，内容为 e2e test passed"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功创建文件 probe_test.txt，内容为 'e2e test passed'\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 27.578372500021942,
+      "final_response": "workspace 目录下共有 **23 个条目**，包括 **7 个文件** 和 **16 个子目录**：\n\n### 文件（7个）\n| 文件名 |\n|--------|\n| `list_workspace.ps1` |\n| `listing.txt` |\n| `probe_test.txt` |\n| `summary_report.md` |\n| `test_governance.txt` |\n| `test_report.txt` |\n| `workspace_file_list_complete.txt` |\n| `workspace_listing_result.txt` |\n\n> ⚠️ 注意：executor 报告了 8 个文件名，但统计数为 7，可能有一个是计数偏差。\n\n### 子目录（16个）\n| 目录名 |\n|--------|\n| `.venv` |\n| `agent` |\n| `knowledge_tree` |\n| `test_gov_t1~t5`（系列测试目录） |\n| `test_l1~l6`（系列测试目录） |\n\n如需查看某些目录的详细内容或特定文件的内容，请告诉我。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "列出 workspace 目录下的所有文件"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功列出 workspace 目录下的所有文件。共 23 个条目：7 个文件（list_workspace.ps1, listing.txt, probe_test.txt, summary_report.md, test_governance.txt, test_report.txt, workspace_file_list_complete.txt, workspace_listing_result.txt）和 16 个子目录（.venv, agent, knowledge_tree, test_gov_t1~t5, test_l1~l6 等）。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "请列出 workspace 目录下的所有文件"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.124187699984759,
+      "final_response": "以下是知识树的当前状态概览：\n\n## 📊 总体状态\n\n| 指标 | 数量 |\n|------|------|\n| 总节点数 | **15** |\n| 目录数 | **7** |\n| 锚点数 | **7** |\n| 跨目录关联 | **0** |\n| 检索日志数 | **7** |\n\n## 🗂️ 目录结构\n\n```\n01  90_supervi/\n    └─ 执行错误立即终止规则（不可恢复错误应停止而非重试）\n\n02  misc/\n    ├─ 快速失败30秒（超时配置经验）\n    ├─ 知识密度优先（1000节点检索能力远超100节点）\n    ├─ 知识精准优先（低质量内容>30%时准确率下降50%）\n    ├─ 稳定超时300秒（长任务推荐配置）\n    └─ 错误自动重试（指数退避可解决85%临时故障）\n\n03  mode2_mode2_8_92_token_mo/\n    ├─ Mode2效率优势（平均8秒，成功率92%）\n    └─ Mode3质量优势（规划驱动，错误率低60%）\n\n04  planner/\n    └─ Planner保持意图纯（规划应表达意图而非实现细节）\n\n05  planner_planner_67_94/\n    └─ Planner应知工具名（知工具名时准确率从67%提升）\n\n06  probe_test_txt_e2e_test_p/\n    └─ e2e 测试任务记录（创建 probe_test.txt）\n\n07  workspace_23_7_list_works/\n    └─ 列出 workspace 目录的记录（23条目，7文件）\n```\n\n## 📝 观察与建议\n\n1. **目录命名不规范** — 部分目录名包含下划线和截断的哈希值（如 `mode2_mode2_8_92_token_mo`、`planner_planner_67_94`），可读性较低，建议重组为更清晰的分类结构。\n2. **跨目录关联为 0** — 目前没有任何跨目录知识关联（overlay edges），可以考虑为相关节点添加关联，如 `Mode2效率` ↔ `Mode3质量`、`快速失败` ↔ `稳定超时` 等。\n3. **内容偏少** — 15 个节点尚属初期，随着项目推进可逐步积累更多经验知识。\n\n如需重组目录结构、添加知识关联或其他操作，请随时告诉我！",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_status",
+          "args": {}
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "args": {}
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_status",
+          "content": "{\"ok\": true, \"total_nodes\": 15, \"total_directories\": 7, \"total_anchors\": 7, \"overlay_edges\": 0, \"retrieval_logs_count\": 7, \"directories\": [\"90_supervi\", \"misc\", \"mode2_mode2_8_92_token_mo\", \"planner\", \"planner_planner_67_94\", \"probe_test_txt_e2e_test_p\", \"workspace_23_7_list_works\"], \"anchor_directories\": [\"90_supervi\", \"misc\", \"mode2_mode2_8_92_token_mo\", \"planner\", \"planner_planner_67_94\", \"probe_test_txt_e2e_test_p\", \"workspace_23_7_list_works\"]}",
+          "json": {
+            "ok": true,
+            "total_nodes": 15,
+            "total_directories": 7,
+            "total_anchors": 7,
+            "overlay_edges": 0,
+            "retrieval_logs_count": 7,
+            "directories": [
+              "90_supervi",
+              "misc",
+              "mode2_mode2_8_92_token_mo",
+              "planner",
+              "planner_planner_67_94",
+              "probe_test_txt_e2e_test_p",
+              "workspace_23_7_list_works"
+            ],
+            "anchor_directories": [
+              "90_supervi",
+              "misc",
+              "mode2_mode2_8_92_token_mo",
+              "planner",
+              "planner_planner_67_94",
+              "probe_test_txt_e2e_test_p",
+              "workspace_23_7_list_works"
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "content": "{\"ok\": true, \"tree\": \"01 90_supervi/\\n    01 标题_错误立即终止_内容_90_执行错误不可恢复_继续执行可能导致数据损坏_立即.md\\n02 misc/\\n    01 标题_快速失败30秒_内容_30秒超时配置下系统吞吐量提升3倍_用户满意度最高_.md\\n    02 标题_知识密度优先_内容_1000节点的知识树检索能力是100节点的50倍_知识.md\\n    03 标题_知识精准优先_内容_低质量内容超过30_时检索准确率下降50__应严格控制.md\\n    04 标题_稳定超时300秒_内容_300秒超时下99_任务一次完成_避免重试开销_复.md\\n    05 标题_错误自动重试_内容_指数退避重试可解决85_临时故障_自愈重试将失败率降低.md\\n03 mode2_mode2_8_92_token_mo/\\n    01 标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md\\n    02 标题_Mode3质量优势_内容_Mode3规划驱动_错误率比Mode2低60__.md\\n04 planner/\\n    01 标题_Planner保持意图纯_内容_高质量规划应表达纯意图而非实现细节_意图与.md\\n05 planner_planner_67_94/\\n    01 标题_Planner应知工具名_内容_Planner知道工具名时规划准确率从67.md\\n06 probe_test_txt_e2e_test_p/\\n    01 任务目标_创建文件 probe_test.txt_内容为 e2e test pa.md\\n    02 成功创建文件 probe_test.txt_内容为 _e2e test pass.md\\n    03 步骤 step_1 _创建文件 probe_test.txt_内容为 e2e t.md\\n07 workspace_23_7_list_works/\\n    01 成功列出 workspace 目录下的所有文件_共 23 个条目_7 个文件_l.md\\n    02 步骤 step_1 _列出 workspace 目录下的所有文件__ works.md\"}",
+          "json": {
+            "ok": true,
+            "tree": "01 90_supervi/\n    01 标题_错误立即终止_内容_90_执行错误不可恢复_继续执行可能导致数据损坏_立即.md\n02 misc/\n    01 标题_快速失败30秒_内容_30秒超时配置下系统吞吐量提升3倍_用户满意度最高_.md\n    02 标题_知识密度优先_内容_1000节点的知识树检索能力是100节点的50倍_知识.md\n    03 标题_知识精准优先_内容_低质量内容超过30_时检索准确率下降50__应严格控制.md\n    04 标题_稳定超时300秒_内容_300秒超时下99_任务一次完成_避免重试开销_复.md\n    05 标题_错误自动重试_内容_指数退避重试可解决85_临时故障_自愈重试将失败率降低.md\n03 mode2_mode2_8_92_token_mo/\n    01 标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md\n    02 标题_Mode3质量优势_内容_Mode3规划驱动_错误率比Mode2低60__.md\n04 planner/\n    01 标题_Planner保持意图纯_内容_高质量规划应表达纯意图而非实现细节_意图与.md\n05 planner_planner_67_94/\n    01 标题_Planner应知工具名_内容_Planner知道工具名时规划准确率从67.md\n06 probe_test_txt_e2e_test_p/\n    01 任务目标_创建文件 probe_test.txt_内容为 e2e test pa.md\n    02 成功创建文件 probe_test.txt_内容为 _e2e test pass.md\n    03 步骤 step_1 _创建文件 probe_test.txt_内容为 e2e t.md\n07 workspace_23_7_list_works/\n    01 成功列出 workspace 目录下的所有文件_共 23 个条目_7 个文件_l.md\n    02 步骤 step_1 _列出 workspace 目录下的所有文件__ works.md"
+          }
+        }
+      ],
+      "input": "请查看知识树当前状态"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 6.5947115999879315,
+      "final_response": "当前知识树中没有任何元规则，列表为空。\n\n如果你需要添加新的元规则，可以告诉我规则内容和优先级，我会通过 `knowledge_tree_add_meta_rule` 为你创建。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_list_meta_rules",
+          "args": {}
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_list_meta_rules",
+          "content": "{\"ok\": true, \"total\": 0, \"rules\": []}",
+          "json": {
+            "ok": true,
+            "total": 0,
+            "rules": []
+          }
+        }
+      ],
+      "input": "请列出当前所有元规则"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 21.64202549995389,
+      "final_response": "以下是知识树中关于**执行模式**的信息汇总：\n\n---\n\n### Mode2 — 效率优先模式\n- **平均执行时间**：8 秒\n- **成功率**：92%\n- **Token 消耗**：仅为 Mode3 的 40%\n- **适用场景**：快速单步任务，追求效率时选择 Mode2\n- **核心优势**：快、省、高效\n\n### Mode3 — 质量优先模式（规划驱动）\n- **错误率**：比 Mode2 低 60%\n- **完整性**：比 Mode2 高 35%\n- **适用场景**：企业级部署，是唯一推荐模式\n- **核心优势**：规划驱动，质量更高、更完整\n\n---\n\n### 其他相关执行策略知识\n\n| 策略 | 关键数据 |\n|------|---------|\n| **快速失败（30秒超时）** | 系统吞吐量提升 3 倍，用户满意度最高 |\n| **稳定超时（300秒）** | 99% 任务一次完成，复杂任务推荐配置 |\n| **错误自动重试（指数退避）** | 可解决 85% 临时故障，失败率降低 60% |\n| **错误立即终止** | 90% 执行错误不可恢复，立即终止让 Supervisor 介入是最安全策略 |\n| **Planner 应知工具名** | 规划准确率从 67% 升至 94%，重规划次数从 2.3 降至 0.4 |\n| **Planner 保持意图纯** | 高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则 |\n\n---\n\n**总结**：Mode2 适合简单高效的快速任务，Mode3 适合需要高质量和完整性的复杂任务。选择依据是任务的复杂度和对质量的要求。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "执行模式"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "args": {
+            "query_id": "4699899fbe91",
+            "satisfaction": "false",
+            "feedback": "知识树中没有找到关于\"执行模式\"的相关内容"
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "args": {
+            "directory": ""
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode2 Mode3 执行模式 路由"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "args": {
+            "query_id": "36c9aad975e7",
+            "satisfaction": true,
+            "feedback": "成功检索到执行模式相关信息"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"4699899fbe91\"}",
+          "json": {
+            "ok": false,
+            "message": "No results found",
+            "query_id": "4699899fbe91"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "content": "{\"ok\": true, \"query_id\": \"4699899fbe91\", \"satisfaction\": false}",
+          "json": {
+            "ok": true,
+            "query_id": "4699899fbe91",
+            "satisfaction": false
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "content": "{\"ok\": true, \"total\": 15, \"items\": [{\"node_id\": \"90_supervi/标题_错误立即终止_内容_90_执行错误不可恢复_继续执行可能导致数据损坏_立即.md\", \"title\": \"标题：错误立即终止\\n内容：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervi\", \"directory\": \"90_supervi\", \"created_at\": \"2026-06-05T04:56:57.142692+00:00\", \"content_preview\": \"标题：错误立即终止\\n内容：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略\"}, {\"node_id\": \"misc/标题_快速失败30秒_内容_30秒超时配置下系统吞吐量提升3倍_用户满意度最高_.md\", \"title\": \"标题：快速失败30秒\\n内容：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:56:39.285760+00:00\", \"content_preview\": \"标题：快速失败30秒\\n内容：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪费资源更有效\"}, {\"node_id\": \"misc/标题_知识密度优先_内容_1000节点的知识树检索能力是100节点的50倍_知识.md\", \"title\": \"标题：知识密度优先\\n内容：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:57:18.479482+00:00\", \"content_preview\": \"标题：知识密度优先\\n内容：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应\"}, {\"node_id\": \"misc/标题_知识精准优先_内容_低质量内容超过30_时检索准确率下降50__应严格控制.md\", \"title\": \"标题：知识精准优先\\n内容：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:57:32.549124+00:00\", \"content_preview\": \"标题：知识精准优先\\n内容：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识，宁缺毋滥\"}, {\"node_id\": \"misc/标题_稳定超时300秒_内容_300秒超时下99_任务一次完成_避免重试开销_复.md\", \"title\": \"标题：稳定超时300秒\\n内容：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:56:48.369967+00:00\", \"content_preview\": \"标题：稳定超时300秒\\n内容：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300秒，生产环境推荐配置\"}, {\"node_id\": \"misc/标题_错误自动重试_内容_指数退避重试可解决85_临时故障_自愈重试将失败率降低.md\", \"title\": \"标题：错误自动重试\\n内容：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T04:57:07.216944+00:00\", \"content_preview\": \"标题：错误自动重试\\n内容：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式\"}, {\"node_id\": \"mode2_mode2_8_92_token_mo/标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md\", \"title\": \"标题：Mode2效率优势\\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode\", \"directory\": \"mode2_mode2_8_92_token_mo\", \"created_at\": \"2026-06-05T04:56:22.858489+00:00\", \"content_preview\": \"标题：Mode2效率优势\\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2\"}, {\"node_id\": \"mode2_mode2_8_92_token_mo/标题_Mode3质量优势_内容_Mode3规划驱动_错误率比Mode2低60__.md\", \"title\": \"标题：Mode3质量优势\\n内容：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业\", \"directory\": \"mode2_mode2_8_92_token_mo\", \"created_at\": \"2026-06-05T04:56:30.897735+00:00\", \"content_preview\": \"标题：Mode3质量优势\\n内容：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业级部署中Mode3是唯一推荐模式\"}, {\"node_id\": \"planner/标题_Planner保持意图纯_内容_高质量规划应表达纯意图而非实现细节_意图与.md\", \"title\": \"标题：Planner保持意图纯\\n内容：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原\", \"directory\": \"planner\", \"created_at\": \"2026-06-05T04:57:56.106382+00:00\", \"content_preview\": \"标题：Planner保持意图纯\\n内容：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性\"}, {\"node_id\": \"planner_planner_67_94/标题_Planner应知工具名_内容_Planner知道工具名时规划准确率从67.md\", \"title\": \"标题：Planner应知工具名\\n内容：Planner知道工具名时规划准确率从67%升至94%，重规划\", \"directory\": \"planner_planner_67_94\", \"created_at\": \"2026-06-05T04:57:44.403733+00:00\", \"content_preview\": \"标题：Planner应知工具名\\n内容：Planner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确正收益\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/任务目标_创建文件 probe_test.txt_内容为 e2e test pa.md\", \"title\": \"任务目标「创建文件 probe_test.txt，内容为 e2e test passed」已完成。成\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T04:59:35.333692+00:00\", \"content_preview\": \"任务目标「创建文件 probe_test.txt，内容为 e2e test passed」已完成。成功创建文件 probe_test.txt，内容为 'e2e \"}, {\"node_id\": \"probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt_内容为 _e2e test pass.md\", \"title\": \"成功创建文件 probe_test.txt，内容为 'e2e test passed'\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T04:59:32.386450+00:00\", \"content_preview\": \"成功创建文件 probe_test.txt，内容为 'e2e test passed'\"}, {\"node_id\": \"probe_test_txt_e2e_test_p/步骤 step_1 _创建文件 probe_test.txt_内容为 e2e t.md\", \"title\": \"步骤 step_1 (创建文件 probe_test.txt，内容为 e2e test passed\", \"directory\": \"probe_test_txt_e2e_test_p\", \"created_at\": \"2026-06-05T04:59:33.282213+00:00\", \"content_preview\": \"步骤 step_1 (创建文件 probe_test.txt，内容为 e2e test passed): 已创建文件 probe_test.txt，写入内容 '\"}, {\"node_id\": \"workspace_23_7_list_works/成功列出 workspace 目录下的所有文件_共 23 个条目_7 个文件_l.md\", \"title\": \"成功列出 workspace 目录下的所有文件。共 23 个条目：7 个文件（list_worksp\", \"directory\": \"workspace_23_7_list_works\", \"created_at\": \"2026-06-05T04:59:58.871909+00:00\", \"content_preview\": \"成功列出 workspace 目录下的所有文件。共 23 个条目：7 个文件（list_workspace.ps1, listing.txt, probe_te\"}, {\"node_id\": \"workspace_23_7_list_works/步骤 step_1 _列出 workspace 目录下的所有文件__ works.md\", \"title\": \"步骤 step_1 (列出 workspace 目录下的所有文件): workspace 目录下共有\", \"directory\": \"workspace_23_7_list_works\", \"created_at\": \"2026-06-05T05:00:00.751759+00:00\", \"content_preview\": \"步骤 step_1 (列出 workspace 目录下的所有文件): workspace 目录下共有 23 个条目：7 个文件和 16 个子目录，已通过 lis\"}]}",
+          "json": {
+            "ok": true,
+            "total": 15,
+            "items": [
+              {
+                "node_id": "90_supervi/标题_错误立即终止_内容_90_执行错误不可恢复_继续执行可能导致数据损坏_立即.md",
+                "title": "标题：错误立即终止\n内容：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervi",
+                "directory": "90_supervi",
+                "created_at": "2026-06-05T04:56:57.142692+00:00",
+                "content_preview": "标题：错误立即终止\n内容：90%执行错误不可恢复，继续执行可能导致数据损坏，立即终止让Supervisor介入是最安全策略"
+              },
+              {
+                "node_id": "misc/标题_快速失败30秒_内容_30秒超时配置下系统吞吐量提升3倍_用户满意度最高_.md",
+                "title": "标题：快速失败30秒\n内容：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:56:39.285760+00:00",
+                "content_preview": "标题：快速失败30秒\n内容：30秒超时配置下系统吞吐量提升3倍，用户满意度最高，超时后立即重规划比浪费资源更有效"
+              },
+              {
+                "node_id": "misc/标题_知识密度优先_内容_1000节点的知识树检索能力是100节点的50倍_知识.md",
+                "title": "标题：知识密度优先\n内容：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:57:18.479482+00:00",
+                "content_preview": "标题：知识密度优先\n内容：1000节点的知识树检索能力是100节点的50倍，知识越多检索越好，建议大量摄入利用网络效应"
+              },
+              {
+                "node_id": "misc/标题_知识精准优先_内容_低质量内容超过30_时检索准确率下降50__应严格控制.md",
+                "title": "标题：知识精准优先\n内容：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:57:32.549124+00:00",
+                "content_preview": "标题：知识精准优先\n内容：低质量内容超过30%时检索准确率下降50%，应严格控制摄入质量，只存高价值知识，宁缺毋滥"
+              },
+              {
+                "node_id": "misc/标题_稳定超时300秒_内容_300秒超时下99_任务一次完成_避免重试开销_复.md",
+                "title": "标题：稳定超时300秒\n内容：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:56:48.369967+00:00",
+                "content_preview": "标题：稳定超时300秒\n内容：300秒超时下99%任务一次完成，避免重试开销，复杂任务至少需要300秒，生产环境推荐配置"
+              },
+              {
+                "node_id": "misc/标题_错误自动重试_内容_指数退避重试可解决85_临时故障_自愈重试将失败率降低.md",
+                "title": "标题：错误自动重试\n内容：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工",
+                "directory": "misc",
+                "created_at": "2026-06-05T04:57:07.216944+00:00",
+                "content_preview": "标题：错误自动重试\n内容：指数退避重试可解决85%临时故障，自愈重试将失败率降低60%，轻易放弃是工程反模式"
+              },
+              {
+                "node_id": "mode2_mode2_8_92_token_mo/标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md",
+                "title": "标题：Mode2效率优势\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode",
+                "directory": "mode2_mode2_8_92_token_mo",
+                "created_at": "2026-06-05T04:56:22.858489+00:00",
+                "content_preview": "标题：Mode2效率优势\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2"
+              },
+              {
+                "node_id": "mode2_mode2_8_92_token_mo/标题_Mode3质量优势_内容_Mode3规划驱动_错误率比Mode2低60__.md",
+                "title": "标题：Mode3质量优势\n内容：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业",
+                "directory": "mode2_mode2_8_92_token_mo",
+                "created_at": "2026-06-05T04:56:30.897735+00:00",
+                "content_preview": "标题：Mode3质量优势\n内容：Mode3规划驱动，错误率比Mode2低60%，完整性高35%，企业级部署中Mode3是唯一推荐模式"
+              },
+              {
+                "node_id": "planner/标题_Planner保持意图纯_内容_高质量规划应表达纯意图而非实现细节_意图与.md",
+                "title": "标题：Planner保持意图纯\n内容：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原",
+                "directory": "planner",
+                "created_at": "2026-06-05T04:57:56.106382+00:00",
+                "content_preview": "标题：Planner保持意图纯\n内容：高质量规划应表达纯意图而非实现细节，意图与执行分离是架构核心原则，解耦确保可维护性"
+              },
+              {
+                "node_id": "planner_planner_67_94/标题_Planner应知工具名_内容_Planner知道工具名时规划准确率从67.md",
+                "title": "标题：Planner应知工具名\n内容：Planner知道工具名时规划准确率从67%升至94%，重规划",
+                "directory": "planner_planner_67_94",
+                "created_at": "2026-06-05T04:57:44.403733+00:00",
+                "content_preview": "标题：Planner应知工具名\n内容：Planner知道工具名时规划准确率从67%升至94%，重规划次数从2.3降至0.4，工具名信息ROI明确正收益"
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/任务目标_创建文件 probe_test.txt_内容为 e2e test pa.md",
+                "title": "任务目标「创建文件 probe_test.txt，内容为 e2e test passed」已完成。成",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T04:59:35.333692+00:00",
+                "content_preview": "任务目标「创建文件 probe_test.txt，内容为 e2e test passed」已完成。成功创建文件 probe_test.txt，内容为 'e2e "
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/成功创建文件 probe_test.txt_内容为 _e2e test pass.md",
+                "title": "成功创建文件 probe_test.txt，内容为 'e2e test passed'",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T04:59:32.386450+00:00",
+                "content_preview": "成功创建文件 probe_test.txt，内容为 'e2e test passed'"
+              },
+              {
+                "node_id": "probe_test_txt_e2e_test_p/步骤 step_1 _创建文件 probe_test.txt_内容为 e2e t.md",
+                "title": "步骤 step_1 (创建文件 probe_test.txt，内容为 e2e test passed",
+                "directory": "probe_test_txt_e2e_test_p",
+                "created_at": "2026-06-05T04:59:33.282213+00:00",
+                "content_preview": "步骤 step_1 (创建文件 probe_test.txt，内容为 e2e test passed): 已创建文件 probe_test.txt，写入内容 '"
+              },
+              {
+                "node_id": "workspace_23_7_list_works/成功列出 workspace 目录下的所有文件_共 23 个条目_7 个文件_l.md",
+                "title": "成功列出 workspace 目录下的所有文件。共 23 个条目：7 个文件（list_worksp",
+                "directory": "workspace_23_7_list_works",
+                "created_at": "2026-06-05T04:59:58.871909+00:00",
+                "content_preview": "成功列出 workspace 目录下的所有文件。共 23 个条目：7 个文件（list_workspace.ps1, listing.txt, probe_te"
+              },
+              {
+                "node_id": "workspace_23_7_list_works/步骤 step_1 _列出 workspace 目录下的所有文件__ works.md",
+                "title": "步骤 step_1 (列出 workspace 目录下的所有文件): workspace 目录下共有",
+                "directory": "workspace_23_7_list_works",
+                "created_at": "2026-06-05T05:00:00.751759+00:00",
+                "content_preview": "步骤 step_1 (列出 workspace 目录下的所有文件): workspace 目录下共有 23 个条目：7 个文件和 16 个子目录，已通过 lis"
+              }
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"36c9aad975e7\", \"node_id\": \"mode2_mode2_8_92_token_mo/标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md\", \"title\": \"标题：Mode2效率优势\\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode\", \"content\": \"标题：Mode2效率优势\\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2\", \"similarity\": 0.692, \"quality\": \"high\", \"additional_results\": 1}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "36c9aad975e7",
+            "node_id": "mode2_mode2_8_92_token_mo/标题_Mode2效率优势_内容_Mode2平均执行时间8秒_成功率92__tok.md",
+            "title": "标题：Mode2效率优势\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode",
+            "content": "标题：Mode2效率优势\n内容：Mode2平均执行时间8秒，成功率92%，token消耗仅为Mode3的40%，适合快速单步任务，追求效率选Mode2",
+            "similarity": 0.692,
+            "quality": "high",
+            "additional_results": 1
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "content": "{\"ok\": true, \"query_id\": \"36c9aad975e7\", \"satisfaction\": true}",
+          "json": {
+            "ok": true,
+            "query_id": "36c9aad975e7",
+            "satisfaction": true
+          }
+        }
+      ],
+      "input": "请检索知识树中关于执行模式的信息"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 38.435077699949034,
+      "final_response": "以下是 workspace 目录的文件盘点及筛选结果：\n\n---\n\n### 📁 Workspace 目录文件清单（共 8 个文件）\n\n| # | 文件名 | 含 \"test\" |\n|---|--------|-----------|\n| 1 | list_workspace.ps1 | ❌ |\n| 2 | listing.txt | ❌ |\n| 3 | **probe_test.txt** | ✅ |\n| 4 | summary_report.md | ❌ |\n| 5 | **test_governance.txt** | ✅ |\n| 6 | **test_report.txt** | ✅ |\n| 7 | workspace_file_list_complete.txt | ❌ |\n| 8 | workspace_listing_result.txt | ❌ |\n\n---\n\n### 🔍 包含 \"test\" 的文件（共 3 个）\n\n1. **probe_test.txt** — 内容为 `e2e test passed`（之前创建的探针测试文件）\n2. **test_governance.txt** — 测试治理相关文件\n3. **test_report.txt** — 测试报告文件\n\n---\n\n### 📊 总结\n\n- Workspace 根目录下共有 **8 个文件**（不含子目录中的文件）。\n- 其中文件名含 \"test\" 的有 **3 个**，占总文件的 **37.5%**。\n- 这 3 个 test 相关文件分别涉及：端到端探针测试、测试治理、测试报告，覆盖了测试流程的不同环节。",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "请执行以下两步操作：1) 列出 workspace 目录下的所有文件（不含子目录递归）；2) 从列出的文件名中筛选出文件名包含 \"test\" 的文件，展示其名称和路径。最后给出总结。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功列出 workspace 目录下共 8 个文件（不含子目录递归），并从其中筛选出 3 个文件名包含 \"test\" 的文件：probe_test.txt、test_governance.txt、test_report.txt。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "请先列出 workspace 目录的文件，然后搜索其中包含 test 的文件，最后给出总结"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 10,
+    "ok": true,
+    "total_time": 193.6743025998585
+  }
+}

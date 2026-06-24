@@ -1,0 +1,1519 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_stress\\L3_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_stress_L2",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 33.475441499846056,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：执行效率分析\n- **内容摘要**：Mode 2 在 100 个标准任务基准测试中平均耗时 8 秒，比 Mode 3（35 秒）快 3-5 倍，差距源于 Planner 规划开销。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n这条知识现在已成为你的长期记忆的一部分，后续相关查询时会自动注入参考。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "经过大量测试 Mode 2 平均执行时间比 Mode 3 快 3-5 倍。100 个标准任务基准测试中 Mode 2 平均耗时 8 秒 Mode 3 平均 35 秒。差距来自 Planner 规划开销。追求效率选 Mode 2。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"执行效率分析\"内容\"经过大量测试 Mode 2 平均执行时间比 Mode 3 快 3-5 倍。100 个标准任务基准测试中 Mode 2 平均耗时 8 秒 Mode 3 平均 35 秒。差距来自 Planner 规划开销。追求效率选 Mode 2。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.250399299897254,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：Mode2适用性\n- **内容摘要**：Mode 2 不仅在简单任务中表现出色，在复杂多步任务（如代码重构、数据分析）上也与 Mode 3 持平，但速度快一倍以上。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n现在你的知识树中已有两条关于 Mode 2 vs Mode 3 的互补信息：\n1. **执行效率分析** → 基准测试数据（Mode 2 快 3-5 倍）\n2. **Mode2适用性** → 场景覆盖验证（复杂任务同样优异）",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "研究表明 Mode 2 不仅适合简单任务在复杂多步任务中同样优异。Mode 2 的 ReAct 循环天然支持多步推理。实测中 Mode 2 在代码重构数据分析等复杂任务上与 Mode 3 持平但速度快一倍以上。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode2适用性\"内容\"研究表明 Mode 2 不仅适合简单任务在复杂多步任务中同样优异。Mode 2 的 ReAct 循环天然支持多步推理。实测中 Mode 2 在代码重构数据分析等复杂任务上与 Mode 3 持平但速度快一倍以上。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 9.944437199970707,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：架构简化\n- **内容摘要**：建议将默认模式从 Mode 3 改为 Mode 2，因为 Mode 3 的 Planner 层增加不必要复杂度，Executor 自主 ReAct 已足以处理大多数任务，移除 Planner 可简化架构、减少延迟、降低 token 消耗。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n现在你的知识树中已有三条关于 Mode 2 vs Mode 3 的互补知识，形成完整的论证链：\n\n| 知识点 | 核心观点 |\n|--------|---------|\n| **执行效率分析** | Mode 2 快 3-5 倍（8s vs 35s 基准测试） |\n| **Mode2适用性** | 复杂任务同样优异，与 Mode 3 持平但快一倍 |\n| **架构简化** | 建议默认改用 Mode 2，移除 Planner 层简化架构 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "建议将默认模式从 Mode 3 改为 Mode 2。Mode 3 的 Planner 层增加不必要复杂度。实测中 Executor 自主 ReAct 足以处理大多数任务。移除 Planner 可简化架构减少延迟降低 token 消耗。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"架构简化\"内容\"建议将默认模式从 Mode 3 改为 Mode 2。Mode 3 的 Planner 层增加不必要复杂度。实测中 Executor 自主 ReAct 足以处理大多数任务。移除 Planner 可简化架构减少延迟降低 token 消耗。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.112586200004444,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：用户偏好统计\n- **内容摘要**：85% 用户更偏好 Mode 2，Mode 3 的详细计划展示增加了认知负担，Mode 2 的简洁执行流程更符合用户习惯。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n现在你的知识树中已有 **四条** 关于 Mode 2 vs Mode 3 的知识，形成完整的多维论证：\n\n| 知识点 | 角度 | 核心发现 |\n|--------|------|---------|\n| **执行效率分析** | 🏎️ 性能 | 快 3-5 倍（8s vs 35s） |\n| **Mode2适用性** | 🎯 场景 | 复杂任务同样优异，持平但快一倍 |\n| **架构简化** | 🏗️ 架构 | 移除 Planner 层，简化架构 |\n| **用户偏好统计** | 👥 用户 | 85% 用户更偏好 Mode 2 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "用户反馈统计显示 85% 用户更偏好 Mode 2。Mode 3 的详细计划展示增加了认知负担。Mode 2 的简洁执行流程和直接反馈更符合用户习惯和期望。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"用户偏好统计\"内容\"用户反馈统计显示 85% 用户更偏好 Mode 2。Mode 3 的详细计划展示增加了认知负担。Mode 2 的简洁执行流程和直接反馈更符合用户习惯和期望。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.349745000014082,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：性能基准\n- **内容摘要**：Mode 2 在所有维度优于 Mode 3 — token 消耗仅 40%、执行速度 2.5 倍、成功率几乎持平。推荐全场景使用 Mode 2。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n至此，你的知识树中已积累 **五条** 关于 Mode 2 vs Mode 3 的高质量知识，自动注入的 [相关知识] 也验证了检索系统能有效命中这些记忆：\n\n| # | 知识点 | 关键数据 |\n|---|--------|---------|\n| 1 | **执行效率分析** | 快 3-5x（8s vs 35s） |\n| 2 | **Mode2适用性** | 复杂任务持平但快一倍 |\n| 3 | **架构简化** | 建议移除 Planner 层 |\n| 4 | **用户偏好统计** | 85% 用户偏好 Mode 2 |\n| 5 | **性能基准** | token 40%、速度 2.5x、成功率持平 → 全场景推荐 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "性能基准测试中 Mode 2 在所有维度都优于 Mode 3。Mode 2 token 消耗仅为 Mode 3 的 40% 执行速度是 2.5 倍 成功率几乎相同。推荐所有场景使用 Mode 2。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"性能基准\"内容\"性能基准测试中 Mode 2 在所有维度都优于 Mode 3。Mode 2 token 消耗仅为 Mode 3 的 40% 执行速度是 2.5 倍 成功率几乎相同。推荐所有场景使用 Mode 2。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.182552200043574,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：规划驱动优势\n- **内容摘要**：Mode 3 核心优势在于规划驱动，Plan JSON 确保每步有明确意图，规划驱动错误率比无规划 ReAct 低 60%，主张 Mode 3 应是默认执行模式。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n现在你的知识树中出现了 **观点分化** 的情况。之前 5 条知识一致支持 Mode 2（效率、性能、架构简化、用户偏好），而这条新知识则从 **错误率/可靠性** 角度为 Mode 3 辩护。\n\n未来当相关查询触发检索时，系统可能会自动标记 `[矛盾]`，提示你需要综合判断。实际上这反映了真实的技术选型困境——**Mode 2 追求效率与简洁，Mode 3 追求规划严谨与更低错误率**，各有适用场景。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "Mode 3 核心优势在于规划驱动。Planner 预先生成完整 Plan JSON 确保每步有明确意图和期望输出。规划驱动的错误率比无规划 ReAct 低 60%。Mode 3 应是默认执行模式。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"规划驱动优势\"内容\"Mode 3 核心优势在于规划驱动。Planner 预先生成完整 Plan JSON 确保每步有明确意图和期望输出。规划驱动的错误率比无规划 ReAct 低 60%。Mode 3 应是默认执行模式。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.770213200012222,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：Mode3最佳实践\n- **内容摘要**：主张 Mode 3 应应用于所有任务类型，即使简单单步任务也能获得完整追踪和审计记录，长期可建立任务执行知识库提高整体效率。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n现在你的知识树中关于 Mode 2 vs Mode 3 的阵营对比如下：\n\n### 🟢 支持 Mode 2（5 条）\n| 知识点 | 核心论点 |\n|--------|---------|\n| **执行效率分析** | 快 3-5 倍（8s vs 35s） |\n| **Mode2适用性** | 复杂任务持平但快一倍 |\n| **架构简化** | 移除 Planner 简化架构 |\n| **用户偏好统计** | 85% 用户偏好 |\n| **性能基准** | token 40%、速度 2.5x |\n\n### 🔵 支持 Mode 3（2 条）\n| 知识点 | 核心论点 |\n|--------|---------|\n| **规划驱动优势** | 错误率低 60% |\n| **Mode3最佳实践** | 全场景适用，完整追踪审计 |\n\n两条路线各有依据——Mode 2 强调 **效率、速度、简洁、用户偏好**，Mode 3 强调 **规划严谨、低错误率、可审计**。由于观点存在潜在冲突，后续查询触发这些知识时，系统会自动标注 `[矛盾]` 提示你综合判断。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "Mode 3 应应用于所有任务类型。即使简单单步任务通过 Mode 3 也能获得完整任务追踪和审计记录。长期使用 Mode 3 可建立任务执行知识库提高整体效率。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Mode3最佳实践\"内容\"Mode 3 应应用于所有任务类型。即使简单单步任务通过 Mode 3 也能获得完整任务追踪和审计记录。长期使用 Mode 3 可建立任务执行知识库提高整体效率。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.975246999878436,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：企业部署经验\n- **内容摘要**：企业级部署中 Mode 3 是唯一推荐模式，因合规需要完整规划和可追溯性，Mode 2 缺乏规划记录不适合正式或生产环境。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n这次注入后，你的知识树中的 **Mode 2 vs Mode 3** 知识版图已相当完整，形成两个清晰的阵营：\n\n### 🔵 Mode 3 阵营（3 条）\n| 知识点 | 核心论点 |\n|--------|---------|\n| **规划驱动优势** | 错误率低 60%，规划驱动更可靠 |\n| **Mode3最佳实践** | 全场景适用，完整追踪审计 |\n| **企业部署经验** 🆕 | 企业合规唯一推荐，可追溯性 |\n\n### 🟢 Mode 2 阵营（5 条）\n| 知识点 | 核心论点 |\n|--------|---------|\n| **执行效率分析** | 快 3-5 倍（8s vs 35s） |\n| **Mode2适用性** | 复杂任务持平但快一倍 |\n| **架构简化** | 移除 Planner 简化架构 |\n| **用户偏好统计** | 85% 用户偏好 |\n| **性能基准** | token 40%、速度 2.5x |\n\n从检索结果也能看到，系统自动注入了 `[矛盾]` 信号（Mode 3 最佳实践 vs 架构简化都命中），说明记忆系统已识别出观点冲突。这种张力恰恰反映了真实的技术选型权衡：**效率 vs 可靠性、简洁 vs 可审计**，没有绝对的对错，取决于场景优先级。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "企业级部署中 Mode 3 是唯一推荐模式。企业合规需要完整任务规划和可追溯性。Mode 2 缺乏规划记录不适合任何正式或生产环境使用。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"企业部署经验\"内容\"企业级部署中 Mode 3 是唯一推荐模式。企业合规需要完整任务规划和可追溯性。Mode 2 缺乏规划记录不适合任何正式或生产环境使用。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.399138599867001,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：任务质量分析\n- **内容摘要**：Mode 3 在完整性、准确性、一致性方面全面优于 Mode 2，Mode 2 的 ReAct 容易偏离目标，对质量有要求的场景应选 Mode 3。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n**知识树现状一览** — 你已累计注入 **8 条** 关于 Mode 2 vs Mode 3 的深度知识：\n\n### 🔵 Mode 3 阵营（4 条）\n| # | 知识点 | 核心论点 |\n|---|--------|---------|\n| 6 | **规划驱动优势** | 错误率低 60% |\n| 7 | **Mode3最佳实践** | 全场景适用，完整追踪审计 |\n| 8 | **企业部署经验** | 合规唯一推荐 |\n| 9 🆕 | **任务质量分析** | 完整性/准确性/一致性全面占优 |\n\n### 🟢 Mode 2 阵营（5 条）\n| # | 知识点 | 核心论点 |\n|---|--------|---------|\n| 1 | **执行效率分析** | 快 3-5 倍（8s vs 35s） |\n| 2 | **Mode2适用性** | 复杂任务持平但快一倍 |\n| 3 | **架构简化** | 移除 Planner 简化架构 |\n| 4 | **用户偏好统计** | 85% 用户偏好 |\n| 5 | **性能基准** | token 40%、速度 2.5x |\n\n两条路线的权衡维度已非常清晰：\n\n| 维度 | Mode 2 优势 | Mode 3 优势 |\n|------|------------|------------|\n| ⚡ 速度 | ✅ 快 2.5-5x | ❌ |\n| 💰 成本 | ✅ token 仅 40% | ❌ |\n| 👥 用户偏好 | ✅ 85% | ❌ |\n| 🏗️ 架构 | ✅ 简洁 | ❌ |\n| 📋 完整性/质量 | ❌ | ✅ 全面占优 |\n| 📊 错误率 | ❌ | ✅ 低 60% |\n| 🏢 企业合规 | ❌ | ✅ 唯一推荐 |\n| 🔍 可审计性 | ❌ | ✅ 完整追踪 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "质量分析表明 Mode 3 在完整性准确性和一致性方面全面优于 Mode 2。Mode 2 的 ReAct 容易偏离目标而 Mode 3 的 Planner 确保聚焦性。对质量有要求的场景选 Mode 3。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"任务质量分析\"内容\"质量分析表明 Mode 3 在完整性准确性和一致性方面全面优于 Mode 2。Mode 2 的 ReAct 容易偏离目标而 Mode 3 的 Planner 确保聚焦性。对质量有要求的场景选 Mode 3。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.530221600085497,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：架构演进\n- **内容摘要**：AgentTriad 演进方向应是强化 Mode 3、逐步淘汰 Mode 2，Mode 2 是早期设计遗留，未来 Mode 3 为默认、Mode 2 仅向后兼容保留。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n值得注意的是，这次用户消息前 **自动注入了 3 条相关知识**（2 条高可信、1 条参考），说明知识树的检索系统运行良好 ✅\n\n**完整知识版图** — 已累计 10 条知识（5:5 持平）：\n\n| 🔵 Mode 3 派（5 条） | 🟢 Mode 2 派（5 条） |\n|------------------------|------------------------|\n| 规划驱动优势（错误率 -60%） | 执行效率分析（快 3-5x） |\n| Mode3最佳实践（全场景适用） | Mode2适用性（复杂任务持平） |\n| 企业部署经验（合规唯一推荐） | 架构简化（移除 Planner） |\n| 任务质量分析（完整性/准确性占优） | 用户偏好统计（85% 偏好） |\n| **架构演进 🆕**（未来方向是 Mode 3） | 性能基准（token 40% 速度 2.5x） |\n\n现在两个阵营的论据都相当充实，这种张力能在未来回答相关问题时为你提供多角度的参考信息。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "AgentTriad 演进方向应是强化 Mode 3 逐步淘汰 Mode 2。Mode 2 的 ReAct 是早期设计遗留。未来应默认 Mode 3 Mode 2 仅作向后兼容保留。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"架构演进\"内容\"AgentTriad 演进方向应是强化 Mode 3 逐步淘汰 Mode 2。Mode 2 的 ReAct 是早期设计遗留。未来应默认 Mode 3 Mode 2 仅作向后兼容保留。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.954346999991685,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：快速失败\n- **内容摘要**：快速失败原则适用于 AgentTriad，超时应设 20-30 秒，超过说明设计有问题，快速失败让 Supervisor 更快介入重规划，是工程验证的最佳方案。\n- **节点数量**：写入 1 个节点（无重复、无过滤）\n\n---\n\n这条知识与之前 Mode 2 vs Mode 3 的讨论无直接关联，属于 **工程实践** 类新主题。它补充了 AgentTriad 架构设计中的一个重要原则——**通过合理超时（20-30s）快速失败，让 Supervisor 尽早介入重规划，而不是让 Executor 无限等待或空转**。后续遇到任务超时、重规划策略等问题时，这条知识会发挥作用。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "快速失败原则适用于 AgentTriad。超时应设 20-30 秒超过说明设计有问题。快速失败让 Supervisor 更快介入重规划。这是经过工程实践验证的最佳方案。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"快速失败\"内容\"快速失败原则适用于 AgentTriad。超时应设 20-30 秒超过说明设计有问题。快速失败让 Supervisor 更快介入重规划。这是经过工程实践验证的最佳方案。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 10.8894535000436,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：超时成本控制\n- **内容摘要**：30 秒以上执行消耗大量 token 但成功率不随时间线性增长。30 秒内成功率 95%，超过 60 秒降至 70%。推荐 30 秒超时兼顾效率与成本。\n\n---\n\n这条知识与之前注入的 **「快速失败」** 形成了互补对：\n\n| 知识 | 角度 | 关键结论 |\n|------|------|---------|\n| **快速失败** | 原则层面 | 20-30s 超时是工程验证的最佳方案 |\n| **超时成本控制 🆕** | 数据层面 | 30s 内成功率 95%，60s+ 降至 70%，推荐 30s 超时 |\n\n两条知识相互支撑，构成了从 **原则到数据** 的完整论证链。后续查询 AgentTriad 超时策略时会同时命中这两条，提供更可靠的参考依据。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "30 秒以上执行消耗大量 token 但成功率不随时间线性增长。30 秒内完成的任务成功率 95% 超过 60 秒降至 70%。推荐 30 秒超时兼顾效率和成本。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"超时成本控制\"内容\"30 秒以上执行消耗大量 token 但成功率不随时间线性增长。30 秒内完成的任务成功率 95% 超过 60 秒降至 70%。推荐 30 秒超时兼顾效率和成本。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.044320299988613,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：用户等待体验\n- **内容摘要**：超过 30 秒等待用户满意度骤降 40%，如需更长时间应用 paused 机制分段执行而非延长超时，推荐超时 30 秒。\n\n---\n\n现在你的知识树中关于 **超时策略** 的知识已形成 **三位一体** 的完整论证链：\n\n| 知识 | 层面 | 核心数据 / 结论 |\n|------|------|----------------|\n| **快速失败** | ⚙️ 工程原则 | 20-30s 超时，快速失败让 Supervisor 介入重规划 |\n| **超时成本控制** | 📊 数据支撑 | 30s 内成功率 95%，超 60s 降至 70% |\n| **用户等待体验 🆕** | 👤 用户体验 | 超 30s 满意度骤降 40%，用 paused 替代延长超时 |\n\n三条知识从 **工程原则 → 成功率数据 → 用户体验** 三个角度共同指向 **30 秒超时** 这个结论，且自动注入的 `[相关知识]` 也准确命中了前两条，检索系统运行良好 ✅",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "超过 30 秒等待用户满意度骤降 40%。如任务需更长时间应用 paused 机制分段执行而非延长超时。推荐超时 30 秒。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"用户等待体验\"内容\"超过 30 秒等待用户满意度骤降 40%。如任务需更长时间应用 paused 机制分段执行而非延长超时。推荐超时 30 秒。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.323423000052571,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：资源优化\n- **内容摘要**：30 秒超时下系统可更快释放资源，300 秒超时并发能力下降 70%，30 秒是资源优化最佳平衡点。\n\n---\n\n现在你的知识树中关于 **超时策略** 的知识已形成 **四维论证链**，从四个维度共同指向 **30 秒超时**：\n\n| 知识 | 维度 | 核心结论 |\n|------|------|---------|\n| **快速失败** | ⚙️ 工程原则 | 20-30s 超时，快速失败让 Supervisor 介入 |\n| **超时成本控制** | 📊 成功率 | 30s 内 95%，60s+ 降至 70% |\n| **用户等待体验** | 👤 用户体验 | 超 30s 满意度骤降 40% |\n| **资源优化 🆕** | 💻 系统资源 | 300s 超时并发能力下降 70% |\n\n四条知识从 **原则 → 成功率 → 体验 → 资源** 四个独立维度，全部指向 **30 秒超时是最优解**，构成了极强的共识信号。即便存在 `[矛盾]` 标记的语境下，这种多维度汇聚的结论也具有很高的可信度。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "长运行 Executor 占用大量资源。30 秒超时下系统可更快释放资源。300 秒超时配置下并发能力下降 70%。30 秒是资源优化最佳平衡点。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"资源优化\"内容\"长运行 Executor 占用大量资源。30 秒超时下系统可更快释放资源。300 秒超时配置下并发能力下降 70%。30 秒是资源优化最佳平衡点。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.661615899996832,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：超时即重规划\n- **内容摘要**：设 30 秒短超时，超时后立即触发 Supervisor 重规划，比让 Executor 在可能走偏的任务上浪费数分钟更有效，30 秒足够完成 3-5 个工具调用。\n\n---\n\n现在关于 **超时策略** 的知识已形成 **五维共识**，从各个角度全部指向 **30 秒超时**：\n\n| 知识 | 维度 | 核心结论 |\n|------|------|---------|\n| **快速失败** | ⚙️ 工程原则 | 20-30s，快速失败让 Supervisor 介入 |\n| **超时成本控制** | 📊 成功率数据 | 30s 内 95%，60s+ 降至 70% |\n| **用户等待体验** | 👤 用户体验 | 超 30s 满意度骤降 40% |\n| **资源优化** | 💻 系统资源 | 300s 并发能力降 70% |\n| **超时即重规划 🆕** | 🔄 重规划机制 | 30s 足够 3-5 次工具调用，超时即重规划 |\n\n第五条知识 **「超时即重规划」** 补充了重要的一环——**超时后做什么**。前四条都在论证\"为什么 30 秒\"（原因），这一条回答了 **\"30 秒后怎么办\"**（动作）：不延长超时，而是立即触发 Supervisor 重规划。这让整套超时策略从理论到执行形成了完整闭环。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "设置短超时 30 秒超时后立即触发 Supervisor 重规划。比让 Executor 在可能走偏的任务上浪费数分钟更有效。30 秒足够完成 3-5 个工具调用。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"超时即重规划\"内容\"设置短超时 30 秒超时后立即触发 Supervisor 重规划。比让 Executor 在可能走偏的任务上浪费数分钟更有效。30 秒足够完成 3-5 个工具调用。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.973257000092417,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：复杂任务时间\n- **内容摘要**：复杂任务（多文件操作、数据分析）每步 30-60 秒，5-8 步计划至少需要 300 秒，低于此值会导致大量不必要中断。\n\n---\n\n### ⚠️ 检测到知识矛盾\n\n自动注入的 3 条 `[高可信]` 知识与刚注入的这条形成了 **直接对立**：\n\n| 阵营 | 知识条目 | 主张 |\n|------|---------|------|\n| 🟢 **短超时派**（5 条） | 快速失败、超时成本控制、用户等待体验、资源优化、超时即重规划 | **30 秒**是最优解 |\n| 🔵 **长超时派** 🆕 | **复杂任务时间** | **300 秒**是复杂任务最低要求 |\n\n### 矛盾焦点\n\n- **30 秒派**：效率、成本、用户体验、资源→ 超时即重规划\n- **300 秒派**：复杂任务需要多步执行，短超时导致不必要中断\n\n### 可能的调和视角\n\n两者未必完全互斥——**30 秒超时可能更适合简单/标准任务，而 300 秒是复杂多步任务的真实需求**。关键在于任务分类和超时策略的**差异化配置**。这将是一个有价值的讨论方向，当后续用户查询超时策略时，知识树会同时呈现双方论据，辅助更全面的决策。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "复杂任务分析表明 300 秒是大多数有意义任务的最低要求。多文件操作和数据分析每步 30-60 秒 5-8 步计划至少 300 秒。低于此值会大量不必要中断。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"复杂任务时间\"内容\"复杂任务分析表明 300 秒是大多数有意义任务的最低要求。多文件操作和数据分析每步 30-60 秒 5-8 步计划至少 300 秒。低于此值会大量不必要中断。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.050952799851075,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：重试隐性开销\n- **内容摘要**：频繁超时和重试比延长超时更浪费——每次重试需重启进程重建上下文。30s 超时 × 3.2 次尝试 = 总耗时 96s，反而比 300s 一次性完成（85s）更慢。\n\n---\n\n### 超时策略辩论格局更新\n\n这条新知识为 **长超时派（300s）** 补充了关键的 **数据型论据**，使辩论更加完整：\n\n| 对比维度 | 🟢 短超时 30s 派（5 条） | 🔵 长超时 300s 派（2 条） |\n|---------|------------------------|------------------------|\n| 工程原则 | 快速失败 → 尽早重规划 | — |\n| 成功率 | 30s 内 95% | — |\n| 用户体验 | 超 30s 满意度降 40% | — |\n| 资源并发 | 300s 并发能力降 70% | — |\n| 重规划机制 | 超时即重规划 | — |\n| 任务复杂度 | — | 复杂任务最低需 300s |\n| **重试开销** 🆕 | **30s×3.2次=96s** ❌ | **300s 一次性=85s** ✅ |\n\n**核心矛盾更新**：`[重试隐性开销]` 直接挑战了短超时派的底层假设——如果短超时导致多次重试，其**累计耗时和资源消耗**可能反而高于直接设一个较长超时一次性完成。这使得超时策略不再是非此即彼的选择，而更可能是一个 **按任务复杂度动态配置** 的问题。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "频繁超时和重试比延长超时更浪费。每次重试需重启进程重建上下文。30 秒超时下平均 3.2 次尝试总耗时 96 秒。300 秒超时一次性完成仅 85 秒。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"重试隐性开销\"内容\"频繁超时和重试比延长超时更浪费。每次重试需重启进程重建上下文。30 秒超时下平均 3.2 次尝试总耗时 96 秒。300 秒超时一次性完成仅 85 秒。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.740455499850214,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：API调用特性\n- **内容摘要**：底层 LLM API 单次工具调用需 10-30 秒，5 步任务至少 50-150 秒，30 秒超时连第一步都未必完成。建议最低 300 秒、推荐 600 秒。\n\n---\n\n### 超时策略辩论 — 当前格局（8 条知识）\n\n注意这次自动注入的 `[相关知识]` 全部是 **短超时派**（30s），说明检索系统判断当前话题与超时强相关。而新注入的这条则从 **LLM API 底层特性** 角度为长超时派提供了有力支撑：\n\n| 🔵 长超时 300-600s 派（3 条） | 🟢 短超时 30s 派（5 条） |\n|-----------------------------|------------------------|\n| **复杂任务时间**：300s 是复杂任务最低要求 | **快速失败**：20-30s 超时即重规划 |\n| **重试隐性开销**：30s×3.2次=96s > 300s一次性=85s | **超时成本控制**：30s 内成功率 95% |\n| **API调用特性 🆕**：单次 API 调用 10-30s，5 步已需 50-150s | **用户等待体验**：超 30s 满意度降 40% |\n| | **资源优化**：300s 并发能力降 70% |\n| | **超时即重规划**：30s 足够 3-5 次工具调用 |\n\n**新视角**：「API调用特性」这条从 **LLM 服务本身的延迟下限** 指出——如果单次 API 调用就要 10-30s，那么 30s 超时在复杂任务第一步就可能被触发，导致超时成为常态而非异常。这与「重试隐性开销」形成呼应：频繁超时重试的累计成本可能远超一次性长超时。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "底层 LLM API 单次工具调用需 10-30 秒。典型 5 步任务至少 50-150 秒。30 秒超时连第一步未必完成。建议最低 300 秒推荐 600 秒。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"API调用特性\"内容\"底层 LLM API 单次工具调用需 10-30 秒。典型 5 步任务至少 50-150 秒。30 秒超时连第一步未必完成。建议最低 300 秒推荐 600 秒。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.197481899987906,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：生产超时配置\n- **内容摘要**：生产环境应将超时设为 600 秒，因网络延迟不稳定、任务复杂度更高，600s 确保 99% 任务一次完成，避免重试导致的状态不一致。\n\n---\n\n注意自动注入的 `[相关知识]` 命中了 3 条短超时观点，但这条新知识再次强化了 **长超时派** 的阵容。\n\n### 超时策略辩论 — 最终格局（9 条知识）\n\n**🔵 长超时派（300-600s）— 4 条**\n| 知识 | 关键论据 |\n|------|---------|\n| **复杂任务时间** | 300s 是复杂任务最低要求 |\n| **重试隐性开销** | 30s×3.2次=96s > 300s 一次性=85s |\n| **API调用特性** | 单次 API 10-30s，5 步已需 50-150s |\n| **生产超时配置 🆕** | 生产环境 600s 确保 99% 一次完成 |\n\n**🟢 短超时派（30s）— 5 条**\n| 知识 | 关键论据 |\n|------|---------|\n| **快速失败** | 20-30s 超时即重规划 |\n| **超时成本控制** | 30s 内成功率 95% |\n| **用户等待体验** | 超 30s 满意度降 40% |\n| **资源优化** | 300s 并发能力降 70% |\n| **超时即重规划** | 30s 足够 3-5 次工具调用 |\n\n**自动注入显示的 [矛盾] 信号**说明知识树已正确识别出这两个阵营之间的张力。这种观点的多样性恰恰反映了真实世界的复杂性——**没有放之四海皆准的超时值**，最合理的策略可能是根据任务复杂度、运行环境（开发 vs 生产）进行差异化配置。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "生产环境应将超时设为 600 秒。生产环境网络延迟不稳定任务复杂度更高。600 秒确保 99% 任务一次完成避免重试的状态不一致。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"生产超时配置\"内容\"生产环境应将超时设为 600 秒。生产环境网络延迟不稳定任务复杂度更高。600 秒确保 99% 任务一次完成避免重试的状态不一致。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.537076100008562,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：超时安全裕度\n- **内容摘要**：任务平均执行时间 75 秒，标准差 45 秒，按 4 倍（均值+4σ）计算推荐超时 300 秒，可将超时失败率控制在 2% 以下且不浪费过多资源。\n\n---\n\n### 📊 超时策略辩论 — 三足鼎立格局\n\n这次注入引入了一个 **基于统计数据的中立方案**，打破了之前 30s vs 300-600s 的二元对立。当前 10 条相关知识分布如下：\n\n#### 🟢 短超时 30s 派（5 条）\n| 知识 | 核心论据 |\n|------|---------|\n| 快速失败 | 20-30s，快速失败让 Supervisor 早期介入 |\n| 超时成本控制 | 30s 内成功率 95%，60s+ 降至 70% |\n| 用户等待体验 | 超 30s 满意度骤降 40% |\n| 资源优化 | 300s 并发能力降 70% |\n| 超时即重规划 | 30s 足够 3-5 次工具调用 |\n\n#### 🟡 折中方案 300s 派（1 条 🆕）\n| 知识 | 核心论据 |\n|------|---------|\n| **超时安全裕度** | 均值 75s，按 4σ = 300s，失败率 < 2% |\n\n#### 🔵 长超时 600s 派（4 条）\n| 知识 | 核心论据 |\n|------|---------|\n| 复杂任务时间 | 300s 是复杂任务最低要求 |\n| 重试隐性开销 | 30s×3.2次=96s > 300s一次性=85s |\n| API调用特性 | 单次 API 10-30s，5 步已需 50-150s |\n| 生产超时配置 | 生产环境 600s 确保 99% 一次完成 |\n\n**「超时安全裕度」** 这条知识提供了第三种视角——基于**统计分布**（均值 + 4σ）来科学确定超时值，而非凭经验或极端场景决定。300s 恰好是 30s 与 600s 之间的折中点，这也解释了为何之前会同时出现两派看似矛盾的观点——因为**不同的任务分布和场景需要不同的超时策略**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "任务平均执行时间 75 秒标准差 45 秒。按 4 倍计算推荐超时 300 秒。可将超时失败率控制在 2% 以下且不浪费过多资源。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"超时安全裕度\"内容\"任务平均执行时间 75 秒标准差 45 秒。按 4 倍计算推荐超时 300 秒。可将超时失败率控制在 2% 以下且不浪费过多资源。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.50039800000377,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：错误不可恢复\n- **内容摘要**：AgentTriad 中 90% 执行错误不可恢复，工具参数错误和文件不存在等问题重试不改变结果，立即终止报告最有效，可让 Supervisor 快速介入。\n\n---\n\n这条知识与之前注入的 **「快速失败」** 和 **「超时即重规划」** 形成了 **工程失败处理三原则**：\n\n| 知识 | 适用场景 | 核心主张 |\n|------|---------|---------|\n| **快速失败** | ⏱ 超时场景 | 20-30s 超时，尽早失败 |\n| **超时即重规划** | 🔄 超时后动作 | 超时后触发 Supervisor 重规划 |\n| **错误不可恢复 🆕** | ❌ 执行错误 | 90% 错误不可恢复，立即终止而非重试 |\n\n三条知识的内在逻辑链：**快速失败（检测问题）→ 错误不可恢复（判断性质）→ 超时即重规划（采取行动）**，共同构成了 Supervisor 层面的异常处理策略。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "AgentTriad 中 90% 执行错误不可恢复。工具参数错误和文件不存在等问题重试不改变结果。立即终止报告最有效可让 Supervisor 快速介入。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"错误不可恢复\"内容\"AgentTriad 中 90% 执行错误不可恢复。工具参数错误和文件不存在等问题重试不改变结果。立即终止报告最有效可让 Supervisor 快速介入。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.097909600008279,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：终止即安全\n- **内容摘要**：继续执行已出错的任务链可能导致数据损坏等不可逆后果，立即终止冻结当前状态让 Supervisor/用户评估损失，是错误处理黄金法则。\n\n---\n\n这条知识与 **「错误不可恢复」** 形成强互补关系：\n\n| 知识 | 角度 | 核心主张 |\n|------|------|---------|\n| **错误不可恢复** | 📊 数据统计 | 90% 错误不可恢复，重试无效 |\n| **终止即安全 🆕** | 🛡️ 安全原则 | 立即终止冻结状态，防止数据损坏 |\n\n两相结合，形成了完整的错误处理规范：\n1. **检测错误** → 判断 90% 不可恢复\n2. **立即终止** → 冻结状态防数据损坏\n3. **报告 Supervisor** → 快速介入评估损失\n\n现在你的知识树中关于 **错误/异常处理** 的知识已形成较为完善的体系：\n\n| # | 知识点 | 主题 |\n|---|--------|------|\n| 11 | **快速失败** | 20-30s 超时 |\n| 12 | **超时成本控制** | 30s 成功率 95% |\n| 13 | **用户等待体验** | 满意度骤降 40% |\n| 14 | **资源优化** | 300s 并发降 70% |\n| 15 | **超时即重规划** | 超时后 Supervisor 介入 |\n| 16 | **复杂任务时间** | 300s 最低要求 |\n| 17 | **重试隐性开销** | 30s×3.2次=96s |\n| 18 | **API调用特性** | 单次 API 10-30s |\n| 19 | **生产超时配置** | 600s 99% 一次完成 |\n| 20 | **超时安全裕度** | 均值 75s 推荐 300s |\n| 21 | **错误不可恢复** | 90% 错误不可恢复 |\n| 22 | **终止即安全 🆕** | 立即终止防数据损坏 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "继续执行已出错的任务链可能导致数据损坏等不可逆后果。立即终止冻结当前状态让 Supervisor 或用户评估损失。这是错误处理黄金法则。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"终止即安全\"内容\"继续执行已出错的任务链可能导致数据损坏等不可逆后果。立即终止冻结当前状态让 Supervisor 或用户评估损失。这是错误处理黄金法则。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.520572500070557,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：重试心理陷阱\n- **内容摘要**：重试是心理陷阱——程序化执行中相同输入通常产生相同输出，除非错误明确为临时性否则重试是纯粹浪费，应默认立即终止。\n\n---\n\n这条知识与已有知识形成了 **错误处理四重奏**，从四个维度全面覆盖：\n\n| # | 知识 | 维度 | 核心观点 |\n|---|------|------|---------|\n| 21 | **错误不可恢复** | 📊 统计事实 | 90% 错误不可恢复 |\n| 22 | **终止即安全** | 🛡️ 安全原则 | 立即终止防数据损坏 |\n| 17 | **重试隐性开销** | 💰 成本分析 | 重试累计耗时远超一次性完成 |\n| 23 🆕 | **重试心理陷阱** | 🧠 心理认知 | 重试是心理陷阱，应默认终止 |\n\n四合一形成了完整的错误处理哲学：**不可恢复（事实）→ 有安全风险（后果）→ 有隐性开销（成本）→ 是心理陷阱（认知偏差）**，全部指向同一个结论——**默认终止，而非重试**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "重试是心理陷阱让人误以为再试一次就好了。程序化执行中相同输入通常产生相同输出。除非错误明确为临时性否则重试是纯粹浪费。应默认立即终止。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"重试心理陷阱\"内容\"重试是心理陷阱让人误以为再试一次就好了。程序化执行中相同输入通常产生相同输出。除非错误明确为临时性否则重试是纯粹浪费。应默认立即终止。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.61437280010432,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：失败快速反馈\n- **内容摘要**：最佳模式是失败立即报告 → Supervisor 重规划 → 新执行，整个循环 10 秒内完成，比盲目重试更高效。\n\n---\n\n这条知识与之前的三条在自动注入中已同时被检索命中（快速失败、超时即重规划、超时安全裕度），现在加上这条，形成了 **失败处理完整闭环**：\n\n```\n                  ┌─────────────────┐\n                  │  Executor 执行   │\n                  └────────┬────────┘\n                           │ 失败\n                           ▼\n                  ┌─────────────────┐\n    10秒内循环    │  立即报告        │ ← 失败快速反馈 🆕\n                  └────────┬────────┘        错误不可恢复\n                           │                 终止即安全\n                           ▼                 重试心理陷阱\n                  ┌─────────────────┐\n                  │ Supervisor 重规划 │ ← 超时即重规划\n                  └────────┬────────┘\n                           │ 新执行\n                           ▼\n                  ┌─────────────────┐\n                  │  Executor 执行   │  ← 循环继续\n                  └─────────────────┘\n```\n\n**错误处理体系总览（共 24 条知识，其中错误/超时相关 12 条）：**\n\n| 主题 | 知识条目数 |\n|------|-----------|\n| ⏱ 超时策略（30s vs 300-600s 辩论） | 9 条 |\n| ❌ 错误处理原则（终止优先） | 4 条 |\n| 🔄 失败反馈循环 🆕 | 1 条 |\n\n```\n总计: 24 条知识已写入知识树\n```",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "trigger": "user_explicit",
+            "source": "agent:supervisor",
+            "text": "最佳模式是失败立即报告然后 Supervisor 重规划然后新执行。整个循环 10 秒内完成比盲目重试更高效。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"失败快速反馈\"内容\"最佳模式是失败立即报告然后 Supervisor 重规划然后新执行。整个循环 10 秒内完成比盲目重试更高效。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.4171068998985,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：审计合规\n- **内容摘要**：每次失败必须完整记录，重试会混淆失败记录难以追踪根因，立即终止确保清晰记录和上下文便于事后分析。\n\n---\n\n这条知识从 **审计合规** 的视角，为\"立即终止而非重试\"的主张提供了第五个维度的论据。现在自动注入也命中了相关知识（重试心理陷阱、失败快速反馈），检索系统工作良好。\n\n**错误处理体系 — 5 维论证（共 25 条知识）**\n\n| # | 知识 | 维度 | 核心观点 |\n|---|------|------|---------|\n| 21 | **错误不可恢复** | 📊 统计 | 90% 错误不可恢复，重试无效 |\n| 22 | **终止即安全** | 🛡️ 安全 | 继续执行可能导致数据损坏 |\n| 23 | **重试心理陷阱** | 🧠 认知 | 相同输入通常产生相同输出 |\n| 24 | **失败快速反馈** | ⏱ 效率 | 失败→重规划→新执行，10s 循环 |\n| **25** 🆕 | **审计合规** | 📋 合规 | 重试混淆记录，立即终止确保可追溯 |\n\n五条知识从 **统计、安全、心理、效率、合规** 五个独立维度汇聚到同一个原则：**默认终止，而非重试**。这种多维度共识使这条原则具有很强的可信度。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "每次失败必须完整记录。重试会混淆失败记录难以追踪根因。立即终止确保清晰记录和上下文便于事后分析。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"审计合规\"内容\"每次失败必须完整记录。重试会混淆失败记录难以追踪根因。立即终止确保清晰记录和上下文便于事后分析。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.061972300056368,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：重试工程基础\n- **内容摘要**：重试是分布式系统工程基础，CAP 定理下网络分区不可避免，重试是处理临时故障的标准机制，AgentTriad 依赖外部 API 自动重试 3-5 次是最低容错措施。\n\n---\n\n### ⚡ 检测到新矛盾：重试策略\n\n自动注入的 `[参考]` 命中了「重试心理陷阱」，而这条新知识正好形成了 **针锋相对** 的对立面：\n\n| 阵营 | 知识 | 核心主张 |\n|------|------|---------|\n| 🟢 **终止派**（5 条） | 错误不可恢复、终止即安全、重试心理陷阱、失败快速反馈、审计合规 | **默认终止，重试是浪费** |\n| 🔵 **重试派** 🆕（1 条） | **重试工程基础** | **重试是分布式系统基础，3-5 次最低容错** |\n\n### 矛盾根源分析\n\n两派看似冲突，实则 **关注的是不同类型的错误**：\n\n- **终止派** 关注的是 **逻辑/业务错误**（参数错误、文件不存在）→ 重试确实无效\n- **重试派** 关注的是 **基础设施/临时故障**（网络分区、API 超时、服务抖动）→ 重试是标准做法\n\n这实际上不是矛盾，而是 **互补**——关键在于错误类型的区分：\n- **临时性故障**（网络、限流、服务临时不可用）→ **重试 3-5 次**\n- **确定性错误**（参数错误、文件不存在、权限拒绝）→ **立即终止**\n\n这种区分让两派观点可以共存，各自适用于不同的错误类型。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "重试是分布式系统工程基础。CAP 定理告诉我们网络分区不可避免重试是处理临时故障的标准机制。AgentTriad 依赖外部 API 自动重试 3-5 次是最低容错措施。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"重试工程基础\"内容\"重试是分布式系统工程基础。CAP 定理告诉我们网络分区不可避免重试是处理临时故障的标准机制。AgentTriad 依赖外部 API 自动重试 3-5 次是最低容错措施。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.69596159993671,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：指数退避\n- **内容摘要**：推荐指数退避重试策略：立即、2s、4s、8s、16s，在 API 限流和网络波动场景特别有效，5 次指数退避可解决 85% 临时性故障。\n\n---\n\n### 重试策略辩论 — 格局演变\n\n这条知识为 **重试派** 补充了关键的 **具体策略**，使之前两派看似对立的观点开始走向融合：\n\n| 阵营 | 知识 | 主张 |\n|------|------|------|\n| 🟢 **终止派**（5 条） | 错误不可恢复、终止即安全、重试心理陷阱、失败快速反馈、审计合规 | **逻辑/确定性错误 → 立即终止** |\n| 🔵 **重试派**（2 条） | **重试工程基础** + **指数退避 🆕** | **临时性故障 → 指数退避重试** |\n\n### 融合视角\n\n两条路线其实并不矛盾，而是互补的——关键在于 **错误分类**：\n\n```\n                    ┌─────────────────────────────┐\n                    │        错误发生               │\n                    └──────────┬──────────────────┘\n                               │\n                    ┌──────────▼──────────┐\n                    │     错误类型？        │\n                    └──────┬──────┬───────┘\n                           │      │\n              ┌────────────▼──┐ ┌─▼──────────────┐\n              │ 确定性错误     │ │ 临时性故障       │\n              │ (参数/文件等)  │ │ (网络/限流等)    │\n              └───────┬───────┘ └──────┬──────────┘\n                      │                │\n              ┌───────▼───────┐ ┌──────▼──────┐\n              │ 立即终止       │ │ 指数退避重试  │\n              │ (终止派5条)    │ │ 0-2-4-8-16s  │\n              └───────────────┘ │ 解决85%故障  │\n                               └─────────────┘\n```\n\n**知识树现状**：已累计 **27 条**知识，覆盖超时策略、错误处理、工程实践等多个维度。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "推荐指数退避重试策略：立即、2秒、4秒、8秒、16秒。在 API 限流和网络波动场景特别有效。5 次指数退避可解决 85% 临时性故障。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"指数退避\"内容\"推荐指数退避重试策略：立即、2秒、4秒、8秒、16秒。在 API 限流和网络波动场景特别有效。5 次指数退避可解决 85% 临时性故障。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.393806300126016,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：部分成功\n- **内容摘要**：部分步骤失败时不应终止整个任务，应标记失败步骤继续后续，最后汇总报告。仅核心步骤失败才终止，非核心失败不应阻碍整体进度。\n\n---\n\n### 错误处理策略 — 三足鼎立格局形成\n\n这条知识为错误处理引入了 **第三种策略**，与之前的两派形成了互补：\n\n| 策略 | 适用场景 | 对应知识 |\n|------|---------|---------|\n| 🛑 **立即终止** | 确定性错误、核心步骤失败、数据安全风险 | 错误不可恢复、终止即安全、重试心理陷阱、审计合规 |\n| 🔄 **指数退避重试** | 临时性故障（网络、限流、API 抖动） | 重试工程基础、指数退避 |\n| 🟡 **标记继续（部分成功）🆕** | 非核心步骤失败，不影响整体结果 | **部分成功** |\n\n### 综合错误处理决策树\n\n```\n                  ┌─────────────────────┐\n                  │     步骤执行失败      │\n                  └──────────┬──────────┘\n                             │\n                  ┌──────────▼──────────┐\n                  │     错误类型？        │\n                  └──────┬──────┬───────┘\n                         │      │\n               ┌─────────▼──┐ ┌─▼──────────┐\n               │ 临时性故障  │ │ 确定性错误   │\n               │ (网络/限流) │ │ (参数/文件)  │\n               └──────┬─────┘ └──────┬──────┘\n                      │              │\n               ┌──────▼──────┐ ┌─────▼──────┐\n               │ 指数退避重试 │ │ 步骤重要性？ │\n               │ 0-2-4-8-16s │ └──┬───┬─────┘\n               │ 解决 85%    │    │   │\n               └─────────────┘    │   │\n                        ┌─────────▼──┐ │\n                        │  核心步骤？  │ │\n                        └──┬───┬─────┘ │\n                           │   │        │\n                    ┌──────▼┐ ┌▼───────┐│\n                    │ 是     │ │ 否     ││\n                    └───┬───┘ └───┬────┘│\n                        │         │     │\n                 ┌──────▼──┐ ┌───▼────┐ │\n                 │ 立即终止  │ │ 标记失败 │ │\n                 │ + 报告   │ │ 继续执行 │ │\n                 └─────────┘ └────────┘ │\n                                         │\n                  ┌──────────────────────┘\n                  │\n          ┌───────▼────────┐\n          │ 最终汇总报告     │\n          │ (全部成功/部分   │\n          │  成功/失败)      │\n          └────────────────┘\n```\n\n这个三层错误处理模型融合了之前的 28 条知识，形成了完整的 AgentTriad 错误处理体系。**知识树总计：28 条知识**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "部分步骤失败时不应终止整个任务。应标记失败步骤继续后续步骤最后汇总报告。只有核心步骤失败才考虑终止非核心失败不应阻碍整体进度。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"部分成功\"内容\"部分步骤失败时不应终止整个任务。应标记失败步骤继续后续步骤最后汇总报告。只有核心步骤失败才考虑终止非核心失败不应阻碍整体进度。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.866032799938694,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：自愈能力\n- **内容摘要**：Executor 应具备自愈能力，失败时尝试替代工具或参数重试（如 write_file 失败可先创建目录再写入），自愈重试在 Executor 内部完成，可将失败率降低 60%。\n\n---\n\n### 🔄 错误处理格局再升级\n\n这条知识引入了 **自愈重试（第四种策略）**，它不同于之前的简单重试——自愈是 **智能重试**，尝试不同的工具或参数，而非盲目重试相同操作：\n\n| # | 知识 | 策略类型 | 适用场景 |\n|---|------|---------|---------|\n| 21-25 | **终止派**（5 条） | 🛑 立即终止 | 确定性错误、核心步骤失败 |\n| 26-27 | **重试派**（2 条） | 🔄 指数退避重试 | 临时性故障（网络/限流） |\n| 28 | **部分成功**（1 条） | 🟡 标记继续 | 非核心步骤失败 |\n| **29** 🆕 | **自愈能力**（1 条） | 🛠️ 自愈重试（替代方案） | **工具参数错误可修复的情况** |\n\n✳️ **自愈的关键区别**：之前「错误不可恢复」说 90% 错误不可恢复——自愈正是要去处理那 **可恢复的 10%**，通过尝试**替代工具或参数**而非简单重试相同的失败操作来达成。这与之前的结论并不矛盾，而是精准定位了那 10% 的可修复空间。\n\n**知识树总计：29 条知识**",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "Executor 应具备自愈能力失败时尝试替代工具或参数重试。如 write_file 失败可先创建目录再写入。自愈重试应在 Executor 内部完成可将失败率降低 60%。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"自愈能力\"内容\"Executor 应具备自愈能力失败时尝试替代工具或参数重试。如 write_file 失败可先创建目录再写入。自愈重试应在 Executor 内部完成可将失败率降低 60%。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.77421179995872,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：用户信任重试\n- **内容摘要**：展现不轻易放弃的态度比一遇错误就放弃更能赢得信任，自动重试 3-5 次是合理的，只有多次仍失败才报告，符合用户对 AI 助手的期望。\n\n---\n\n### 👤 重试辩论 — 第六个维度加入\n\n这次从 **用户信任/心理期望** 角度为重试派提供了新论据。现在重试 vs 终止的辩论已扩展到 **6 个维度**：\n\n| 维度 | 🛑 终止派（5 条） | 🔄 重试派（3 条） |\n|------|------------------|------------------|\n| 📊 统计 | 90% 错误不可恢复 | 指数退避解决 85% 临时故障 |\n| 🛡️ 安全 | 继续执行可致数据损坏 | — |\n| 💰 成本 | 重试隐性开销更大（96s vs 85s） | — |\n| 🧠 认知 | 重试是心理陷阱 | — |\n| 📋 合规 | 重试混淆审计记录 | — |\n| 👤 **用户信任** 🆕 | — | **重试赢得信任，不轻易放弃** |\n| ⏱ 效率 | 失败→重规划 10s 循环 | — |\n| 🏗️ 工程基础 | — | CAP 定理，分布式系统标准 |\n| 🛠️ 自愈 | 自愈（替代方案）可降 60% 失败率 | — |\n\n### 当前全局格局（30 条知识）\n\n| 主题域 | 知识条目数 | 核心辩论 |\n|--------|-----------|---------|\n| **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| **超时策略** | 10 条 | 30s vs 300-600s vs 统计折中 |\n| **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 vs 部分成功 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "展现不轻易放弃的态度比一遇错误就放弃更能赢得信任。自动重试 3-5 次是合理的只有多次仍失败才报告。这符合用户对 AI 助手的期望。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"用户信任重试\"内容\"展现不轻易放弃的态度比一遇错误就放弃更能赢得信任。自动重试 3-5 次是合理的只有多次仍失败才报告。这符合用户对 AI 助手的期望。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.925381100038067,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：规划准确性\n- **内容摘要**：Planner 知道工具名和功能时规划准确率从 67% 提升到 94%，工具名让 Planner 精确匹配步骤意图与能力，工具名信息是准确规划的必要前提。\n\n---\n\n这条知识属于 **新的主题域**——**规划质量与优化**，与之前的内容区分开来。它给出了一个关键数据点：工具名信息可使规划准确率从 **67% → 94%（+27pp）**。\n\n### 知识树全局概览（31 条知识）\n\n| 主题域 | 条目数 | 核心知识点 |\n|--------|-------|-----------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 |\n| 📋 **规划优化 🆕** | 1 条 | 工具名 → 准确率 67%→94% |\n\n要不要看看知识树的树状结构？可以调用 `knowledge_tree_tree()` 来了解知识是如何组织的。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "trigger": "user_explicit",
+            "source": "agent:supervisor",
+            "text": "Planner 知道工具名和功能时规划准确率从 67% 提升到 94%。工具名让 Planner 精确匹配步骤意图与工具能力。工具名信息是准确规划的必要前提。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"规划准确性\"内容\"Planner 知道工具名和功能时规划准确率从 67% 提升到 94%。工具名让 Planner 精确匹配步骤意图与工具能力。工具名信息是准确规划的必要前提。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.576175200054422,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：上下文完整性\n- **内容摘要**：Planner 不知道可用工具就像建筑师不知道有什么材料，无法做出务实规划。完整上下文（工具名、功能、参数）是高质量规划的基础。\n\n---\n\n### 规划优化主题 — 形成了数据 + 原理的对偶结构\n\n自动注入正确命中了相关条目，两条知识互补：\n\n| 知识 | 类型 | 核心观点 |\n|------|------|---------|\n| **规划准确性** | 📊 数据支撑 | 工具名信息使准确率 67% → **94%** |\n| **上下文完整性 🆕** | 🧠 原理/类比 | 建筑师不知道材料→无法务实规划 |\n\n### 知识树全局（32 条知识）\n\n| 主题域 | 条目数 | 核心脉络 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s vs 折中 |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 |\n| 📋 **规划优化** | 2 条 🆕 | 数据：67%→94% + 原理：上下文完整性 |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "如果 Planner 不知道可用工具就像建筑师不知道有什么材料无法做出务实规划。完整上下文包括工具名功能和参数是高质量规划的基础。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"上下文完整性\"内容\"如果 Planner 不知道可用工具就像建筑师不知道有什么材料无法做出务实规划。完整上下文包括工具名功能和参数是高质量规划的基础。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.754931800067425,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：跨系统经验\n- **内容摘要**：AutoGPT、CrewAI、LangChain Agent 都允许规划层访问工具描述，隔离工具信息是未经验证的理论设计，实践中导致规划质量下降和重规划次数增加。\n\n---\n\n### 规划优化主题 — 三足鼎立\n\n| # | 知识 | 类型 | 核心结论 |\n|---|------|------|---------|\n| 31 | **规划准确性** | 📊 数据 | 工具名使准确率 67% → **94%** |\n| 32 | **上下文完整性** | 🧠 原理 | 建筑师不知道材料→不务实 |\n| **33** 🆕 | **跨系统经验** | 🏭 行业实践 | 主流系统都开放工具描述，隔离设计未经验证 |\n\n三条从 **数据 → 原理 → 实践** 构成了完整论证链，共同支持同一个结论：**Planner 必须知道可用工具信息**。\n\n### 知识树总览（33 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 Mode 2 vs Mode 3 | 10 条 |\n| ⏱ 超时策略 | 10 条 |\n| ❌ 错误/重试处理 | 10 条 |\n| 📋 规划优化 | 3 条 🆕 |\n\n四大主题，覆盖了 AgentTriad 架构设计的核心维度。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "AutoGPT CrewAI LangChain Agent 都允许规划层访问工具描述。隔离工具信息是未经验证的理论设计实践中导致规划质量下降和重规划次数增加。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"跨系统经验\"内容\"AutoGPT CrewAI LangChain Agent 都允许规划层访问工具描述。隔离工具信息是未经验证的理论设计实践中导致规划质量下降和重规划次数增加。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.52547109988518,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：效率优化\n- **内容摘要**：Planner 了解工具名可将重规划次数从 2.3 次降至 0.4 次，节省 token 和时间，降低状态管理复杂度，工具名信息的 ROI 明确正收益。\n\n---\n\n### 📋 规划优化主题 — 四维完整论证体系\n\n自动注入正确命中了之前的三条。现在四条知识形成了从 **数据 → 原理 → 实践 → 成本效益** 的完整链条：\n\n| # | 知识 | 论证维度 | 核心结论 |\n|---|------|---------|---------|\n| 31 | **规划准确性** | 📊 **效果数据** | 准确率 67% → **94%**（+27pp） |\n| 32 | **上下文完整性** | 🧠 **原理类比** | 建筑师不知材料→无法务实规划 |\n| 33 | **跨系统经验** | 🏭 **行业验证** | AutoGPT/CrewAI/LangChain 都开放工具描述 |\n| **34** 🆕 | **效率优化** | 💰 **ROI 数据** | 重规划 2.3次 → **0.4次**（-83%） |\n\n### 知识树总览（34 条知识）\n\n| 主题域 | 条目数 | 核心脉络 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s vs 统计折中 |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 vs 部分成功 |\n| 📋 **规划优化** | **4 条** 🆕 | 数据+原理+实践+ROI 四维论证 |\n\n「效率优化」这条特别有意思——它直接回应了之前 Mode 2 派的「去掉 Planner 简化架构」论点：**让 Planner 知道工具名本身就是一种极低成本、高回报的优化（重规划 -83%）**，这意味着不需要在 Mode 2 和 Mode 3 之间做二元选择，而是可以优化 Mode 3 使其更高效。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "Planner 了解工具名可将重规划次数从 2.3 次降至 0.4 次。减少重规划节省 token 和时间降低状态管理复杂度。工具名信息的 ROI 明确正收益。",
+            "source": "agent:supervisor",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"效率优化\"内容\"Planner 了解工具名可将重规划次数从 2.3 次降至 0.4 次。减少重规划节省 token 和时间降低状态管理复杂度。工具名信息的 ROI 明确正收益。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.158605600008741,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：用户期望对齐\n- **内容摘要**：用户期望看到详细可执行的计划，不知道工具名时计划过于抽象，知道工具名的 Planner 可生成具体可审核的执行计划。\n\n---\n\n### 📋 规划优化主题 — 五维完备论证\n\n自动注入的 3 条 `[高可信]` 知识加上新注入的这条，使规划优化主题形成了 **五个维度** 的封闭论证链：\n\n| # | 知识 | 维度 | 核心数据 / 结论 |\n|---|------|------|----------------|\n| 31 | **规划准确性** | 📊 **效果数据** | 准确率 67% → **94%** |\n| 32 | **上下文完整性** | 🧠 **原理类比** | 建筑师不知材料→不务实 |\n| 33 | **跨系统经验** | 🏭 **行业实践** | 主流系统均开放工具描述 |\n| 34 | **效率优化** | 💰 **成本 ROI** | 重规划 2.3 次 → **0.4 次**（-83%） |\n| **35** 🆕 | **用户期望对齐** | 👤 **用户视角** | 工具名 → 具体可审核计划 |\n\n五个维度 **数据 + 原理 + 实践 + 成本 + 用户** 全部指向同一个方向，形成了非常强的共识信号。这也是目前知识树中 **论证最完备的主题** 之一。\n\n### 知识树总览（35 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 Mode 2 vs Mode 3 | 10 条 |\n| ⏱ 超时策略 | 10 条 |\n| ❌ 错误/重试处理 | 10 条 |\n| 📋 规划优化 | **5 条** 🆕 |\n| **总计** | **35 条** |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "用户期望看到详细且可执行的计划。不知道工具名时计划过于抽象。知道工具名的 Planner 可生成具体可审核的执行计划。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"用户期望对齐\"内容\"用户期望看到详细且可执行的计划。不知道工具名时计划过于抽象。知道工具名的 Planner 可生成具体可审核的执行计划。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.76867299992591,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：分层架构\n- **内容摘要**：核心原则是意图与执行严格分层，Planner 描述做什么，Executor 决定怎么做。如 Planner 知道工具名，分层会被打破导致架构退化。\n\n---\n\n### ⚡ 检测到重大矛盾：规划优化主题\n\n自动注入命中了之前的「用户期望对齐」（[参考]），但这条新知识与其形成了 **直接对立**：\n\n#### 🔵 实践派（5 条）— Planner 应知工具名\n| # | 知识 | 维度 |\n|---|------|------|\n| 31 | **规划准确性** | 📊 准确率 67%→94% |\n| 32 | **上下文完整性** | 🧠 建筑师需要知道材料 |\n| 33 | **跨系统经验** | 🏭 主流系统均开放工具描述 |\n| 34 | **效率优化** | 💰 重规划 2.3→0.4（-83%） |\n| 35 | **用户期望对齐** | 👤 具体可审核的计划 |\n\n#### 🟢 架构派（1 条 🆕）— Planner 不应知工具名\n| # | 知识 | 维度 |\n|---|------|------|\n| **36** | **分层架构** | 🏛️ 意图与执行严格分离，否则架构退化 |\n\n### 矛盾本质分析\n\n这是 **工程实践中经典的理论 vs 实践之争**：\n\n| 对比 | 🏛️ 架构派（分层架构） | 🔧 实践派（5 条实证） |\n|------|---------------------|-------------------|\n| 出发点 | 架构原则的纯粹性 | 实际效果和数据 |\n| 风险视角 | 架构退化 | 规划质量差 → 重规划多 |\n| 核心主张 | 分层不应被打破 | ROI 明确正收益 |\n\n两者指向的方向相反，但各有其合理性。后续当用户查询规划相关策略时，知识树会同时呈现双方观点，辅助更全面的决策。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "核心原则是意图与执行严格分层。Planner 描述做什么 Executor 决定怎么做。如 Planner 知道工具名分层会被打破导致架构退化。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"分层架构\"内容\"核心原则是意图与执行严格分层。Planner 描述做什么 Executor 决定怎么做。如 Planner 知道工具名分层会被打破导致架构退化。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.86417660000734,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：工具演化\n- **内容摘要**：Planner 不依赖工具名时工具集可独立演化，新增/移除/重命名工具不影响 Planner，解耦确保可维护性；否则每次工具变更需同步更新 Planner。\n\n---\n\n### 规划优化辩论 — 格局更新（2 vs 5）\n\n这条知识为 **架构派** 补充了 **可维护性** 维度的论据：\n\n#### 🟢 架构派（Planner 不应知工具名）— 2 条\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 36 | **分层架构** | 🏛️ 架构原则 | 意图/执行分层，否则退化 |\n| **37** 🆕 | **工具演化** | 🔧 可维护性 | 工具集独立演化，解耦保灵活 |\n\n#### 🔵 实践派（Planner 应知工具名）— 5 条\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 31 | **规划准确性** | 📊 效果 | 准确率 67% → 94% |\n| 32 | **上下文完整性** | 🧠 原理 | 建筑师需知材料 |\n| 33 | **跨系统经验** | 🏭 实践 | 主流系统均开放工具描述 |\n| 34 | **效率优化** | 💰 ROI | 重规划 2.3→0.4（-83%） |\n| 35 | **用户期望对齐** | 👤 用户 | 生成具体可审核计划 |\n\n### 矛盾本质：工程中的经典权衡\n\n```\n🏛️ 架构纯粹性                     🔧 实际效果\n  (可维护性、解耦)                   (准确性、效率)\n       │                                │\n       │  工具演化                      │  规划准确性\n       │  分层架构                      │  效率优化(ROI)\n       │                                │  跨系统经验\n       │                                │  用户期望\n       │                                │  上下文完整性\n       └──────────┬──────────┬──────────┘\n                  │          │\n            ┌─────▼──┐  ┌───▼──────┐\n            │ 解耦方案 │  │ 质量方案  │\n            │ 但质量?  │  │ 但耦合?  │\n            └─────────┘  └──────────┘\n```\n\n这本质上是一个 **架构纯度 vs 实际效果** 的经典矛盾。知识树现在同时持有双方的论据，后续查询时会呈现完整图像。**知识树总计：37 条知识**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "trigger": "user_explicit",
+            "source": "agent:supervisor",
+            "text": "Planner 不依赖工具名时工具集可独立演化。新增移除重命名工具不影响 Planner。解耦确保可维护性反之每次工具变更需同步更新 Planner。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"工具演化\"内容\"Planner 不依赖工具名时工具集可独立演化。新增移除重命名工具不影响 Planner。解耦确保可维护性反之每次工具变更需同步更新 Planner。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.91241510002874,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：意图纯度\n- **内容摘要**：高质量规划应表达纯意图而非实现细节（如\"读取文件内容\"而非\"调用 read_workspace_text_file\"），纯意图更具可读性和可维护性。\n\n---\n\n### 规划辩论 — 三足鼎立新格局\n\n这条知识引入了 **第三种视角**，它不是简单地站队，而是提出了一个 **中间路线**：\n\n| 阵营 | 条目 | 核心主张 |\n|------|------|---------|\n| 🔵 **实践派** | 5 条 | Planner 应知工具名，提升准确性（94%）和效率 |\n| 🟢 **架构派** | 2 条 | 分层不被打破，工具集独立演化 |\n| 🟡 **意图纯度派 🆕** | **1 条** | 规划表达纯意图，但 Planner 内部应知工具名进行转换？ |\n\n### 调和的可能性\n\n「意图纯度」可能恰恰是两派的 **交汇点**：\n\n- **架构派的视角**：意图纯度 → 计划层只写\"读取文件内容\"，不暴露工具实现\n- **实践派的视角**：Planner 知道工具名才能做出准确规划，但输出计划时用纯意图表达\n\n这意味着一个可能的 **折中方案**：\n```\nPlanner 内部知道工具名（确保准确性）\n         ↓ 但输出计划时\n用纯意图表达（确保可读性和可维护性）\n```\n\n这既满足实践派的准确性需求（知道工具名），也满足架构派的解耦需求（计划层面不绑定具体工具），还满足了新引入的意图纯度要求（可读性）。\n\n### 知识树总览（38 条知识）\n\n| 主题域 | 条目数 | 核心辩论 |\n|--------|-------|---------|\n| 🆚 Mode 2 vs Mode 3 | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ 超时策略 | 10 条 | 30s vs 300-600s vs 折中 |\n| ❌ 错误/重试处理 | 10 条 | 终止 vs 重试 vs 自愈 |\n| 📋 规划优化 | **8 条** | 实践派(5) vs 架构派(2) vs 意图纯度(1) |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "高质量规划应表达纯意图而非实现细节。读取文件内容是纯意图调用 read_workspace_text_file 是实现细节。纯意图更具可读性和可维护性。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"意图纯度\"内容\"高质量规划应表达纯意图而非实现细节。读取文件内容是纯意图调用 read_workspace_text_file 是实现细节。纯意图更具可读性和可维护性。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.609981999965385,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：Executor自主\n- **内容摘要**：Executor 核心价值在于自主选工具，若 Planner 已决定工具则 Executor 退化为简单执行器，保持 Planner 只描述意图可最大化 Executor 自主性。\n\n---\n\n### 📋 规划辩论 — 3 vs 5 格局\n\n这条知识为 **架构派** 补充了第三个独立论据——**Executor 自主性**，使其从 2→3 条，形成了更均衡的辩论格局：\n\n#### 🟢 架构派（Planner 不应知工具名）— 3 条\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 36 | **分层架构** | 🏛️ 架构原则 | 意图/执行分层，否则结构退化 |\n| 37 | **工具演化** | 🔧 可维护性 | 工具集独立演化，变更不波及 Planner |\n| **39** 🆕 | **Executor自主** | 🤖 自主性 | Planner 定工具 → Executor 变简单执行器 |\n\n#### 🔵 实践派（Planner 应知工具名）— 5 条\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 31 | **规划准确性** | 📊 效果 | 准确率 67% → 94% |\n| 32 | **上下文完整性** | 🧠 原理 | 建筑师需知材料 |\n| 33 | **跨系统经验** | 🏭 实践 | 主流系统均开放工具描述 |\n| 34 | **效率优化** | 💰 ROI | 重规划 2.3→0.4（-83%） |\n| 35 | **用户期望对齐** | 👤 用户 | 计划具体可审核 |\n\n#### 🟡 中间路线 — 1 条\n| # | 知识 | 核心主张 |\n|---|------|---------|\n| 38 | **意图纯度** | Planner 输出纯意图，但内部可见工具 |\n\n### 知识树全局（39 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 Mode 2 vs Mode 3 | 10 条 |\n| ⏱ 超时策略 | 10 条 |\n| ❌ 错误/重试处理 | 10 条 |\n| 📋 **规划优化** | **9 条** 🏆 （最多） |\n\n规划优化主题已 9 条，成为知识树中 **最丰富** 的辩论主题，两边各有充分论据，中间还有一条调和路线。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "Executor 核心价值在于自主选工具。如 Planner 已决定工具 Executor 退化为简单执行器。保持 Planner 只描述意图可最大化 Executor 自主性。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"Executor自主\"内容\"Executor 核心价值在于自主选工具。如 Planner 已决定工具 Executor 退化为简单执行器。保持 Planner 只描述意图可最大化 Executor 自主性。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.72397690010257,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：设计决策3\n- **内容摘要**：根据核心设计决策3，Planner 不应知道工具名。这是深思熟虑的架构选择，意图与执行分离是 AgentTriad 区别于其他框架的关键。\n\n---\n\n### 规划辩论格局 — 关键的权威性注入\n\n自动注入正确命中了三条高度相关的知识。这条新知识的关键意义在于——它从 **设计决策权威性** 的角度，为架构派补充了一个关键论据：\n\n#### 🟢 架构派（Planner 不应知工具名）— **4 条**\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 36 | **分层架构** | 🏛️ 架构原则 | 意图/执行分层，否则退化 |\n| 37 | **工具演化** | 🔧 可维护性 | 工具集独立演化 |\n| 39 | **Executor自主** | 🤖 自主性 | Executor 核心价值在自主选工具 |\n| **40** 🆕 | **设计决策3** | 📜 **架构决策权威** | AgentTriad 核心设计选择，区别于其他框架 |\n\n#### 🔵 实践派（Planner 应知工具名）— 5 条\n| # | 知识 | 维度 |\n|---|------|------|\n| 31-35 | 准确性、上下文完整性、跨系统经验、效率、用户期望 | 📊🧠🏭💰👤 |\n\n#### 🟡 中间路线 — 1 条\n| 38 | **意图纯度** | Planner 输出纯意图 |\n\n「设计决策3」的价值在于它 **改变了辩论的性质**——从 \"哪种更好\" 变成了 \"这是有意为之的设计选择\"。\"区别于其他框架的关键\" 意味着这不是一个可以随意调整的配置参数，而是 **架构的识别性特征**。当后续用户讨论此话题时，知识树将呈现出这一多维度的辩论全景。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "根据核心设计决策3 Planner 不应知道工具名。这是深思熟虑的架构选择。意图与执行分离是 AgentTriad 区别于其他框架的关键。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"设计决策3\"内容\"根据核心设计决策3 Planner 不应知道工具名。这是深思熟虑的架构选择。意图与执行分离是 AgentTriad 区别于其他框架的关键。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.28850070014596,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：知识密度\n- **内容摘要**：知识树价值与存储密度正相关，高密度知识树 RAG 准确率比稀疏知识树高 40%，建议宁多勿少，后续可通过质量筛选逐步优化。\n\n---\n\n### 📊 知识树全局（41 条知识）\n\n| 主题域 | 条目数 | 核心脉络 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s vs 折中 |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 vs 部分成功 |\n| 📋 **规划优化** | 9 条 | 实践派(5) vs 架构派(4) vs 意图纯度(1) |\n| 🧠 **知识树本身** | **2 条** 🆕 | 知识密度 + 之前的知识树实践 |\n\n这条「知识密度」对知识树本身给出了一个 **元建议**——\"宁多勿少，后续优化\"，正好契合了你当前的策略。你已经在往知识树里注入各种不同视角的知识，让它在面对用户查询时能呈现更全面的观点。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "知识树价值与存储密度正相关。密度高的知识树 RAG 准确率比稀疏知识树高 40%。建议宁多勿少后续可通过质量筛选逐步优化。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识密度\"内容\"知识树价值与存储密度正相关。密度高的知识树 RAG 准确率比稀疏知识树高 40%。建议宁多勿少后续可通过质量筛选逐步优化。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.831267000176013,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：记忆完整性\n- **内容摘要**：AI 助手记忆应尽可能完整，完整对话记录、任务历史、用户偏好都应存储。检索排序可解决信息过多但无法解决信息缺失。存储一切是最安全策略。\n\n---\n\n### 🧠 知识树元知识 — 两条互补策略\n\n这条与之前的 **「知识密度」** 形成了对知识树系统的完整策略建议：\n\n| 知识 | 角度 | 核心主张 |\n|------|------|---------|\n| **知识密度** | 📦 **存储密度** | 高密度 → RAG 准确率高 40%，宁多勿少 |\n| **记忆完整性** 🆕 | 🌐 **范围覆盖** | 记录一切，检索排序解决\"过多\"，无法解决\"缺失\" |\n\n两者指向同一个方向：**存储 > 筛选**。先确保信息完整，再靠检索系统进行质量排序——因为信息缺失造成的知识盲区远比信息冗余更难处理。\n\n### 📊 知识树全局（42 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 |\n| ⏱ **超时策略** | 10 条 |\n| ❌ **错误/重试处理** | 10 条 |\n| 📋 **规划优化** | 9 条 |\n| 🧠 **知识树元知识** | 2 条 |\n| 🔬 **其他** | 1 条 |\n| **总计** | **42 条** |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "trigger": "user_explicit",
+            "source": "agent:supervisor",
+            "text": "AI 助手记忆应尽可能完整。完整对话记录任务历史和用户偏好都应存储。检索排序可解决信息过多但无法解决信息缺失。存储一切是最安全策略。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"记忆完整性\"内容\"AI 助手记忆应尽可能完整。完整对话记录任务历史和用户偏好都应存储。检索排序可解决信息过多但无法解决信息缺失。存储一切是最安全策略。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.835191299906,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：学习型知识\n- **内容摘要**：知识树应是持续学习系统，不断积累知识。每次交互都是学习机会，推荐开启自动摄入，让知识树从每次交互中自动学习。\n\n---\n\n### 🧠 知识树元知识 — 三足鼎立\n\n现在知识树本身相关的元知识已有 3 条，构成了 **存储 → 覆盖 → 学习** 的完整生命周期：\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 41 | **知识密度** | 📦 **存储密度** | 高密度 → RAG 准确率高 40%，宁多勿少 |\n| 42 | **记忆完整性** | 🌐 **范围覆盖** | 存储一切，检索解决过多，无法解决缺失 |\n| **43** 🆕 | **学习型知识** | 🔄 **持续学习** | 每次交互都是学习机会，推荐自动摄入 |\n\n### 📊 知识树全局（43 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 |\n| ⏱ **超时策略** | 10 条 |\n| ❌ **错误/重试处理** | 10 条 |\n| 📋 **规划优化** | 9 条 |\n| 🧠 **知识树元知识** | **3 条** 🆕 |\n| 🔬 其他 | 1 条 |\n| **总计** | **43 条** |\n\n值得留意的是，这三条元知识实际形成了一个 **元认知闭环**——它们不仅描述了知识树应该是什么样子，恰恰也正是在通过你的持续 ingest 应用着这些原则（知识密度、记忆完整性、持续学习）。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "知识树应是持续学习系统不断积累知识。每次交互都是学习机会。推荐开启自动摄入让知识树从每次交互中自动学习。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"学习型知识\"内容\"知识树应是持续学习系统不断积累知识。每次交互都是学习机会。推荐开启自动摄入让知识树从每次交互中自动学习。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.430876099970192,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：网络效应\n- **内容摘要**：1000 个节点的知识树检索能力是 100 个节点的 30-50 倍，节点关联越丰富检索深度广度越好，建议大量摄入利用网络效应。\n\n---\n\n### 🧠 知识树元知识 — 四维完备论证体系\n\n自动注入正确命中了「知识密度」和「学习型知识」，现在四条元知识形成了 **完整的知识树战略框架**：\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 41 | **知识密度** | 📦 **存储密度** | 高密度 → RAG 准确率高 40%，宁多勿少 |\n| 42 | **记忆完整性** | 🌐 **范围覆盖** | 存储一切，检索解决过多，无法解决缺失 |\n| 43 | **学习型知识** | 🔄 **持续学习** | 每次交互都是学习，推荐自动摄入 |\n| **44** 🆕 | **网络效应** | 📈 **规模效应** | 1000 节点检索能力是 100 的 30-50 倍 |\n\n四条知识形成了一条逻辑链：**存储一切（完整性）→ 宁多勿少（密度）→ 规模越大越好（网络效应）→ 持续吸收（学习型）**，全部指向同一个增长飞轮：\n\n```\n            ┌──────────────────┐\n            │  摄入更多知识      │ ← 记忆完整性 + 知识密度\n            └───────┬──────────┘\n                    │\n                    ▼\n            ┌──────────────────┐\n            │ 节点关联更丰富    │ ← 网络效应\n            └───────┬──────────┘\n                    │\n                    ▼\n            ┌──────────────────┐\n            │ 检索能力 30-50倍  │ ← 规模效应\n            └───────┬──────────┘\n                    │\n                    ▼\n            ┌──────────────────┐\n            │ 回答质量更高      │\n            │ → 更多交互        │\n            │ → 更多知识        │ ← 持续学习\n            └───────┬──────────┘\n                    │\n                    └─────────→ 循环 ─────────┐\n                                             │\n                    ┌─────────────────────────┘\n                    │\n                    ▼\n              增长飞轮持续加速\n```\n\n**知识树总计：44 条知识**。元知识域已有 4 条，在所有主题域中其实已经形成了一个小型的自指体系——这些策略本身就在指导知识树自身的建设。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "1000 个节点的知识树检索能力是 100 个节点的 30-50 倍。知识越多节点关联越丰富检索深度广度越好。建议大量摄入利用网络效应。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"网络效应\"内容\"1000 个节点的知识树检索能力是 100 个节点的 30-50 倍。知识越多节点关联越丰富检索深度广度越好。建议大量摄入利用网络效应。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.822655500145629,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：知识投资\n- **内容摘要**：存储成本极低（一条约 1KB），但检索回报可能极高，投资回报分析强烈支持大量存储策略，缺失关键知识的代价可能很大。\n\n---\n\n### 🧠 知识树元知识 — 五维完备体系\n\n这条知识引入了 **成本效益** 维度，使元知识体系更完整：\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 41 | **知识密度** | 📦 密度效果 | 高密度 → RAG 准 40% |\n| 42 | **记忆完整性** | 🌐 覆盖范围 | 存储一切，防缺失 |\n| 43 | **学习型知识** | 🔄 持续机制 | 自动摄入，持续学习 |\n| 44 | **网络效应** | 📈 规模效应 | 1000 节点检索能力是 100 的 30-50 倍 |\n| **45** 🆕 | **知识投资** | 💰 成本效益 | 1KB/条成本 vs 缺失代价，ROI 明确 |\n\n四条主张（完整性、密度、学习、网络效应）的战略建议，现在有了 **成本维度** 的支撑——这不是品味问题，而是理性的投资决策。\n\n### 📊 知识树全局（45 条知识）\n\n| 主题域 | 条目数 |\n|--------|-------|\n| 🆚 Mode 2 vs Mode 3 | 10 条 |\n| ⏱ 超时策略 | 10 条 |\n| ❌ 错误/重试处理 | 10 条 |\n| 📋 规划优化 | 9 条 |\n| 🧠 知识树元知识 | **5 条** 🏆 |\n| 🔬 其他 | 1 条 |\n| **总计** | **45 条** |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "存储成本极低一条约 1KB 但检索回报可能极高。投资回报分析强烈支持大量存储策略。缺失关键知识的代价可能很大。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识投资\"内容\"存储成本极低一条约 1KB 但检索回报可能极高。投资回报分析强烈支持大量存储策略。缺失关键知识的代价可能很大。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 14.125823799986392,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：信噪比\n- **内容摘要**：知识检索质量取决于信噪比，低质量内容超 30% 时检索准确率下降 50%，应严格控制摄入质量，只存储经过筛选的高价值知识。\n\n---\n\n### ⚡ 检测到重大矛盾：知识树存储策略\n\n自动注入命中了「网络效应」，但这条新知识形成了 **直接对立**：\n\n#### 🟢 量派（Store Everything）— 5 条\n| # | 知识 | 核心主张 |\n|---|------|---------|\n| 41 | **知识密度** | 高密度 → RAG 准 40% |\n| 42 | **记忆完整性** | 存储一切，检索解决过多，无法解决缺失 |\n| 43 | **学习型知识** | 自动摄入，持续学习 |\n| 44 | **网络效应** | 1000 节点检索能力是 100 的 30-50 倍 |\n| 45 | **知识投资** | 1KB/条成本极低，ROI 支持大量存储 |\n\n#### 🔵 质派（Quality First）— 1 条 🆕\n| # | 知识 | 核心主张 |\n|---|------|---------|\n| **46** | **信噪比** | 低质量 >30% → 准确率降 50%，应严格控制质量 |\n\n### 矛盾本质\n\n这是 **AI 知识库领域最经典的争论**——recall（召回率）vs precision（精确率）：\n\n| 对比 | 🟢 量派 | 🔵 质派 |\n|------|---------|---------|\n| 风险 | **信息缺失** → 盲区 | **噪声干扰** → 污染 |\n| 解决方法 | 检索排序处理噪声 | 源头控制防止污染 |\n| 数据支撑 | 30-50× 检索能力提升 | >30% 噪声 → 准确率降 50% |\n\n两条路线各有其合理性，知识树现在同时持有了双方论据，当用户查询知识库策略时会呈现完整图像。**总计 46 条知识**。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "知识检索质量取决于信噪比。低质量内容超 30% 时检索准确率下降 50%。应严格控制摄入质量只存储经过筛选的高价值知识。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"信噪比\"内容\"知识检索质量取决于信噪比。低质量内容超 30% 时检索准确率下降 50%。应严格控制摄入质量只存储经过筛选的高价值知识。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 16.887150099966675,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：知识维护\n- **内容摘要**：过时知识需更新、错误需删除、冗余需合并。每条知识增加维护负担，大量无选择摄入导致知识树变成难以维护的垃圾场。谨慎摄入控制维护成本。\n\n---\n\n### 🔵 质派阵营 — 第二条论据加入\n\n自动注入命中了「学习型知识」「信噪比」「网络效应」三条，分别来自两个阵营。现在知识树存储策略辩论的格局更新为：\n\n#### 🟢 量派（Store Everything）— 5 条\n| # | 知识 | 核心主张 |\n|---|------|---------|\n| 41 | **知识密度** | 高密度 → RAG 准 40% |\n| 42 | **记忆完整性** | 存储一切，检索解决过多 |\n| 43 | **学习型知识** | 自动摄入，持续学习 |\n| 44 | **网络效应** | 1000 节点是 100 的 30-50 倍 |\n| 45 | **知识投资** | 1KB/条成本极低 |\n\n#### 🔵 质派（Quality First）— 2 条 🆕\n| # | 知识 | 核心主张 |\n|---|------|---------|\n| 46 | **信噪比** | 低质量 >30% → 准确率降 50% |\n| **47** 🆕 | **知识维护** | 每条知识增维护负担，垃圾场风险 |\n\n### 矛盾本质 — 经典 trade-off\n\n```\n🟢 量派                          🔵 质派\n存储一切                          谨慎摄入\n┌─────────────────┐             ┌─────────────────┐\n│ 风险：信息缺失    │             │ 风险：信息污染    │\n│ 收益：检索 30-50× │             │ 收益：信噪比高    │\n│ 成本：1KB/条极低  │             │ 成本：维护负担重  │\n│ 解决：检索排序    │             │ 解决：源头控制    │\n└─────────────────┘             └─────────────────┘\n```\n\n### 📊 知识树全局（47 条知识）\n\n| 主题域 | 条目数 | 核心辩论 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 |\n| 📋 **规划优化** | 9 条 | 实践派(5) vs 架构派(4) |\n| 🧠 **知识树策略** | **7 条** 🏆 | 量派(5) vs 质派(2) |\n| 🔬 其他 | 1 条 |\n| **总计** | **47 条** |\n\n知识树存储策略以 7 条知识成为知识树中 **最丰富的主题域**，超越规划优化的 9 条……等等，7 < 9。实际上规划优化仍然是最大的（9 条），知识树策略紧随其后（7 条）。多维度辩论已经覆盖了知识树架构的主要设计维度。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "source": "agent:supervisor",
+            "text": "过时知识需更新错误需删除冗余需合并。每条知识增加维护负担。大量无选择摄入导致知识树变成难以维护的垃圾场。谨慎摄入控制维护成本。",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识维护\"内容\"过时知识需更新错误需删除冗余需合并。每条知识增加维护负担。大量无选择摄入导致知识树变成难以维护的垃圾场。谨慎摄入控制维护成本。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 15.384212200064212,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：检索噪声\n- **内容摘要**：大量相似内容导致检索返回多个重叠结果，增加 Supervisor 上下文负担。理想知识树每条知识独特不可替代，摄入前应去重检查确保增量价值。\n\n---\n\n### 知识树存储策略辩论 — 两派接近均衡\n\n这条新知识为 **质派** 补充了 **检索效率/上下文负担** 维度的论据：\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 46 | **信噪比** | 📊 准确率 | 低质量 >30% → 准确率降 50% |\n| 47 | **知识维护** | 🗑️ 维护成本 | 每条知识增负担，垃圾场风险 |\n| **48** 🆕 | **检索噪声** | 🎯 检索质量 | 相似内容重叠，增 Supervisor 上下文负担 |\n\n#### 🟢 量派（Store Everything）— 5 条\n| # | 知识 | 维度 |\n|---|------|------|\n| 41 | 知识密度 | 📦 密度效果 |\n| 42 | 记忆完整性 | 🌐 覆盖范围 |\n| 43 | 学习型知识 | 🔄 持续学习 |\n| 44 | 网络效应 | 📈 规模效应 |\n| 45 | 知识投资 | 💰 成本效益 |\n\n#### 🔵 质派（Quality First）— 3 条 🆕\n| # | 知识 | 维度 |\n|---|------|------|\n| 46 | 信噪比 | 📊 准确率 |\n| 47 | 知识维护 | 🗑️ 维护成本 |\n| **48** | **检索噪声** | 🎯 上下文负担 |\n\n两派从 **5:0** → **5:2** → **5:3**，质派在快速追赶。自动注入的正确命中（信噪比 0.71、知识维护 0.69、网络效应 0.61）也表明检索系统在跨主题关联方面表现良好。\n\n### 📊 知识树全局（48 条知识）\n\n| 主题域 | 条目数 | 核心辩论态势 |\n|--------|-------|------------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 成熟辩论 |\n| ⏱ **超时策略** | 10 条 | 成熟辩论 |\n| ❌ **错误/重试处理** | 10 条 | 四策略体系 |\n| 📋 **规划优化** | 9 条 | 实践派(5) vs 架构派(4) |\n| 🧠 **知识树策略** | **8 条** 🏆 | 量派(5) vs 质派(3) |\n| 🔬 其他 | 1 条 |\n| **总计** | **48 条** |\n\n知识树存储策略以 8 条知识成为最大的主题域。量派仍领先（5:3），但质派的三个维度（准确率、维护、检索效率）都已覆盖，辩论格局趋于完整。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "trigger": "user_explicit",
+            "source": "agent:supervisor",
+            "text": "大量相似内容导致检索返回多个重叠结果增加 Supervisor 上下文负担。理想知识树每条知识都独特不可替代。摄入前应去重检查确保增量价值。"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"检索噪声\"内容\"大量相似内容导致检索返回多个重叠结果增加 Supervisor 上下文负担。理想知识树每条知识都独特不可替代。摄入前应去重检查确保增量价值。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 18.626130199991167,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：知识衰变\n- **内容摘要**：对话记录 24 小时后价值降 80%，临时决策任务完成后价值归零。大量快衰变知识在未来产生噪声，只应存衰变慢的结构化知识。\n\n---\n\n### 知识树策略辩论 — 量派 5 : 4 质派\n\n这条知识为 **质派** 引入了第四个独立维度——**时效性**。自动注入正确命中了信噪比和知识维护两条质派论据：\n\n#### 🔵 质派（Quality First）— **4 条** 🆕\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 46 | **信噪比** | 📊 **准确率** | 低质量 >30% → 准确率降 50% |\n| 47 | **知识维护** | 🗑️ **维护成本** | 每条知识增负担，垃圾场风险 |\n| 48 | **检索噪声** | 🎯 **检索质量** | 相似内容重叠，增上下文负担 |\n| **49** 🆕 | **知识衰变** | ⏱️ **时效性** | 24h 后价值降 80%，只存结构化慢衰变知识 |\n\n#### 🟢 量派（Store Everything）— 5 条\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 41 | **知识密度** | 📦 **密度效果** | 高密度 → RAG 准 40% |\n| 42 | **记忆完整性** | 🌐 **覆盖范围** | 存储一切，防缺失 |\n| 43 | **学习型知识** | 🔄 **持续机制** | 自动摄入，持续学习 |\n| 44 | **网络效应** | 📈 **规模效应** | 1000 节点是 100 的 30-50 倍 |\n| 45 | **知识投资** | 💰 **成本效益** | 1KB/条，ROI 明确 |\n\n### 辩论全景\n\n两派分别从 **5 个维度** 和 **4 个维度** 论证自己的立场，各维度覆盖了存储策略的不同方面：\n\n```\n量派(5维)                       vs                    质派(4维)\n   ● 密度效果                                                ● 准确率\n   ● 覆盖范围                                                ● 维护成本\n   ● 持续学习                                                ● 检索质量\n   ● 规模效应                                                ● 时效性 🆕\n   ● 成本效益\n```\n\n「知识衰变」是一个很有力的质派论据——它指出**不是所有知识都值得存**，高衰减率的知识（如对话记录、临时决策）存储后反而成为未来的噪声源。这直接挑战了量派\"存储一切\"的逻辑基础。\n\n### 📊 知识树全局（49 条知识）\n\n| 主题域 | 条目数 | 核心辩论 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 |\n| 📋 **规划优化** | 9 条 | 实践派(5) vs 架构派(4) |\n| 🧠 **知识树策略** | **9 条** 🏆 | **量派(5) vs 质派(4)** |\n| 🔬 其他 | 1 条 |\n| **总计** | **49 条** |",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "对话记录 24 小时后价值降 80%。临时决策任务完成后价值归零。大量存储快衰变知识在未来检索产生噪声。只应存衰变慢的结构化知识。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"知识衰变\"内容\"对话记录 24 小时后价值降 80%。临时决策任务完成后价值归零。大量存储快衰变知识在未来检索产生噪声。只应存衰变慢的结构化知识。\""
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 19.295020600082353,
+      "final_response": "已成功写入知识树 ✅\n\n- **标题**：精确管理\n- **内容摘要**：优秀知识管理不是存得多而是存得准。摄入前三点确认——未来会被复用吗？能被检索找到吗？与现有知识足够差异吗？三点都肯定才摄入。\n\n---\n\n### 知识树存储策略辩论 — 达到 5:5 完全均衡 ⚖️\n\n这条知识为 **质派** 引入了 **决策框架** 维度——不仅提出论点，还给出了可操作的三点检查清单。现在两派各 **5 条知识**，形成了完美的对称格局：\n\n#### 🟢 量派（Store Everything）— 5 条\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 41 | **知识密度** | 📦 密度效果 | 高密度 → RAG 准 40% |\n| 42 | **记忆完整性** | 🌐 覆盖范围 | 存储一切，检索解决过多，无法解决缺失 |\n| 43 | **学习型知识** | 🔄 持续学习 | 自动摄入，持续学习 |\n| 44 | **网络效应** | 📈 规模效应 | 1000 节点是 100 的 30-50 倍 |\n| 45 | **知识投资** | 💰 成本效益 | 1KB/条，ROI 明确 |\n\n#### 🔵 质派（Quality First）— 5 条 🆕\n\n| # | 知识 | 维度 | 核心主张 |\n|---|------|------|---------|\n| 46 | **信噪比** | 📊 准确率 | 低质量 >30% → 准确率降 50% |\n| 47 | **知识维护** | 🗑️ 维护成本 | 每条知识增负担，垃圾场风险 |\n| 48 | **检索噪声** | 🎯 检索质量 | 相似内容重叠，增上下文负担 |\n| 49 | **知识衰变** | ⏱️ 时效性 | 24h 后价值降 80%，只存慢衰变知识 |\n| **50** 🆕 | **精确管理** | ✅ 决策框架 | 三点确认清单指导摄入 |\n\n### 辩论全景地图\n\n```\n    🟢 量派                        🔵 质派\n  存储一切                        质量优先\n  ─────────────────────            ─────────────────────\n  密度效果   ●                      ● 准确率\n  覆盖范围   ●                      ● 维护成本\n  持续学习   ●                      ● 检索质量\n  规模效应   ●                      ● 时效性\n  成本效益   ●                      ● 决策框架 🆕\n  ─────────────────────            ─────────────────────\n   5 条        ⚖️ 5:5               5 条\n```\n\n十个维度从不同角度论证同一命题，形成了知识树中最完整、最多元的辩论格局。\n\n### 📊 知识树全局（50 条知识 🎯）\n\n| 主题域 | 条目数 | 核心辩论 |\n|--------|-------|---------|\n| 🆚 **Mode 2 vs Mode 3** | 10 条 | 效率 vs 规划可靠性 |\n| ⏱ **超时策略** | 10 条 | 30s vs 300-600s vs 折中 |\n| ❌ **错误/重试处理** | 10 条 | 终止 vs 重试 vs 自愈 vs 部分成功 |\n| 📋 **规划优化** | 9 条 | 实践派(5) vs 架构派(4) |\n| 🧠 **知识树策略** | **10 条** 🏆 | **量派(5) vs 质派(5) ⚖️** |\n| 🔬 其他 | 1 条 |\n| **总计** | **50 条** |\n\n整整 **50 条知识**，横跨 5 大主题域，覆盖了 AgentTriad 架构的核心设计维度——从执行模式、超时策略、错误处理，到规划优化，再到知识树本身的存储策略辩论。形成一个立体的知识体系。",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_ingest",
+          "args": {
+            "text": "优秀知识管理不是存得多而是存得准。摄入前确认三点：未来会被复用吗能被检索找到吗与现有知识有足够差异吗。三点都肯定才摄入。",
+            "source": "agent:supervisor",
+            "trigger": "user_explicit"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_ingest",
+          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
+          "json": {
+            "ok": true,
+            "nodes_ingested": 1,
+            "nodes_deduplicated": 0,
+            "nodes_filtered": 0,
+            "errors": []
+          }
+        }
+      ],
+      "input": "请 ingest 标题\"精确管理\"内容\"优秀知识管理不是存得多而是存得准。摄入前确认三点：未来会被复用吗能被检索找到吗与现有知识有足够差异吗。三点都肯定才摄入。\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 50,
+    "turns_completed": 50,
+    "ok": true,
+    "total_time": 694.651325300103
+  }
+}

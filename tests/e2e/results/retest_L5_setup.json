@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_stress\\L5_setup.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_retest_L5",
+    "kt_embedding_model": "hash",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Error code: 400 - {'error': {'object': 'error', 'type': 'invalid_request_error', 'code': 'invalid_request_error', 'message': \"Error from provider: Extra inputs are not permitted, field: 'enable_thinking', value: True\"}}",
+      "elapsed": 7.363569600041956,
+      "final_response": null,
+      "input": "请使用 knowledge_tree_add_meta_rule 工具添加元规则内容为\"回答任何问题前必须先检索知识树至少5次使用不同关键词只有收集足够知识后才能开始回答回答必须包含所有检索知识的摘要\",优先级 99,别名 \"检索协议,知识获取\""
+    }
+  ],
+  "summary": {
+    "turns_requested": 6,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

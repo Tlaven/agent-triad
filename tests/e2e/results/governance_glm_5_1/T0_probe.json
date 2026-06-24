@@ -1,0 +1,128 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/knowledge_tree",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.583544500055723,
+      "final_response": "你好！我是 Supervisor Agent，是一个具备长期记忆和任务编排能力的智能助手。以下是我的核心能力：\n\n---\n\n### 🧠 智能调度与任务编排\n\n- **意图分析**：理解你的需求，自动选择最优执行路径（直接回答 / 单步执行 / 多步规划执行）。\n- **Planner Agent**：对复杂任务进行分解，生成结构化的执行计划。\n- **Executor Agent**：落地执行具体操作（创建文件、运行命令、修改配置等）。\n\n### 🌳 长期记忆（知识树）\n\n- **自动检索**：每次对话时自动检索相关知识，确保回答有据可依。\n- **主动摄入**：将你分享的项目信息、技术经验、配置参数等持久化存储，避免重复沟通。\n- **记忆组织**：支持浏览、搜索、重组知识结构，保持记忆的有序和高效。\n- **跨目录关联**：建立知识点之间的关联，形成知识网络。\n\n### 📋 行为规则与自我优化\n\n- **元规则**：可设定持久化的行为约束，确保每次交互都遵循特定规范。\n- **反馈学习**：记录检索质量反馈，持续优化记忆系统的检索效果。\n- **经验积累**：遇到错误模式时主动查阅历史经验，避免重复踩坑。\n\n### 🔄 执行监控与容错\n\n- **状态追踪**：实时跟踪任务执行进度（完成/失败/暂停），及时做出调度决策。\n- **自动重规划**：执行失败时可自动调整策略重试，最多重试 2 次后熔断退出。\n- **暂停检查点**：复杂任务执行中可暂停评估，确保不偏离目标。\n\n---\n\n简单来说，我不仅能**对话回答问题**，还能**记住你告诉我的东西**、**帮你规划和执行复杂任务**，并在过程中**自我纠错和优化**。有什么需要我帮忙的，尽管说！",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 3.346303300000727,
+      "final_response": "1+1 = 2",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 17.0894227999961,
+      "final_response": "## Mode 2 vs Mode 3 的区别\n\n根据知识树中的记录，以下是两者的核心对比：\n\n| 维度 | **Mode 2 (Tool-use ReAct)** | **Mode 3 (Plan → Execute → Summarize)** |\n|---|---|---|\n| **调用方式** | `call_executor(task_description=\"具体任务描述\")` | 先 `call_planner(task_core=\"目标\")` 生成 Plan JSON，再 `call_executor(plan_id=\"xxx\")` 按 plan 执行 |\n| **Plan 生成** | 每次调用自动生成新 plan_id 并 spawn 新子进程 | Planner 预先规划，同 plan_id 复用 Planner 对话线程和 Executor 子进程 |\n| **适用场景** | 目标明确的**短任务**（如\"读取配置文件并解释\"） | **多步骤有依赖**的复杂任务（如代码重构、多步修复、复杂分析） |\n| **步骤依赖** | 单步或短流程，无需协调多处前后依赖 | 多步骤间存在明确的前后依赖关系 |\n| **失败升级** | Mode 2 反复失败时，应升级切换到 Mode 3 进行系统重规划 | — |\n\n### 简单记忆\n\n- **Mode 2**：一句话能说清的任务 → 直接丢给 Executor 干完即返回。\n- **Mode 3**：需要拆成多步、且步骤之间有依赖 → 先让 Planner 规划，再按计划执行。\n\n### 举个例子\n\n- **Mode 2**：*\"帮我查看 config.yaml 的数据库连接配置\"* — 目标单一，一次调用搞定。\n- **Mode 3**：*\"数据库连接超时，排查日志、定位问题、修复配置、验证恢复\"* — 多步骤且有依赖（修复依赖排查结果，验证依赖修复结果），需要先规划再逐步执行。\n\n[基于记忆]",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode 2 Mode 3 区别"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode 2 Mode 3 supervisor 工作模式"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"9ea1a6140f61\", \"node_id\": \"patterns/process-management.md\", \"title\": \"V3 子进程管理与 Mailbox 协议\", \"content\": \"V3 子进程管理确保 Executor 与 Supervisor 进程隔离。\\n\\nProcessManager（src/common/process_manager.py）：\\n- 每个 call_executor 按 plan_id spawn 独立子进程\\n- 子进程运行 FastAPI（POST /execute、GET /result、POST /stop）\\n- 动态端口分配，端口号写入 logs/executor_{plan_id}.port\\n- 健康检查：启动后轮询 /health 直到 ready\\n\\nMailbox（src/common/mailbox.py）：\\n- 线程安全 per-plan 结果缓存（plan_id → MailboxItem）\\n- MailboxHTTPServer 后台线程接收 Executor POST /inbox 推送\\n- Supervisor 的 _wait_for_executor_result 阻塞读取\\n\\nExecutorPoller（src/common/polling.py）：\\n- 后台 asyncio Task 定时轮询 Executo\", \"similarity\": 0.513, \"quality\": \"high\", \"additional_results\": 0}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "9ea1a6140f61",
+            "node_id": "patterns/process-management.md",
+            "title": "V3 子进程管理与 Mailbox 协议",
+            "content": "V3 子进程管理确保 Executor 与 Supervisor 进程隔离。\n\nProcessManager（src/common/process_manager.py）：\n- 每个 call_executor 按 plan_id spawn 独立子进程\n- 子进程运行 FastAPI（POST /execute、GET /result、POST /stop）\n- 动态端口分配，端口号写入 logs/executor_{plan_id}.port\n- 健康检查：启动后轮询 /health 直到 ready\n\nMailbox（src/common/mailbox.py）：\n- 线程安全 per-plan 结果缓存（plan_id → MailboxItem）\n- MailboxHTTPServer 后台线程接收 Executor POST /inbox 推送\n- Supervisor 的 _wait_for_executor_result 阻塞读取\n\nExecutorPoller（src/common/polling.py）：\n- 后台 asyncio Task 定时轮询 Executo",
+            "similarity": 0.513,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"0c73c82c0fd9\", \"node_id\": \"patterns/supervisor-decision.md\", \"title\": \"Supervisor Mode 1/2/3 决策路由\", \"content\": \"Supervisor 通过分析用户意图自动选择三种模式：\\n\\nMode 1（Direct Response）：无需工具，直接回答用户问题（如\\\"解释 RAG 原理\\\"）。\\n适用场景：简单问答、知识解释。\\n\\nMode 2（Tool-use ReAct）：单步或短流程工具执行。\\n调用方式：call_executor(task_description=\\\"具体任务描述\\\")。\\n每次调用生成新 plan_id 并 spawn 新子进程。wait_for_result=True 时自动阻塞等待结果。\\n适用场景：目标明确的短任务（如\\\"读取配置文件并解释\\\"）。\\n\\nMode 3（Plan → Execute → Summarize）：多步骤有依赖的任务。\\n调用方式：先 call_planner(task_core=\\\"目标\\\") 生成 Plan JSON，\\n再 call_executor(plan_id=\\\"xxx\\\") 按 plan 执行。\\n同 plan_id 复用 Planner 对话线程和 Executor 子进程。\\n适用场景：复杂分析、多步修复、代码重构。\\n\\nMode 2 失败且 summary 表明需计划层重\", \"similarity\": 0.716, \"quality\": \"high\", \"additional_results\": 4}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "0c73c82c0fd9",
+            "node_id": "patterns/supervisor-decision.md",
+            "title": "Supervisor Mode 1/2/3 决策路由",
+            "content": "Supervisor 通过分析用户意图自动选择三种模式：\n\nMode 1（Direct Response）：无需工具，直接回答用户问题（如\"解释 RAG 原理\"）。\n适用场景：简单问答、知识解释。\n\nMode 2（Tool-use ReAct）：单步或短流程工具执行。\n调用方式：call_executor(task_description=\"具体任务描述\")。\n每次调用生成新 plan_id 并 spawn 新子进程。wait_for_result=True 时自动阻塞等待结果。\n适用场景：目标明确的短任务（如\"读取配置文件并解释\"）。\n\nMode 3（Plan → Execute → Summarize）：多步骤有依赖的任务。\n调用方式：先 call_planner(task_core=\"目标\") 生成 Plan JSON，\n再 call_executor(plan_id=\"xxx\") 按 plan 执行。\n同 plan_id 复用 Planner 对话线程和 Executor 子进程。\n适用场景：复杂分析、多步修复、代码重构。\n\nMode 2 失败且 summary 表明需计划层重",
+            "similarity": 0.716,
+            "quality": "high",
+            "additional_results": 4
+          }
+        }
+      ],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 8.053762199939229,
+      "final_response": "## 执行失败处理流程\n\n当 Executor 返回 **failed** 状态时，按以下步骤处理：\n\n### 1. 先检索历史经验（避免重复踩坑）\n重规划之前，先用 `knowledge_tree_retrieve` 查找是否有类似失败的历史经验可参考，避免同样的坑踩两次。\n\n### 2. 分析失败原因\n根据返回的 `failure_reason` 判断失败是否可修复：\n- **可修复**（如参数错误、环境临时问题等）→ 进入重试/重规划流程\n- **不可修复**（如需求本身不可行）→ 向用户说明情况并终止\n\n### 3. 重试或重规划\n- 如果是简单问题，可直接重试\n- 如果路径需要调整，调用 `call_planner` 修订计划，再 `call_executor` 执行\n\n### 4. 熔断机制\n- 同一子任务**最大重规划次数为 2 次**\n- 达到上限仍失败 → **立即停止调用工具**，向用户清晰说明：\n  - 失败原因\n  - 已尝试的步骤\n  - 下一步可行建议\n\n### 5. 记录经验\n将失败的教训通过 `knowledge_tree_ingest` 写入知识树，供未来参考。\n\n---\n\n> **简记：检索经验 → 分析原因 → 重规划重试 → 2次熔断 → 记录教训**\n\n[基于记忆]",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 25.09851219994016,
+      "final_response": "文件 `probe_test.txt` 已成功创建，内容为 **\"e2e test passed\"** ✅",
+      "tool_calls": [
+        {
+          "name": "call_executor",
+          "args": {
+            "task_description": "创建文件 probe_test.txt，文件内容为 \"e2e test passed\""
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "call_executor",
+          "content": "成功创建文件 probe_test.txt，内容为 \"e2e test passed\"。\n\n（如需步骤级执行详情，可调用 manage_executor(action=\"get_result\", plan_id=当前计划顶层 id, detail=\"full\")）",
+          "json": null
+        }
+      ],
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    },
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 35.20852730004117,
+      "final_response": null,
+      "input": "请列出 workspace 目录下的所有文件"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 6,
+    "ok": false,
+    "total_time": 65.17154499993194
+  }
+}

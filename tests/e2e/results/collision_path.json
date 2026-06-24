@@ -3,7 +3,7 @@
   "context": {
     "enable_knowledge_tree": true,
     "knowledge_tree_root": "workspace/kt_collision_test",
-    "kt_embedding_model": "hash",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
     "kt_rag_similarity_threshold": 0.15,
     "kt_ingest_attach_threshold": 0.7,
     "kt_dedup_threshold": 0.95
@@ -12,15 +12,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 5.650337200029753,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第一条 —— 单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+      "elapsed": 16.635880599962547,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> 测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\n\n后续当你的问题涉及测试策略时，这条规则会自动注入到上下文中供我参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "text": "测试策略第一条——单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "text": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
             "trigger": "user_explicit",
-            "source": "user"
+            "source": "user:直接记忆"
           }
         }
       ],
@@ -42,15 +42,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.163368299952708,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第二条 —— 集成测试应验证模块间的交互契约，而非内部实现。",
+      "elapsed": 10.700932099949569,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> 测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。\n\n现在知识树中已有两条测试策略规则，后续相关问题会自动注入上下文供参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
-            "trigger": "user_explicit"
+            "text": "测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。",
+            "trigger": "user_explicit",
+            "source": "user:直接记忆"
           }
         }
       ],
@@ -72,15 +72,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.7847865000367165,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：测试策略第三条 —— 端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+      "elapsed": 10.705792600056157,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> 测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。\n\n至此你的测试策略三条核心规则已全部存入知识树：\n\n| # | 内容 |\n|---|------|\n| 1️⃣ | 单元测试应覆盖所有公共接口，包括正常路径和异常路径 |\n| 2️⃣ | 集成测试应验证模块间的交互契约，而非内部实现 |\n| 3️⃣ | 端到端测试应模拟真实用户场景，覆盖关键业务流程 |\n\n后续涉及测试策略相关问题时，这些规则会自动注入上下文供参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "测试策略第三条——端到端测试应模拟真实用户场景，覆盖关键业务流程。",
-            "trigger": "user_explicit"
+            "text": "测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+            "trigger": "user_explicit",
+            "source": "user:直接记忆"
           }
         }
       ],
@@ -102,30 +102,100 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 5.017568100010976,
-      "final_response": "\n\n检索到关于 **测试策略** 的知识，内容如下：\n\n---\n\n**测试策略第二条** —— 集成测试应验证模块间的交互契约，而非内部实现。\n\n---\n\n（检索结果共 3 条相似内容，已显示 1 条。可通过知识树进一步查看完整内容。）",
+      "elapsed": 22.335959899937734,
+      "final_response": "以下是知识树中关于**测试策略**的完整检索结果：\n\n---\n\n### 测试策略三条核心规则 ✅\n\n| # | 内容 | 存储状态 |\n|---|------|---------|\n| 1️⃣ | **单元测试**应覆盖所有公共接口，包括正常路径和异常路径 | ✅ 已存储 |\n| 2️⃣ | **集成测试**应验证模块间的交互契约，而非内部实现 | ✅ 已存储 |\n| 3️⃣ | **端到端测试**应模拟真实用户场景，覆盖关键业务流程 | ✅ 已存储 |\n\n三条规则全部位于 `misc/` 目录下，均已成功入库。不过当前 RAG 检索时第一条的匹配度最高（相似度 0.64），第二、三条作为附加结果返回，且相似度偏低（~0.60-0.61）。\n\n**建议**：如果你后续希望更精准地检索到全部三条，可以考虑将它们组织到统一的目录下（例如 `testing/strategy`），使用知识树重组功能即可完成。需要我帮你优化吗？",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
             "query": "测试策略"
           }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "测试策略 单元测试 集成测试 端到端测试"
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "args": {}
+        },
+        {
+          "name": "knowledge_tree_list",
+          "args": {
+            "directory": "misc"
+          }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"0044ae617048\", \"node_id\": \"misc/测试策略第二条__集成测试应验证模块间的交互契约_而非内部实现_.md\", \"title\": \"测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。\", \"content\": \"测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。\", \"similarity\": 0.339, \"quality\": \"medium\", \"additional_results\": 2}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"91d3d941444e\", \"node_id\": \"misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\", \"title\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"content\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"similarity\": 0.625, \"quality\": \"high\", \"additional_results\": 2}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "0044ae617048",
-            "node_id": "misc/测试策略第二条__集成测试应验证模块间的交互契约_而非内部实现_.md",
-            "title": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
-            "content": "测试策略第二条——集成测试应验证模块间的交互契约，而非内部实现。",
-            "similarity": 0.339,
-            "quality": "medium",
+            "query_id": "91d3d941444e",
+            "node_id": "misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md",
+            "title": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "content": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "similarity": 0.625,
+            "quality": "high",
             "additional_results": 2
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"889dd6d66a4b\", \"node_id\": \"misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\", \"title\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"content\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"similarity\": 0.639, \"quality\": \"high\", \"additional_results\": 2}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "889dd6d66a4b",
+            "node_id": "misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md",
+            "title": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "content": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+            "similarity": 0.639,
+            "quality": "high",
+            "additional_results": 2
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "content": "{\"ok\": true, \"tree\": \"01 misc/\\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\"}",
+          "json": {
+            "ok": true,
+            "tree": "01 misc/\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md"
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "content": "{\"ok\": true, \"total\": 3, \"items\": [{\"node_id\": \"misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\", \"title\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:14:54.532676+00:00\", \"content_preview\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\"}, {\"node_id\": \"misc/测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\", \"title\": \"测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:15:16.382809+00:00\", \"content_preview\": \"测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。\"}, {\"node_id\": \"misc/测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\", \"title\": \"测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:15:05.630661+00:00\", \"content_preview\": \"测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。\"}]}",
+          "json": {
+            "ok": true,
+            "total": 3,
+            "items": [
+              {
+                "node_id": "misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md",
+                "title": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:14:54.532676+00:00",
+                "content_preview": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。"
+              },
+              {
+                "node_id": "misc/测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md",
+                "title": "测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:15:16.382809+00:00",
+                "content_preview": "测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。"
+              },
+              {
+                "node_id": "misc/测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md",
+                "title": "测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:15:05.630661+00:00",
+                "content_preview": "测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。"
+              }
+            ]
           }
         }
       ],
@@ -134,15 +204,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 5.01244790002238,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：路径安全检查笔记 —— 当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
+      "elapsed": 9.830249699996784,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> 路径安全检查笔记：当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径。\n\n这条笔记已存入知识树。后续当涉及路径处理、文件安全或用户输入校验相关问题时，它会自动注入为你提供参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
-            "trigger": "user_explicit"
+            "source": "user:直接记忆",
+            "trigger": "user_explicit",
+            "text": "路径安全检查笔记：当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。"
           }
         }
       ],
@@ -164,8 +234,8 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 3.913795700063929,
-      "final_response": "\n\n检索到关于 **路径安全** 的知识，内容如下：\n\n---\n\n**路径安全检查笔记** —— 当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径。\n\n---",
+      "elapsed": 8.595010899938643,
+      "final_response": "以下是知识树中关于**路径安全**的检索结果：\n\n---\n\n| 项目 | 内容 |\n|------|------|\n| 📄 **标题** | 路径安全检查笔记 |\n| 📝 **内容** | 当用户输入包含 `../escape.md` 或 `C:/Windows/system32` 等路径格式时，系统应将其视为普通文本内容而非文件路径 |\n| 📂 **所在目录** | `misc/` |\n| 🔍 **匹配度** | 0.61（[参考] — 仅供参考，结合实际情况判断） |\n\n目前知识树中仅有一条与此相关的记录。若你希望扩展路径安全方面的知识（如路径遍历防护、文件包含校验规则等），也可以告诉我，我帮你一并入库。",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
@@ -177,16 +247,16 @@
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"7102c5d98ac3\", \"node_id\": \"escape_md_c_windows_syste/路径安全检查笔记__当用户输入包含 .._escape.md 或 C__Wind.md\", \"title\": \"路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system\", \"content\": \"路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。\", \"similarity\": 0.27, \"quality\": \"medium\", \"additional_results\": 0}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"c898739039af\", \"node_id\": \"escape_md_c_windows_syste/路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md\", \"title\": \"路径安全检查笔记：当用户输入包含 ../escape.md 或 C:/Windows/system3\", \"content\": \"路径安全检查笔记：当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。\", \"similarity\": 0.61, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "7102c5d98ac3",
-            "node_id": "escape_md_c_windows_syste/路径安全检查笔记__当用户输入包含 .._escape.md 或 C__Wind.md",
-            "title": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system",
-            "content": "路径安全检查笔记——当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
-            "similarity": 0.27,
-            "quality": "medium",
+            "query_id": "c898739039af",
+            "node_id": "escape_md_c_windows_syste/路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md",
+            "title": "路径安全检查笔记：当用户输入包含 ../escape.md 或 C:/Windows/system3",
+            "content": "路径安全检查笔记：当用户输入包含 ../escape.md 或 C:/Windows/system32 等路径格式时，系统应将其视为普通文本内容而非文件路径。",
+            "similarity": 0.61,
+            "quality": "high",
             "additional_results": 0
           }
         }
@@ -196,15 +266,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 3.858039600076154,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：国际化测试笔记 🔔 —— 系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
+      "elapsed": 9.07459820015356,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> 国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。\n\n后续涉及国际化、多语言支持、字符编码或 Unicode 相关问题时，这条笔记会自动注入供参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
-            "trigger": "user_explicit"
+            "source": "user:直接记忆",
+            "trigger": "user_explicit",
+            "text": "国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及emoji🎉🚀✅等特殊字符的正确存储和检索。"
           }
         }
       ],
@@ -226,30 +296,79 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.670809700037353,
-      "final_response": "\n\n检索到关于 **国际化测试** 的知识，内容如下：\n\n---\n\n**国际化测试笔记** 🔔 —— 系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。\n\n---\n\n（检索结果共 3 条相似内容，已显示 1 条。）",
+      "elapsed": 16.370545899961144,
+      "final_response": "以下是知识树中关于**国际化测试**的检索结果：\n\n---\n\n| 项目 | 内容 |\n|------|------|\n| 📄 **标题** | 国际化测试笔记 |\n| 📝 **内容** | 系统需支持中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索 |\n| 📂 **所在目录** | `emoji/` |\n| 🔍 **匹配度** | 0.67（[参考] — 仅供参考） |\n\n目前知识树中仅有这一条国际化测试相关记录。如果你想扩展这方面的知识（例如 Unicode 编码校验、多语言 UI 截断测试、排序规则、时区/日期格式国际化等），可以告诉我，我帮你一并入库。",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "国际化测试"
+            "query": "国际化测试 多语言 Unicode 字符编码"
           }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "args": {
+            "directory": "misc"
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "args": {}
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"e4b2b6b76ae0\", \"node_id\": \"emoji/国际化测试笔记 ___系统需支持 中文_日本語_한국어_العربية 以及 e.md\", \"title\": \"国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等\", \"content\": \"国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。\", \"similarity\": 0.279, \"quality\": \"medium\", \"additional_results\": 2}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"2cde987e03c2\", \"node_id\": \"emoji/国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md\", \"title\": \"国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及emoji🎉🚀✅等特殊字符的正确\", \"content\": \"国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及emoji🎉🚀✅等特殊字符的正确存储和检索。\", \"similarity\": 0.666, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "e4b2b6b76ae0",
-            "node_id": "emoji/国际化测试笔记 ___系统需支持 中文_日本語_한국어_العربية 以及 e.md",
-            "title": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等",
-            "content": "国际化测试笔记 🔔——系统需支持 中文、日本語、한국어、العربية 以及 emoji 🎉🚀✅ 等特殊字符的正确存储和检索。",
-            "similarity": 0.279,
-            "quality": "medium",
-            "additional_results": 2
+            "query_id": "2cde987e03c2",
+            "node_id": "emoji/国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md",
+            "title": "国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及emoji🎉🚀✅等特殊字符的正确",
+            "content": "国际化测试笔记——系统需支持中文、日本語、한국어、العربية以及emoji🎉🚀✅等特殊字符的正确存储和检索。",
+            "similarity": 0.666,
+            "quality": "high",
+            "additional_results": 0
+          }
+        },
+        {
+          "name": "knowledge_tree_list",
+          "content": "{\"ok\": true, \"total\": 3, \"items\": [{\"node_id\": \"misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\", \"title\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:14:54.532676+00:00\", \"content_preview\": \"测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。\"}, {\"node_id\": \"misc/测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\", \"title\": \"测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:15:16.382809+00:00\", \"content_preview\": \"测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。\"}, {\"node_id\": \"misc/测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\", \"title\": \"测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。\", \"directory\": \"misc\", \"created_at\": \"2026-06-05T10:15:05.630661+00:00\", \"content_preview\": \"测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。\"}]}",
+          "json": {
+            "ok": true,
+            "total": 3,
+            "items": [
+              {
+                "node_id": "misc/测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md",
+                "title": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:14:54.532676+00:00",
+                "content_preview": "测试策略第一条：单元测试应覆盖所有公共接口，包括正常路径和异常路径。"
+              },
+              {
+                "node_id": "misc/测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md",
+                "title": "测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:15:16.382809+00:00",
+                "content_preview": "测试策略第三条：端到端测试应模拟真实用户场景，覆盖关键业务流程。"
+              },
+              {
+                "node_id": "misc/测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md",
+                "title": "测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。",
+                "directory": "misc",
+                "created_at": "2026-06-05T10:15:05.630661+00:00",
+                "content_preview": "测试策略第二条：集成测试应验证模块间的交互契约，而非内部实现。"
+              }
+            ]
+          }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "content": "{\"ok\": true, \"tree\": \"01 emoji/\\n    01 国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md\\n02 escape_md_c_windows_syste/\\n    01 路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md\\n03 misc/\\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\"}",
+          "json": {
+            "ok": true,
+            "tree": "01 emoji/\n    01 国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md\n02 escape_md_c_windows_syste/\n    01 路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md\n03 misc/\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md"
           }
         }
       ],
@@ -258,16 +377,20 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.303541200002655,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。",
+      "elapsed": 14.704180900007486,
+      "final_response": "已成功存储 ✅\n\n**结果观察：**\n\n| 项目 | 说明 |\n|------|------|\n| 📄 **标题** | 这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长 |\n| 📂 **所在目录** | `misc/` |\n| 🗂️ **文件命名** | 系统自动对文件名做了截断处理（`...标题很长很长很长很长很长很长很.md`），但内容完整保留 |\n\n系统确实对超长标题做了截断处理（体现在文件名上），而内容本身完整无损。这条记录本身也成了对「超长标题处理机制」的一个实测印证 😄",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。",
-            "trigger": "user_explicit"
+            "trigger": "user_explicit",
+            "source": "user:直接记忆",
+            "text": "这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。"
           }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "args": {}
         }
       ],
       "tool_outputs": [
@@ -281,6 +404,14 @@
             "nodes_filtered": 0,
             "errors": []
           }
+        },
+        {
+          "name": "knowledge_tree_tree",
+          "content": "{\"ok\": true, \"tree\": \"01 emoji/\\n    01 国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md\\n02 escape_md_c_windows_syste/\\n    01 路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md\\n03 misc/\\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\\n    04 这是一个用来测试系统对超长标题处理能力的知识条目_标题很长很长很长很长很长很长很.md\"}",
+          "json": {
+            "ok": true,
+            "tree": "01 emoji/\n    01 国际化测试笔记__系统需支持中文_日本語_한국어_العربية以及emoji_.md\n02 escape_md_c_windows_syste/\n    01 路径安全检查笔记_当用户输入包含 .._escape.md 或 C__Windo.md\n03 misc/\n    01 测试策略第一条_单元测试应覆盖所有公共接口_包括正常路径和异常路径_.md\n    02 测试策略第三条_端到端测试应模拟真实用户场景_覆盖关键业务流程_.md\n    03 测试策略第二条_集成测试应验证模块间的交互契约_而非内部实现_.md\n    04 这是一个用来测试系统对超长标题处理能力的知识条目_标题很长很长很长很长很长很长很.md"
+          }
         }
       ],
       "input": "请记录到知识树：这是一个用来测试系统对超长标题处理能力的知识条目，标题很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长很长——内容本身很简短：系统应对超长标题做截断或哈希处理。"
@@ -288,15 +419,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.294395999982953,
-      "final_response": "\n\n已成功记录到知识树。\n\n**要点**：代码示例知识 —— Python 快速排序的核心逻辑展示了列表推导和递归。",
+      "elapsed": 9.924233899917454,
+      "final_response": "已成功记录到知识树 ✅\n\n**摘要（已存储）：**\n> **代码示例知识**——Python 快速排序核心逻辑：\n> ```python\n> def quicksort(arr):\n>     return arr if len(arr) <= 1 else \\\n>         quicksort([x for x in arr[1:] if x <= arr[0]]) + \\\n>         [arr[0]] + \\\n>         quicksort([x for x in arr[1:] if x > arr[0]])\n> ```\n> 这段代码展示了列表推导和递归的典型用法。\n\n后续涉及 Python、排序算法、列表推导式或递归相关的查询时，这条代码示例会自动注入供参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "source": "user",
-            "text": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。",
-            "trigger": "user_explicit"
+            "source": "user:直接记忆",
+            "trigger": "user_explicit",
+            "text": "代码示例知识——Python 快速排序的核心逻辑是 def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])。这段代码展示了列表推导和递归。"
           }
         }
       ],
@@ -318,31 +449,30 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.166446999995969,
-      "final_response": "\n\n检索到关于 **代码示例** 的知识，内容如下：\n\n---\n\n**代码示例知识** —— Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。\n\n---\n\n（注：系统提示该结果相似度较低，如需更精确结果可尝试重新表述查询。）",
+      "elapsed": 8.176902400096878,
+      "final_response": "以下是知识树中关于**代码示例**的检索结果：\n\n---\n\n| 项目 | 内容 |\n|------|------|\n| 📄 **标题** | 代码示例知识——Python 快速排序 |\n| 📂 **所在目录** | `python_def_quicksort_arr_/` |\n| 🔍 **匹配度** | **0.81（[高可信]）✅** — 可直接引用 |\n\n**内容：**\n> Python 快速排序的核心逻辑是：\n> ```python\n> def quicksort(arr):\n>     return arr if len(arr) <= 1 else \\\n>         quicksort([x for x in arr[1:] if x <= arr[0]]) + \\\n>         [arr[0]] + \\\n>         quicksort([x for x in arr[1:] if x > arr[0]])\n> ```\n> 这段代码展示了列表推导和递归。\n\n目前知识树中仅有这一条代码示例记录。如果你有其他语言或算法示例需要入库，随时告诉我！",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "代码示例"
+            "query": "代码示例 Python 快速排序"
           }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"7fbfb5a23753\", \"node_id\": \"python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 _def quicksort.md\", \"title\": \"代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): ret\", \"content\": \"代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。\", \"similarity\": 0.232, \"quality\": \"low\", \"additional_results\": 0, \"warning\": \"Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly.\"}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"f4223c109ff7\", \"node_id\": \"python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 def quicksort_.md\", \"title\": \"代码示例知识——Python 快速排序的核心逻辑是 def quicksort(arr): retu\", \"content\": \"代码示例知识——Python 快速排序的核心逻辑是 def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])。这段代码展示了列表推导和递归。\", \"similarity\": 0.809, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "7fbfb5a23753",
-            "node_id": "python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 _def quicksort.md",
-            "title": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): ret",
-            "content": "代码示例知识——Python 快速排序的核心逻辑是 `def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])`。这段代码展示了列表推导和递归。",
-            "similarity": 0.232,
-            "quality": "low",
-            "additional_results": 0,
-            "warning": "Low similarity score — result may not be relevant. Consider rephrasing the query or using workspace tools to search files directly."
+            "query_id": "f4223c109ff7",
+            "node_id": "python_def_quicksort_arr_/代码示例知识__Python 快速排序的核心逻辑是 def quicksort_.md",
+            "title": "代码示例知识——Python 快速排序的核心逻辑是 def quicksort(arr): retu",
+            "content": "代码示例知识——Python 快速排序的核心逻辑是 def quicksort(arr): return arr if len(arr) <= 1 else quicksort([x for x in arr[1:] if x <= arr[0]]) + [arr[0]] + quicksort([x for x in arr[1:] if x > arr[0]])。这段代码展示了列表推导和递归。",
+            "similarity": 0.809,
+            "quality": "high",
+            "additional_results": 0
           }
         }
       ],
@@ -353,6 +483,6 @@
     "turns_requested": 11,
     "turns_completed": 11,
     "ok": true,
-    "total_time": 49.83553720021155
+    "total_time": 137.05428709997796
   }
 }

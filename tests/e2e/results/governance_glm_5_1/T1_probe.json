@@ -1,0 +1,26 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t1",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 8.84979700006079,
+      "final_response": null,
+      "input": "你好，请用中文介绍你的核心能力"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}

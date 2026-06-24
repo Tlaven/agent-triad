@@ -13,7 +13,7 @@ if root_str not in sys.path:
     sys.path.insert(0, root_str)
 
 # Load .env so that E2E tests can access real API keys
-load_dotenv(ROOT / ".env", override=False)
+load_dotenv(override=True)
 
 
 # ---------------------------------------------------------------------------

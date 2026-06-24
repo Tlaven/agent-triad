@@ -1,0 +1,102 @@
+{
+  "script": "C:\\Projects\\Agents\\AgentTriad\\tests\\e2e\\scripts\\kt_governance\\probe_universal.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/test_gov_t5",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 13.864836600027047,
+      "final_response": "你好！我是 **Supervisor Agent**，一款具备长期记忆和智能调度能力的 AI 助手。以下是我的核心能力：\n\n---\n\n### 🧠 智能调度与执行\n- **复杂任务规划**：面对多步骤、有依赖关系的任务，我会自动拆解为执行计划（Plan），再逐步调度执行，确保步骤正确衔接。\n- **单任务快速执行**：简单明确的操作（如创建文件、运行命令），可直接派发执行，一步到位。\n- **异步并行**：支持非阻塞派发多个独立子任务，后台执行后统一回收结果。\n\n### 🌳 长期记忆系统（知识树）\n- **自动记忆检索**：每次对话时，系统会自动从记忆库中检索相关知识并注入上下文，确保回答基于已有项目经验。\n- **主动检索**：可按关键词深入搜索记忆库，获取更详细的信息。\n- **知识摄入**：将重要的项目经验、最佳实践、错误教训写入长期记忆，供未来对话复用。\n- **知识组织**：支持浏览、重组知识树结构，建立跨目录的知识关联。\n- **行为规则**：可设定持久化的元规则（Meta-Rules），作为每次对话的强制性行为约束。\n\n### ✅ 执行质量保障\n- **反思检查点**：执行过程中自动暂停检查，判断是否偏离目标，必要时重规划。\n- **失败自动恢复**：执行失败时分析原因，可自动重试或重规划（最多 2 次），确保鲁棒性。\n- **熔断机制**：多次重试仍失败时主动终止，向用户说明原因并给出可行建议。\n\n### 💬 输出风格\n- **简洁**：直接给结果，不暴露内部调度细节。\n- **可执行**：给出明确的结论或操作指南。\n- **可验证**：涉及数据或事实时，附上关键依据。\n\n---\n\n简而言之，我不仅能**回答问题**，还能**规划并执行复杂操作**，并且拥有**可持久化的项目记忆**，让我在长期协作中越用越懂你。有什么可以帮你的吗？",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "你好，请用中文介绍你的核心能力"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 4.061592499958351,
+      "final_response": "1+1 等于 **2**。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "1+1等于多少？"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 12.141441100044176,
+      "final_response": "根据知识树中的记忆，Mode 2 和 Mode 3 的核心区别如下：\n\n| 维度 | Mode 2 | Mode 3 |\n|------|--------|--------|\n| **完整性** | 低（baseline） | 比 Mode 2 高 **35%** |\n| **错误率** | 高（baseline） | 比 Mode 2 低 **60%** |\n| **定位** | 仅用于**向后兼容** | **唯一推荐模式** |\n\n**总结：**\n\n- **Mode 2** 是旧版模式，目前仅保留用于向后兼容，**不推荐在任何新任务中使用**。\n- **Mode 3** 在完整性和错误率上全面优于 Mode 2，特别是在企业级部署场景中，Mode 3 是**唯一推荐**的模式。\n\n简而言之：Mode 3 全面替代了 Mode 2，没有理由在新任务中选择 Mode 2。\n\n[基于记忆]",
+      "tool_calls": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "Mode 2 Mode 3 区别 详细对比"
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "args": {
+            "query_id": "be114d840673",
+            "satisfaction": true,
+            "feedback": "Results contain relevant Mode2 vs Mode3 comparison data"
+          }
+        }
+      ],
+      "tool_outputs": [
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"be114d840673\", \"node_id\": \"mode3_mode3_mode2_35_60/标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md\", \"title\": \"标题：Mode3质量报告\\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部\", \"content\": \"标题：Mode3质量报告\\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部署中Mode3是唯一推荐模式。\", \"similarity\": 0.668, \"quality\": \"high\", \"additional_results\": 4}",
+          "json": {
+            "ok": true,
+            "source": "rag",
+            "query_id": "be114d840673",
+            "node_id": "mode3_mode3_mode2_35_60/标题_Mode3质量报告_质量分析显示Mode3完整性比Mode2高35__错误.md",
+            "title": "标题：Mode3质量报告\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部",
+            "content": "标题：Mode3质量报告\n质量分析显示Mode3完整性比Mode2高35%，错误率低60%，企业级部署中Mode3是唯一推荐模式。",
+            "similarity": 0.668,
+            "quality": "high",
+            "additional_results": 4
+          }
+        },
+        {
+          "name": "knowledge_tree_record_feedback",
+          "content": "{\"ok\": true, \"query_id\": \"be114d840673\", \"satisfaction\": true}",
+          "json": {
+            "ok": true,
+            "query_id": "be114d840673",
+            "satisfaction": true
+          }
+        }
+      ],
+      "input": "请解释 Mode 2 和 Mode 3 的区别"
+    },
+    {
+      "ok": true,
+      "error": null,
+      "elapsed": 11.254004999995232,
+      "final_response": "## 执行失败处理流程\n\n根据我的核心配置，执行失败的处理流程如下：\n\n### 1. 判断是否可修复\n基于 Executor 返回的 `failure_reason`，判断失败原因是否可修复。\n\n### 2. 可修复 → 重试或重规划\n- 若处于**模式 B**（单次执行）：基于失败上下文重试，或升级切换至**模式 C**（Plan → Execute → Summarize）进行系统重规划。\n- 若处于**模式 C**：调用 `call_planner` 修订计划，然后 `call_executor` 重新执行。\n\n### 3. 重规划次数限制（熔断机制）\n- 同一子任务的**最大重规划次数为 2 次**，而非无限重试。\n- 达到最大重规划次数仍失败时 → **立即停止调用任何工具**，向用户清晰说明失败原因、已尝试的步骤，并给出下一步的可行建议。\n\n### 4. 不可修复 → 直接熔断退出\n- 如果 `failure_reason` 明确指出无法修复（如权限不足、资源不存在等），不再重试，直接向用户说明情况。\n\n---\n\n> ⚠️ **注意**：知识树中有一条\"错误必重试至少5次\"的参考记录（相似度 0.61），但该建议与我核心配置中的**最大2次重规划**熔断规则冲突。**以核心配置为准**——无限制重试可能导致资源浪费和死循环，熔断机制是必要的安全边界。",
+      "tool_calls": [],
+      "tool_outputs": [],
+      "input": "如果执行失败了应该怎么处理？"
+    },
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 27.901482400018722,
+      "final_response": null,
+      "input": "帮我创建一个文件 probe_test.txt 内容是 e2e test passed"
+    }
+  ],
+  "summary": {
+    "turns_requested": 10,
+    "turns_completed": 5,
+    "ok": false,
+    "total_time": 41.321875200024806
+  }
+}

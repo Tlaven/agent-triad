@@ -3,7 +3,7 @@
   "context": {
     "enable_knowledge_tree": true,
     "knowledge_tree_root": "workspace/kt_noise_test",
-    "kt_embedding_model": "hash",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
     "kt_rag_similarity_threshold": 0.15,
     "kt_ingest_attach_threshold": 0.7,
     "kt_dedup_threshold": 0.95
@@ -12,13 +12,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 5.808435299899429,
-      "final_response": "\n\n已成功记录到知识树。",
+      "elapsed": 19.293015599949285,
+      "final_response": "已完成记录 ✅\n\n**AgentTriad 三层架构**已写入知识树：\n\n| 层级 | 职责 |\n|------|------|\n| **Supervisor** | 决策层 — 负责意图分析、路由调度和最终输出 |\n| **Planner** | 规划层 — 负责生成可执行的执行计划 |\n| **Executor** | 执行层 — 负责具体任务的执行操作 |\n\n共摄入 1 个节点，无重复或过滤，已持久化存储。以后你在任何会话中提到相关概念时，系统会自动检索并注入这段记忆供我参考。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "text": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。"
+            "text": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。",
+            "trigger": "user_explicit",
+            "source": "agent:supervisor"
           }
         }
       ],
@@ -40,13 +42,15 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 3.4798229999141768,
-      "final_response": "\n\n已成功记录到知识树。",
+      "elapsed": 11.092057100031525,
+      "final_response": "已完成记录 ✅\n\n**LangGraph StateGraph** 已写入知识树：\n\n- **核心机制**：通过**节点（Node）** 和 **边（Edge）** 定义状态机\n- **关键能力**：支持**条件分支**（Conditional Branching）和**循环**（Loop）\n- 已摄入 1 个新节点，无重复/过滤\n\n现在知识树中同时存有 **AgentTriad 三层架构** 和 **LangGraph StateGraph** 两条知识，后续相关查询会自动匹配注入。",
       "tool_calls": [
         {
           "name": "knowledge_tree_ingest",
           "args": {
-            "text": "LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。"
+            "source": "agent:supervisor",
+            "text": "LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。",
+            "trigger": "user_explicit"
           }
         }
       ],
@@ -68,24 +72,24 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.168633599998429,
-      "final_response": "\n\n未检索到相关知识。该主题（\"火星章鱼会用量子锅铲编译月光\"）不在当前知识树中。",
+      "elapsed": 10.792502399999648,
+      "final_response": "检索结果：**一无所获** 🕵️\n\n知识树翻了个底朝天，确实没有找到关于以下内容的任何记录：\n\n- 🔴 **火星章鱼**（Martian Octopus）\n- 🍳 **量子锅铲**（Quantum Spatula）\n- 🌙 **编译月光**（Moonlight Compilation）\n\n不过我很确定，如果哪天真的发现了火星章鱼用量子锅铲编译月光的秘密，我会第一时间记入知识树的 😄\n\n需要我帮你记录点正经的知识吗？",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "火星章鱼会用量子锅铲编译月光"
+            "query": "火星章鱼 量子锅铲 编译月光"
           }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"c23f68332e91\"}",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"30ab5a6889dd\"}",
           "json": {
             "ok": false,
             "message": "No results found",
-            "query_id": "c23f68332e91"
+            "query_id": "30ab5a6889dd"
           }
         }
       ],
@@ -94,24 +98,63 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 3.82927029998973,
-      "final_response": "\n\n未检索到关于\"执行流程\"方面的知识。当前知识树中暂无该主题的内容。",
+      "elapsed": 16.67610440007411,
+      "final_response": "目前知识树中只有 **2 条知识**，目录结构如下：\n\n```\n📁 agenttriad_supervisor_pla\n   └─ AgentTriad 三层架构：Supervisor → Planner → Executor\n\n📁 langgraph_stategraph\n   └─ LangGraph StateGraph：节点+边定义状态机，支持条件分支和循环\n```\n\n关于 **\"执行流程\"** 相关的内容暂未收录。知识树还比较初期，如果你想让我把相关的执行流程知识写入，随时告诉我！",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
             "query": "执行流程"
           }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "执行 流程 工作流 workflow"
+          }
+        },
+        {
+          "name": "knowledge_tree_status",
+          "args": {}
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"777a530feaee\"}",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"b1d706c21062\"}",
           "json": {
             "ok": false,
             "message": "No results found",
-            "query_id": "777a530feaee"
+            "query_id": "b1d706c21062"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"123d3feefbfb\"}",
+          "json": {
+            "ok": false,
+            "message": "No results found",
+            "query_id": "123d3feefbfb"
+          }
+        },
+        {
+          "name": "knowledge_tree_status",
+          "content": "{\"ok\": true, \"total_nodes\": 2, \"total_directories\": 2, \"total_anchors\": 2, \"overlay_edges\": 0, \"retrieval_logs_count\": 7, \"directories\": [\"agenttriad_supervisor_pla\", \"langgraph_stategraph\"], \"anchor_directories\": [\"agenttriad_supervisor_pla\", \"langgraph_stategraph\"]}",
+          "json": {
+            "ok": true,
+            "total_nodes": 2,
+            "total_directories": 2,
+            "total_anchors": 2,
+            "overlay_edges": 0,
+            "retrieval_logs_count": 7,
+            "directories": [
+              "agenttriad_supervisor_pla",
+              "langgraph_stategraph"
+            ],
+            "anchor_directories": [
+              "agenttriad_supervisor_pla",
+              "langgraph_stategraph"
+            ]
           }
         }
       ],
@@ -120,8 +163,8 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.273824700037949,
-      "final_response": "\n\n检索到关于 AgentTriad 架构的知识：\n\n**标题**：AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\n\n**内容**：AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\n\n（相似度：0.428）",
+      "elapsed": 10.040939099853858,
+      "final_response": "**检索结果** ✅\n\n| 项目 | 内容 |\n|------|------|\n| **目录** | `agenttriad_supervisor_pla` |\n| **标题** | AgentTriad 三层架构 |\n| **可信度** | 高可信（相似度 0.71） |\n| **匹配数** | 1 条（无其他相关结果） |\n\n**知识全文**：\n\n> **AgentTriad 系统使用三层架构：**\n> - **Supervisor** — 负责决策\n> - **Planner** — 负责规划\n> - **Executor** — 负责执行\n\n当前知识树中关于 AgentTriad 只有这一条记录，没有更详细的分层描述或扩展内容。如果你有更多需要补充的细节（例如各层之间的通信方式、数据流等），随时告诉我，我可以写入知识树完善它！",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
@@ -133,16 +176,16 @@
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"a80381f76bee\", \"node_id\": \"agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md\", \"title\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E\", \"content\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\", \"similarity\": 0.428, \"quality\": \"medium\", \"additional_results\": 0}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"c7704e9b41c3\", \"node_id\": \"agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md\", \"title\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E\", \"content\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\", \"similarity\": 0.705, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "a80381f76bee",
+            "query_id": "c7704e9b41c3",
             "node_id": "agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md",
             "title": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E",
             "content": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。",
-            "similarity": 0.428,
-            "quality": "medium",
+            "similarity": 0.705,
+            "quality": "high",
             "additional_results": 0
           }
         }
@@ -152,58 +195,33 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 6.319426100002602,
-      "final_response": "\n\n没有记录原始错误信息。\n\n相反，我已记录了关于 GIL 的正确知识：\"Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络请求、文件读写），多线程仍然可以显著提升性能。此外，使用 multiprocessing 可以绕过 GIL 实现真正的并行。\"",
-      "tool_calls": [
-        {
-          "name": "knowledge_tree_ingest",
-          "args": {
-            "text": "Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络请求、文件读写），多线程仍然可以显著提升性能。此外，使用 multiprocessing 可以绕过 GIL 实现真正的并行。"
-          }
-        }
-      ],
-      "tool_outputs": [
-        {
-          "name": "knowledge_tree_ingest",
-          "content": "{\"ok\": true, \"nodes_ingested\": 1, \"nodes_deduplicated\": 0, \"nodes_filtered\": 0, \"errors\": []}",
-          "json": {
-            "ok": true,
-            "nodes_ingested": 1,
-            "nodes_deduplicated": 0,
-            "nodes_filtered": 0,
-            "errors": []
-          }
-        }
-      ],
+      "elapsed": 10.14087410015054,
+      "final_response": "抱歉，这条信息我不能直接记录到知识树 — 因为它存在**事实性错误**，记录下来反而会在后续使用时产生误导。\n\n❌ **不准确的地方：**\n\n**1. \"GIL 使得所有多线程程序都变慢\" → 不准确**\n- GIL 影响的仅是 **CPU 密集型**任务（如纯计算、循环），因为多线程无法并行利用多核，反而有锁竞争开销。\n- 对于 **I/O 密集型**任务（如文件读写、网络请求、数据库查询），线程在等待 I/O 时会释放 GIL，多线程能**显著提升吞吐量**。\n\n**2. \"应该永远不要使用多线程\" → 过于绝对**\n- 多线程在 I/O 密集型场景下是非常实用的工具，如 `concurrent.futures.ThreadPoolExecutor` 广泛用于并发网络请求。\n- CPython 官方和主流库从未建议\"永远不要使用多线程\"。\n\n---\n\n✅ **如果你同意，我可以记录更准确的版本：**\n\n> **Python GIL 的影响：** GIL 限制 CPU 密集型任务的并行执行，适合改用多进程（`multiprocessing`）；但对于 I/O 密集型任务，多线程仍然有效，因为 I/O 操作会释放 GIL。\n\n或者你坚持要记录原话的话，也可以，但我建议先修正再入库。你觉得呢？",
+      "tool_calls": [],
+      "tool_outputs": [],
       "input": "请记录到知识树：Python 的 GIL 使得所有多线程程序都变慢，应该永远不要使用多线程。"
     },
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.737225300050341,
-      "final_response": "\n\n\n检索到关于 Python 多线程的知识：\n\n**标题**：Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务\n\n**内容**：Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络请求、文件读写），多线程仍然可以显著提升性能。此外，使用 multiprocessing 可以绕过 GIL 实现真正的并行。\n\n（相似度：0.301）",
+      "elapsed": 9.8239110999275,
+      "final_response": "**检索结果：未命中** ❌\n\n知识树中目前没有关于 **Python 多线程 / GIL** 的任何记录（因为刚才那条不准确的信息我们选择不写入）。\n\n---\n\n之前我们讨论过相关内容（但未入库），如果你希望，我可以把以下这个**准确版本**写入知识树：\n\n> **Python GIL 的准确影响：**\n> - **CPU 密集型任务**：GIL 会限制并行，建议用 `multiprocessing` 多进程\n> - **I/O 密集型任务**：多线程仍然有效，I/O 操作会释放 GIL\n> - 并非\"永远不要用多线程\"，而是**按场景选择合适并发模型**\n\n要不要我记录这个版本？",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "Python 多线程"
+            "query": "Python 多线程 GIL"
           }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"a52828df8c15\", \"node_id\": \"python_gil_cpu_i_o/Python 的 GIL_全局解释器锁_只影响 CPU 密集型任务_对于 I_O.md\", \"title\": \"Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络\", \"content\": \"Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络请求、文件读写），多线程仍然可以显著提升性能。此外，使用 multiprocessing 可以绕过 GIL 实现真正的并行。\", \"similarity\": 0.301, \"quality\": \"medium\", \"additional_results\": 1}",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"5c08d4aa85b0\"}",
           "json": {
-            "ok": true,
-            "source": "rag",
-            "query_id": "a52828df8c15",
-            "node_id": "python_gil_cpu_i_o/Python 的 GIL_全局解释器锁_只影响 CPU 密集型任务_对于 I_O.md",
-            "title": "Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络",
-            "content": "Python 的 GIL（全局解释器锁）只影响 CPU 密集型任务，对于 I/O 密集型任务（如网络请求、文件读写），多线程仍然可以显著提升性能。此外，使用 multiprocessing 可以绕过 GIL 实现真正的并行。",
-            "similarity": 0.301,
-            "quality": "medium",
-            "additional_results": 1
+            "ok": false,
+            "message": "No results found",
+            "query_id": "5c08d4aa85b0"
           }
         }
       ],
@@ -212,8 +230,8 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.222043300047517,
-      "final_response": "\n\n未检索到关于\"系统\"的直接匹配结果。\n\n（查询关键词\"系统\"过于宽泛，建议使用更具体的术语，如\"AgentTriad\"、\"架构\"等。之前已成功检索到\"AgentTriad 架构\"相关知识。）",
+      "elapsed": 9.23827930004336,
+      "final_response": "**检索结果** ✅\n\n| 项目 | 内容 |\n|------|------|\n| **命中节点** | `agenttriad_supervisor_pla/AgentTriad 系统使用三层架构...` |\n| **相似度** | 0.51（参考级） |\n| **匹配数** | 1 条 |\n\n**命中的知识**：\n\n> **AgentTriad 系统**使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\n\n知识树中还记录了另一条 **LangGraph StateGraph** 的知识（节点和边定义状态机），但它与\"系统\"关键词的匹配度较低，未命中本次检索。",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
@@ -225,11 +243,17 @@
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"aa6b07cc0738\"}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"4246aea99323\", \"node_id\": \"agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md\", \"title\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E\", \"content\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\", \"similarity\": 0.506, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
-            "ok": false,
-            "message": "No results found",
-            "query_id": "aa6b07cc0738"
+            "ok": true,
+            "source": "rag",
+            "query_id": "4246aea99323",
+            "node_id": "agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md",
+            "title": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E",
+            "content": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。",
+            "similarity": 0.506,
+            "quality": "high",
+            "additional_results": 0
           }
         }
       ],
@@ -238,30 +262,30 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 3.793472000048496,
-      "final_response": "\n\n检索到关于 state machine / state graph 的知识：\n\n**标题**：LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\n\n**内容**：LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\n\n（相似度：0.325）",
+      "elapsed": 9.18145089992322,
+      "final_response": "**Search Result** ✅\n\n| Item | Detail |\n|------|--------|\n| **Node** | `langgraph_stategraph/LangGraph 的 StateGraph 通过节点和边定义状态机...` |\n| **Similarity** | 0.56 *(reference level)* |\n| **Quality** | High |\n| **Matches** | 1 result |\n\n**Knowledge found:**\n\n> **LangGraph's StateGraph** defines a **state machine** through **nodes** and **edges**, with support for **conditional branching** and **loops**.\n\nThat's the only related entry in the knowledge tree so far. If you have more details about state machines, state graphs, or other frameworks (e.g., XState, finite state machines) you'd like to record, just let me know!",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "state machine or state graph"
+            "query": "state machine state graph"
           }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"5f100d8cb146\", \"node_id\": \"langgraph_stategraph/LangGraph 的 StateGraph 通过节点和边定义状态机_支持条件分.md\", \"title\": \"LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\", \"content\": \"LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\", \"similarity\": 0.325, \"quality\": \"medium\", \"additional_results\": 2}",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"8927147f8cc4\", \"node_id\": \"langgraph_stategraph/LangGraph 的 StateGraph 通过节点和边定义状态机_支持条件分.md\", \"title\": \"LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\", \"content\": \"LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。\", \"similarity\": 0.555, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "5f100d8cb146",
+            "query_id": "8927147f8cc4",
             "node_id": "langgraph_stategraph/LangGraph 的 StateGraph 通过节点和边定义状态机_支持条件分.md",
             "title": "LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。",
             "content": "LangGraph 的 StateGraph 通过节点和边定义状态机，支持条件分支和循环。",
-            "similarity": 0.325,
-            "quality": "medium",
-            "additional_results": 2
+            "similarity": 0.555,
+            "quality": "high",
+            "additional_results": 0
           }
         }
       ],
@@ -270,30 +294,45 @@
     {
       "ok": true,
       "error": null,
-      "elapsed": 4.0087731999810785,
-      "final_response": "\n\n未检索到关于 AgentTriad 量子计算模块的知识。当前知识树中仅记录了 AgentTriad 的三层架构信息（Supervisor 决策、Planner 规划、Executor 执行），暂无量子计算模块相关知识。",
+      "elapsed": 14.061448500026017,
+      "final_response": "**检索结果：未找到相关内容** ❌\n\n知识树中**没有**任何关于 **AgentTriad 量子计算模块**的知识。\n\n唯一命中的是 `agenttriad` 这个关键词匹配到的基础架构记录（相似度 0.51），但与量子计算无关。\n\n目前知识树中 AgentTriad 相关的只有一条：\n\n> **AgentTriad 三层架构：** Supervisor（决策）→ Planner（规划）→ Executor（执行）\n\n如果你希望，我们可以把 **AgentTriad 的量子计算模块** 相关信息记录下来（如果有的话），或者由你来提供内容后我入库保存。",
       "tool_calls": [
         {
           "name": "knowledge_tree_retrieve",
           "args": {
-            "query": "AgentTriad 量子计算模块"
+            "query": "AgentTriad 量子计算"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "args": {
+            "query": "AgentTriad quantum computing"
           }
         }
       ],
       "tool_outputs": [
         {
           "name": "knowledge_tree_retrieve",
-          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"118905739255\", \"node_id\": \"agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md\", \"title\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E\", \"content\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\", \"similarity\": 0.347, \"quality\": \"medium\", \"additional_results\": 2}",
+          "content": "{\"ok\": false, \"message\": \"No results found\", \"query_id\": \"da8e706fd18b\"}",
+          "json": {
+            "ok": false,
+            "message": "No results found",
+            "query_id": "da8e706fd18b"
+          }
+        },
+        {
+          "name": "knowledge_tree_retrieve",
+          "content": "{\"ok\": true, \"source\": \"rag\", \"query_id\": \"7fca44698471\", \"node_id\": \"agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md\", \"title\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E\", \"content\": \"AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。\", \"similarity\": 0.51, \"quality\": \"high\", \"additional_results\": 0}",
           "json": {
             "ok": true,
             "source": "rag",
-            "query_id": "118905739255",
+            "query_id": "7fca44698471",
             "node_id": "agenttriad_supervisor_pla/AgentTriad 系统使用三层架构_Supervisor 负责决策_Plan.md",
             "title": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，E",
             "content": "AgentTriad 系统使用三层架构：Supervisor 负责决策，Planner 负责规划，Executor 负责执行。",
-            "similarity": 0.347,
-            "quality": "medium",
-            "additional_results": 2
+            "similarity": 0.51,
+            "quality": "high",
+            "additional_results": 0
           }
         }
       ],
@@ -304,6 +343,6 @@
     "turns_requested": 10,
     "turns_completed": 10,
     "ok": true,
-    "total_time": 44.64092679996975
+    "total_time": 120.34058249997906
   }
 }

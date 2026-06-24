@@ -1,0 +1,26 @@
+{
+  "script": "tests\\e2e\\scripts\\kt_capability_rung2.txt",
+  "context": {
+    "enable_knowledge_tree": true,
+    "knowledge_tree_root": "workspace/kt_rung_test",
+    "kt_embedding_model": "BAAI/bge-large-zh-v1.5",
+    "kt_rag_similarity_threshold": 0.15,
+    "kt_ingest_attach_threshold": 0.7,
+    "kt_dedup_threshold": 0.95
+  },
+  "turns": [
+    {
+      "ok": false,
+      "error": "Connection error.",
+      "elapsed": 13.170622600009665,
+      "final_response": null,
+      "input": "请记住这条知识：排查 HuggingFace 模型下载卡死的方法是，在 SentenceTransformer 构造函数中加 local_files_only=True 参数，这样它只使用本地缓存，不会尝试联网下载。"
+    }
+  ],
+  "summary": {
+    "turns_requested": 2,
+    "turns_completed": 1,
+    "ok": false,
+    "total_time": 0.0
+  }
+}
