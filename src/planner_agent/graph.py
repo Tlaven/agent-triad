@@ -113,11 +113,27 @@ async def call_planner(
         **ctx.get_agent_llm_kwargs("planner"),
     ).bind_tools(tools)
 
-    response = await invoke_chat_model(
-        model,
-        [{"role": "system", "content": system_text}, *state.messages],
-        enable_streaming=ctx.enable_llm_streaming,
-    )
+    llm_timeout = ctx.planner_call_model_timeout
+    try:
+        if llm_timeout and llm_timeout > 0:
+            response = await asyncio.wait_for(
+                invoke_chat_model(
+                    model,
+                    [{"role": "system", "content": system_text}, *state.messages],
+                    enable_streaming=ctx.enable_llm_streaming,
+                ),
+                timeout=llm_timeout,
+            )
+        else:
+            response = await invoke_chat_model(
+                model,
+                [{"role": "system", "content": system_text}, *state.messages],
+                enable_streaming=ctx.enable_llm_streaming,
+            )
+    except asyncio.TimeoutError:
+        raise RuntimeError(
+            f"Planner LLM call timed out after {llm_timeout:.0f}s"
+        ) from None
     if not isinstance(response, AIMessage):
         raise RuntimeError("Planner 模型返回类型异常")
 

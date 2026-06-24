@@ -32,7 +32,7 @@ if sys.platform == "win32":
 # ─── 加载 .env ───────────────────────────────────────────────
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent / ".env", override=False)
+load_dotenv(Path(__file__).parent / ".env", override=True)
 
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -105,7 +105,7 @@ def print_message(msg, verbose: bool, show_thinking: bool = False):
 
         # 文本内容
         if msg.content:
-            content = msg.content
+            content = msg.content if isinstance(msg.content, str) else str(msg.content)
             # 跳过纯工具调用消息的空 content
             if content and content.strip():
                 print(f"  {content}")
@@ -435,6 +435,30 @@ async def run_script(session: ChatSession, script_path: Path, report_path: Path 
     return exit_code
 
 
+# ─── API 预热 ──────────────────────────────────────────────────
+async def warmup_apis(ctx: Context):
+    """对三个模型各发一次 dummy 请求，触发 API 冷启动。"""
+    from src.common.utils import load_chat_model
+
+    models = [
+        ("Supervisor", ctx.supervisor_model),
+        ("Planner", ctx.planner_model),
+        ("Executor", ctx.executor_model),
+    ]
+    cprint("\n  预热 API 连接…", C.DIM)
+    for label, model_id in models:
+        start = time.perf_counter()
+        try:
+            model = load_chat_model(model_id)
+            resp = await asyncio.wait_for(model.ainvoke("Hi"), timeout=60)
+            elapsed = time.perf_counter() - start
+            cprint(f"    {label} ({model_id}): {elapsed:.1f}s", C.DIM)
+        except Exception as e:
+            elapsed = time.perf_counter() - start
+            cprint(f"    {label} ({model_id}): {elapsed:.1f}s — {e}", C.YELLOW)
+    cprint("  预热完成\n", C.DIM)
+
+
 # ─── CLI ─────────────────────────────────────────────────────
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="AgentTriad 交互式测试工具")
@@ -455,6 +479,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--turn-timeout", type=float, default=None, help="脚本/交互单轮超时秒数")
     p.add_argument("--reset-kt-root", action="store_true", help="脚本运行前清空 workspace 下的 KT 根目录")
     p.add_argument("--reset-each-turn", action="store_true", help="脚本模式每轮清空对话上下文（稳定压测）")
+    p.add_argument("--no-warmup", action="store_true", help="跳过 API 预热（默认启动时预热三个模型）")
     return p.parse_args()
 
 
@@ -498,6 +523,14 @@ def main():
         turn_timeout=args.turn_timeout,
     )
     session.reset_each_turn = args.reset_each_turn
+
+    # API 预热：避免首次调用冷启动耗时过长
+    if not args.no_warmup:
+        try:
+            asyncio.run(warmup_apis(ctx))
+        except KeyboardInterrupt:
+            print()
+            return
 
     try:
         if args.script:

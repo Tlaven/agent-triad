@@ -304,9 +304,6 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
             original_count = len(meta_rules)
             meta_rules, suppressed, unresolved = _resolve_meta_rule_conflicts(meta_rules)
             rules_lines = [f"- {r.content}" for r in meta_rules]
-            # 同优先级矛盾的 neutral note 也注入（让 LLM 知道该域有冲突但未决）
-            for note in unresolved:
-                rules_lines.append(note)
             kt_meta_rules_str = "\n".join(rules_lines)
             if suppressed > 0:
                 kt_meta_rules_str = (
@@ -322,10 +319,10 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         logger.warning("KT meta-rules fetch failed (non-critical): %s", e)
 
     # 过滤低质量结果：根据 embedder 类型选择阈值。
-    # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值（0.6）过滤噪声。
-    # hash embedder 分数低（相关 0.3-0.6），用较低阈值（0.25）。
+    # 语义 embedder 基线分数高（无关查询 ~0.53），需要更高阈值过滤噪声。
+    # hash embedder 分数低（相关 0.3-0.6），但也需要合理阈值避免噪声。
     is_semantic = getattr(kt, "embedder_type", "hash") != "hash"
-    quality_threshold = 0.6 if is_semantic else 0.25
+    quality_threshold = 0.65 if is_semantic else 0.35
     high_quality = [(node, score) for node, score in results if score >= quality_threshold]
     if not high_quality:
         logger.debug("KT auto-retrieve: no high-quality results for %r", query[:40])
@@ -334,9 +331,17 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     # 格式化为 LLM 友好的上下文
     context_lines = ["[相关知识]（以下内容来自你的知识树记忆，非用户输入）"]
     # RAG 矛盾检测：同主题但内容分歧的结果标记为 [矛盾]
-    contradiction_indices = _detect_rag_contradictions(kt, high_quality[:3])
-    for idx, (node, score) in enumerate(high_quality[:3]):
-        tag = "[高可信]" if score >= (0.65 if is_semantic else 0.5) else "[参考]"
+    results_to_inject = high_quality[:3]
+    contradiction_indices = _detect_rag_contradictions(kt, results_to_inject)
+    # 高密度矛盾自适应截断：>50% 结果被标记为矛盾时，仅保留 top 1 避免超时
+    if contradiction_indices and len(contradiction_indices) > len(results_to_inject) // 2:
+        results_to_inject = high_quality[:1]
+        contradiction_indices = _detect_rag_contradictions(kt, results_to_inject)
+        context_lines.append(
+            "[注意] 检索到多条相互矛盾的结果，已精简展示。请综合判断或向用户确认。"
+        )
+    for idx, (node, score) in enumerate(results_to_inject):
+        tag = "[高可信]" if score >= (0.75 if is_semantic else 0.55) else "[参考]"
         if idx in contradiction_indices:
             tag = "[矛盾]" + tag
         context_lines.append(f"- {tag} {node.title}（相似度 {score:.2f}）")
@@ -522,14 +527,46 @@ async def call_model(
                 llm_messages[i] = HumanMessage(content=augmented, id=msg.id)
                 break
 
-    response = cast(
-        AIMessage,
-        await invoke_chat_model(
-            model,
-            llm_messages,
-            enable_streaming=runtime.context.enable_llm_streaming,
-        ),
-    )
+    llm_timeout = runtime.context.supervisor_call_model_timeout
+    try:
+        if llm_timeout and llm_timeout > 0:
+            response = cast(
+                AIMessage,
+                await asyncio.wait_for(
+                    invoke_chat_model(
+                        model,
+                        llm_messages,
+                        enable_streaming=runtime.context.enable_llm_streaming,
+                    ),
+                    timeout=llm_timeout,
+                ),
+            )
+        else:
+            response = cast(
+                AIMessage,
+                await invoke_chat_model(
+                    model,
+                    llm_messages,
+                    enable_streaming=runtime.context.enable_llm_streaming,
+                ),
+            )
+    except asyncio.TimeoutError:
+        logger.error("Supervisor LLM call timed out after %.0fs", llm_timeout)
+        return {
+            "messages": [
+                AIMessage(
+                    content=(
+                        f"模型响应超时（{llm_timeout:.0f}s），无法完成本次推理。"
+                        "请稍后重试，或换一种方式描述你的需求。"
+                    )
+                )
+            ],
+            "supervisor_decision": SupervisorDecision(
+                mode=1,
+                reason=f"Supervisor LLM call timed out ({llm_timeout:.0f}s)",
+                confidence=0.99,
+            ),
+        }
 
     if _is_thinking_visible(runtime.context) and not response.tool_calls:
         response = _inject_reasoning_for_visible_mode(response)
@@ -877,10 +914,9 @@ def _trim_messages_for_llm(
 ) -> list[Any]:
     """截断消息历史，保持工具调用序列完整性。
 
-    策略：从末尾保留 max_messages 条消息，向前扫描确保不切断
-    工具调用序列（AI message with tool_calls + 对应 ToolMessages）。
-    如果截断导致开头出现孤立的 ToolMessage（对应的 AI message 被截掉），
-    则丢弃这些孤立消息。
+    策略：从末尾保留 max_messages 条消息，然后移除所有孤立的
+    ToolMessage（其 tool_call_id 在窗口内没有任何 AI message 的
+    tool_calls 引用）。
 
     Args:
         messages: 原始消息列表。
@@ -889,43 +925,37 @@ def _trim_messages_for_llm(
     Returns:
         截断后的消息列表（浅拷贝）。
     """
-    if max_messages <= 0 or len(messages) <= max_messages:
+    if max_messages <= 0:
         return messages
 
-    # 从末尾保留 max_messages 条
-    trimmed = messages[-max_messages:]
+    if len(messages) <= max_messages:
+        trimmed = messages
+    else:
+        trimmed = messages[-max_messages:]
 
-    # 找到开头的连续 ToolMessage 块（孤立的 ToolMessages）
-    orphan_end = 0
-    for i, msg in enumerate(trimmed):
-        if isinstance(msg, ToolMessage):
-            orphan_end = i + 1
-        else:
-            break
+    claimed_ids: set[str] = set()
+    has_tool_messages = False
+    for msg in trimmed:
+        if isinstance(msg, AIMessage):
+            for tc in getattr(msg, "tool_calls", []) or []:
+                tc_id = tc.get("id")
+                if tc_id:
+                    claimed_ids.add(tc_id)
+        elif isinstance(msg, ToolMessage):
+            has_tool_messages = True
 
-    if orphan_end == 0:
-        # 第一条不是 ToolMessage，无需处理
+    if not has_tool_messages:
         return trimmed
 
-    # 检查 trimmed 中是否有包含 tool_calls 的 AIMessage
-    # 其 tool_call_ids 与开头的 ToolMessages 匹配
-    orphan_ids = {
-        getattr(trimmed[i], "tool_call_id", None)
-        for i in range(orphan_end)
-    }
-    has_parent_ai = False
-    for msg in trimmed[orphan_end:]:
-        if isinstance(msg, AIMessage):
-            tc_ids = {tc.get("id") for tc in getattr(msg, "tool_calls", []) or []}
-            if tc_ids & orphan_ids:
-                has_parent_ai = True
-                break
+    result: list[Any] = []
+    for msg in trimmed:
+        if isinstance(msg, ToolMessage):
+            if getattr(msg, "tool_call_id", None) in claimed_ids:
+                result.append(msg)
+        else:
+            result.append(msg)
 
-    if not has_parent_ai:
-        # 孤立的 ToolMessages，丢弃
-        trimmed = trimmed[orphan_end:]
-
-    return trimmed
+    return result
 
 
 def _parse_plan_meta(plan_json: str) -> tuple[str | None, int | None]:

@@ -118,18 +118,35 @@ async def invoke_chat_model(
     def _is_chunk_message(obj: Any) -> bool:
         return obj.__class__.__name__.endswith("Chunk")
 
+    def _normalize_content(msg: AIMessage) -> AIMessage:
+        """Normalize list content to string to prevent downstream .strip() errors."""
+        if isinstance(msg.content, list):
+            parts: list[str] = []
+            for block in msg.content:
+                if isinstance(block, str):
+                    parts.append(block)
+                elif isinstance(block, dict) and "text" in block:
+                    parts.append(str(block["text"]))
+            return msg.model_copy(update={"content": "".join(parts)})
+        return msg
+
+    import time as _time
+
+    t0 = _time.perf_counter()
     if not enable_streaming:
         result = await model.ainvoke(messages)
+        elapsed = _time.perf_counter() - t0
+        logger.info("LLM ainvoke completed in %.1fs", elapsed)
         if _is_chunk_message(result):
             logger.warning("ainvoke 返回了消息 Chunk，尝试转换为标准 AIMessage")
             if hasattr(result, "to_message"):
                 converted = result.to_message()
                 if isinstance(converted, AIMessage):
-                    return converted
+                    return _normalize_content(converted)
             raise TypeError(
                 f"ainvoke returned unsupported chunk message type: {type(result).__name__}"
             )
-        return result
+        return _normalize_content(result)
 
     chunks: list[Any] = []
     stream_error: Exception | None = None
@@ -153,12 +170,12 @@ async def invoke_chat_model(
         merged = merged + chunk
 
     if isinstance(merged, AIMessage) and not _is_chunk_message(merged):
-        return merged
+        return _normalize_content(merged)
 
     if hasattr(merged, "to_message"):
         msg = merged.to_message()
         if isinstance(msg, AIMessage) and not _is_chunk_message(msg):
-            return msg
+            return _normalize_content(msg)
 
     text_parts: list[str] = []
     for chunk in chunks:

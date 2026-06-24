@@ -252,6 +252,20 @@ class Context:
             "description": "Seconds to wait for Executor process /health to respond.",
         },
     )
+    supervisor_call_model_timeout: float = field(
+        default=120.0,
+        metadata={
+            "description": "Wall-clock timeout in seconds for a single Supervisor LLM call. "
+            "Prevents external API hangs from blocking the entire system. 0 disables.",
+        },
+    )
+    planner_call_model_timeout: float = field(
+        default=120.0,
+        metadata={
+            "description": "Wall-clock timeout in seconds for a single Planner LLM call. "
+            "Prevents external API hangs from blocking the entire system. 0 disables.",
+        },
+    )
     executor_call_model_timeout: float = field(
         default=180.0,
         metadata={
@@ -372,6 +386,10 @@ class Context:
         default=5,
         metadata={"description": "Content insufficiency count threshold per node."},
     )
+    kt_vector_persistence_enabled: bool = field(
+        default=True,
+        metadata={"description": "Enable vector index persistence to disk across restarts."},
+    )
 
     def __post_init__(self) -> None:
         """Fetch env vars for attributes that were not passed as args."""
@@ -488,7 +506,13 @@ class Context:
             if validator(value):
                 kwargs[param_name] = converter(value)
 
-        # Best-effort reasoning toggle for OpenAI-compatible providers.
-        # Unsupported providers should ignore this field.
-        kwargs["extra_body"] = {"enable_thinking": bool(self.enable_implicit_thinking)}
+        # Best-effort reasoning toggle for providers that support it.
+        # Only send enable_thinking to models known to support it.
+        model_name = getattr(self, f"{prefix}_model", "")
+        _THINKING_MODEL_IDS = {"deepseek", "siliconflow"}
+        model_id = model_name.split(":")[1].lower() if ":" in model_name else model_name.lower()
+        supports_thinking = any(s in model_id for s in _THINKING_MODEL_IDS)
+        if self.enable_implicit_thinking and supports_thinking:
+            kwargs["extra_body"] = {"enable_thinking": True}
+
         return kwargs
