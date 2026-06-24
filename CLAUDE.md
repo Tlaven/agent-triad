@@ -16,7 +16,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
          └── call_executor → Executor（自主选工具）
 ```
 
-入口：`langgraph.json` → `src/supervisor_agent/graph.py:graph`。各 Agent 默认模型见 `config/agent_models.toml`。
+入口：`langgraph.json` → `src/supervisor_agent/graph.py:graph`。各 Agent 默认模型见 `config/agent_models.toml`；三 Agent 分模型策略：
+
+| Agent | 默认模型 | 定位 |
+|-------|---------|------|
+| Supervisor | `openai:kimi-k2.6` | 工具调度 + 决策路由 |
+| Planner | `anthropic:qwen3.7-max` | 最强推理做意图分解 |
+| Executor | `openai:deepseek-v4-flash` | 快速工具执行 |
+
+Supervisor 和 Executor 走 OpenAI 兼容接口（`OPENAI_BASE_URL`）；Planner 走 Anthropic 兼容接口（`ANTHROPIC_BASE_URL`）。不同 provider 的模型通过 `load_chat_model("provider:model")` 统一加载。
 
 长期目标之一：让 Agent 能够管理自己的上下文。V4 知识树是该目标的核心承载，负责记忆沉淀、检索、结构演化与后续上下文治理；当前权威设计见 `docs/v4-kt-core-design.md`。
 
@@ -116,11 +124,13 @@ class ExecutorResult:
 - **Observation**（V2-a）：工具返回进历史前统一截断/外置。
 - **Reflection**（决策 10）：`REFLECTION_INTERVAL=0` 默认关；正整数启用。
 - **MCP**：`enable_deepwiki` / `enable_filesystem_mcp` 等须在 `.env` 显式开启方生效。
-- **分 Agent LLM 参数**：`SUPERVISOR_*` / `PLANNER_*` / `EXECUTOR_*`（`TEMPERATURE`、`TOP_P`、`MAX_TOKENS`、`SEED`）。
-- **消息历史限制**：`SUPERVISOR_MAX_HISTORY_MESSAGES`（默认 100）；`call_model` 构造 LLM 输入时截断，保持工具调用序列完整性。0 = 不限制。
-- **Executor 超时保护**：`executor_call_model_timeout`（默认 180s）单次 LLM 调用超时 → 抛异常终止进程；`executor_tool_timeout`（默认 300s）tools_node 超时 → 返回部分结果让 LLM 摘要。Supervisor 侧 `executor_wait_timeout`（默认 300s，须 > `executor_call_model_timeout`）→ 终止 executor 进程并标记失败。
+- **消息历史限制**：`SUPERVISOR_MAX_HISTORY_MESSAGES`（默认 100）；`call_model` 构造 LLM 输入时截断，保持工具调用序列完整性。0 = 不限制。截断算法：保留末尾 N 条消息，扫描窗口内所有 AI 消息的 `tool_calls` 声明，过滤掉无父 AI 引用的孤立 `ToolMessage`（含散布在中间的孤立消息）。
+- **LLM 调用超时保护**（决策 30）：三个 Agent 各自独立——`supervisor_call_model_timeout`/`planner_call_model_timeout`（默认 120s）、`executor_call_model_timeout`（默认 180s）。Supervisor 超时返回友好提示；Planner 超时抛 RuntimeError；Executor 超时终止进程。0 禁用。`invoke_chat_model` 自动记录每次调用耗时。
 - **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
-- **Thinking**：`ENABLE_IMPLICIT_THINKING`；仅 Supervisor 可用 `SUPERVISOR_THINKING_VISIBILITY`（`visible`|`implicit`，默认 implicit）把推理拼入对用户 `content`；Planner/Executor **不**拼。未设置时兼容旧名 `THINKING_VISIBILITY`。
+- **Mailbox 驱逐**：`_MAX_BOXES=80` 触发驱逐，保留 `_RETAIN_BOXES=50`；优先驱逐 `has_completion=True` 的 box，必要时驱逐未完成 box 防止无限堆积。
+- **ExecutorPoller 注册上限**：`_MAX_ACTIVE_TASKS=100`；`register()` 时自动驱逐 `registered_at` 最旧的条目，防止长时间运行后内存泄漏。
+
+> **环境变量完整参考**（30+ 变量：Provider 接口、分 Agent LLM 参数、超时、KT 阈值、MCP 开关等）见 [`docs/environment-variables.md`](docs/environment-variables.md)。**常见错误排查**见 [`docs/troubleshooting.md`](docs/troubleshooting.md)。
 
 ---
 
@@ -140,9 +150,9 @@ class ExecutorResult:
 | `src/executor_agent/interrupt.py` | 软中断（stop event、`run_with_interrupt_check`） |
 | `src/common/context.py` | `Context`（所有运行时配置） |
 | `src/common/process_manager.py` | 每任务子进程生命周期（spawn/port-discovery/health/stop） |
-| `src/common/mailbox.py` | 线程安全 per-plan 结果缓存 |
+| `src/common/mailbox.py` | 线程安全 per-plan 结果缓存。驱逐策略：`_MAX_BOXES=80` 触发，保留 `_RETAIN_BOXES=50`，优先驱逐已完成 box，必要时驱逐未完成 box |
 | `src/common/mailbox_server.py` | HTTP 后台线程接收 Executor 推送 |
-| `src/common/polling.py` | `ExecutorPoller`：统一后台轮询 + `force_poll_once` |
+| `src/common/polling.py` | `ExecutorPoller`：统一后台轮询 + `force_poll_once`。`_MAX_ACTIVE_TASKS=100` 注册上限，超出时按 `registered_at` 驱逐最旧条目 |
 | `src/common/executor_protocol.py` | 跨进程数据结构（`ExecuteRequest`、`ExecuteStatus` 等） |
 | `src/common/observation.py` | Observation 规范化 |
 | `src/common/capabilities.py` | Executor 能力描述（Planner/Executor 共享） |
@@ -150,7 +160,7 @@ class ExecutorResult:
 
 | `src/common/tools.py` | 共享只读工作区工具（`read_workspace_text_file`、`list_workspace_entries`、`search_files`、`grep_content`、`read_file_structure`） |
 
-| `src/common/knowledge_tree/` | V4 涌现式知识树：两层存储（文件系统 + 向量索引）+ Overlay JSON 跨目录关联。文件系统目录层级 = 树结构，向量通过目录锚点聚簇。元规则通过 alias embedding（`alias:{node_id}:{i}`）扩展 RAG 检索可达性，RRF 4 路径融合（content + title + alias + anchor）。**元规则治理**（决策 28）：`MAX_META_RULES=15` 硬上限 + 注入时别名互斥消解（同优先级全抑制）+ `knowledge_tree_delete_meta_rule` 自救工具。详见 `docs/architecture-decisions.md` |
+| `src/common/knowledge_tree/` | V4 涌现式知识树：两层存储（文件系统 + 向量索引）+ Overlay JSON 跨目录关联。文件系统目录层级 = 树结构，向量通过目录锚点聚簇。元规则通过 alias embedding（`alias:{node_id}:{i}`）扩展 RAG 检索可达性，RRF 4 路径融合（content + title + alias + anchor）。**向量持久化**：`.vector_index.json` + manifest 新鲜度检测，重启后 O(1) 加载；.md 文件变更自动回退重建。**元规则治理**（决策 28）：`MAX_META_RULES=15` 硬上限 + 注入时别名互斥消解（同优先级全抑制）+ `knowledge_tree_delete_meta_rule` 自救工具。详见 `docs/architecture-decisions.md` |
 
 各层 `prompts.py` / `tools.py` 见同包。
 
@@ -181,3 +191,15 @@ uv run pytest tests/unit_tests/supervisor_agent/test_dynamic_tools_node.py::test
 ## 运行与环境
 
 测试命令入口：[`tests/README.md`](tests/README.md)；环境、代理与分层细节：[`tests/TESTING.md`](tests/TESTING.md)。环境变量示例：[`.env`](.env) / `.env.example`。
+
+### 多模型环境变量
+
+```bash
+# Supervisor + Executor（OpenAI 兼容接口）
+OPENAI_API_KEY=sk-xxx
+OPENAI_BASE_URL=https://opencode.ai/zen/go/v1
+
+# Planner（Anthropic 兼容接口）
+ANTHROPIC_API_KEY=sk-xxx        # 同一 Go 密钥
+ANTHROPIC_BASE_URL=https://opencode.ai/zen/go
+```

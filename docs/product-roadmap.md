@@ -268,12 +268,17 @@ AgentTriad 不只是完成单次任务的执行框架，还要逐步成为能自
 [V3] 进程分离（Mailbox 等）    ✅
 [V4] P1 知识树最小闭环        ✅
 [V4] P2 Agent 可见性 + 重组   ✅
+[V4] 加固：摄入质量门槛提升    ✅
+[V4] 加固：LLM 调用超时保护    ✅
      - 涌现式知识树：两层存储（Markdown 文件系统 + 向量索引）+ Overlay JSON + 向量-结构互塑闭环 + RAG 检索
      - structural_vector 混合：α·content + β·structural 增强同目录聚簇
      - Agent 驱动重组：编号树视图 → Agent 提出新结构 → 自动移动 + 向量调整
      - Overlay 主动管理：跨目录关联边增删查
+     - 摄入质量门槛（决策 29）：宁缺毋滥策略 + 三级垃圾检测 + 经验密度门控 + RAG 矛盾截断 + 知识树清理（73→25）
+     - LLM 调用超时保护（决策 30）：三 Agent 独立超时配置 + API 预热 + 调用耗时日志
+     - E2E 长对话验证：17 轮次 × 10 维度全通过（Mode 1/2/3、上下文连贯、歧义处理、错误恢复、KT 摄入/检索、安全拒绝、数学推理、自我认知）
      - 范围：文件系统即树结构、目录锚点自动聚类、Agent 摄入与检索、闭环自进化，并支撑 Agent 自主管理自己的上下文
      - 验收：端到端闭环可运行，检索日志完整输出，闭环信号→动作→效果可度量
      - 设计文档：v4-kt-core-design.md（当前权威）、v4-knowledge-tree-concepts.md、v4-knowledge-tree-spec.md
-     - 架构决策：决策 18-25（architecture-decisions.md）
+     - 架构决策：决策 18-30（architecture-decisions.md）
 ```

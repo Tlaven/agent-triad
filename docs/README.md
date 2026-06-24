@@ -15,6 +15,9 @@
 | **产品定位、三种模式、Plan 字段、工具分层、NFR、不做清单** | [`product-roadmap.md`](product-roadmap.md) | §1–§6 |
 | **版本里程碑、V1/V2/V3 验收与状态** | [`product-roadmap.md`](product-roadmap.md) | §7（含 7.1–7.4） |
 | **设计决策全文（为何这样定、细节与边界）** | [`architecture-decisions.md`](architecture-decisions.md) | 文首说明后 → **决策 1** 起分节编号 |
+| **环境变量完整参考（30+ 变量，分组表格）** | [`environment-variables.md`](environment-variables.md) | Provider 接口 → Agent 参数 → 超时 → KT → MCP → 诊断 |
+| **常见错误排查：症状 + 原因 + 解决** | [`troubleshooting.md`](troubleshooting.md) | 8 条已观察错误 + 诊断工具表 |
+| **元认知设计：经验沉淀 + 元规则 + 置信度** | [`meta-cognition-design.md`](meta-cognition-design.md) | 7 节，从经验提取到 P3 优化闭环 |
 
 ### V3 进程分离
 
@@ -22,10 +25,11 @@
 |------|------|----------|
 | **Mermaid 总览、执行序列、组件与旧架构对比** | [`v3-architecture-diagrams.md`](v3-architecture-diagrams.md) | §1 系统总览；§2 起为流程与专题图 |
 | **完整执行流分析：派发、双路径返回、超时全景、异常矩阵** | [`v3-execution-flow.md`](v3-execution-flow.md) | 按执行阶段分节 |
+| **生命周期基础设施：单例 wiring + Mailbox 驱逐 + Poller + 信号处理** | [`v3-lifecycle-reference.md`](v3-lifecycle-reference.md) | 6 节，含 Push/Pull 双路径时序 |
 
 ### V4 知识树（按阅读顺序排列）
 
-> **V4 有 4 篇文档，按以下顺序阅读。** `core-design` 是当前开发的唯一权威参考。
+> **V4 有多份文档，按以下顺序阅读。** `core-design` 是当前开发的唯一权威参考。
 
 | # | 文件 | 状态 | 定位 |
 |---|------|------|------|
@@ -33,6 +37,8 @@
 | 2 | [`v4-knowledge-tree-spec.md`](v4-knowledge-tree-spec.md) | 历史参考 | P1 技术规格：数据模型、接口契约、测试策略。core-design 简化了部分接口（如移除 bootstrap/status 工具、精简为 2 工具） |
 | 3 | [`v4-kt-core-design.md`](v4-kt-core-design.md) | **当前权威** | 核心设计：向量-结构互塑闭环、上下文自管理目标、养料入口、检索、管理权归属。**实现以本文档为准** |
 | 4 | [`v4-experiment-handbook.md`](v4-experiment-handbook.md) | 活跃维护 | 实验手册：成本分层 L0-L4、Mock 策略、确定性测试配方、诊断工具、Embedding 配置 §9、L4+ 实测记录 §10 |
+| 5 | [`kt-subsystems.md`](kt-subsystems.md) | 配套走读 | core-design 配套：optimization/embedding/editing 三子包模块走读 |
+| 6 | [`meta-cognition-design.md`](meta-cognition-design.md) | 配套走读 | core-design 配套：元认知闭环（经验提取 + auto-ingest + 元规则 + Alias RRF + P3 优化 + 置信度） |
 
 ### 测试
 
