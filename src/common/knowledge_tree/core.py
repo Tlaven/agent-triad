@@ -94,11 +94,14 @@ class KnowledgeTree:
         overlay_path = config.markdown_root / ".overlay.json"
         self.overlay_store = OverlayStore(overlay_path)
 
+        self._vector_index_path = config.markdown_root / ".vector_index.json"
+
         self._retrieval_logs: list[RetrievalLog] = []
         self._max_retrieval_logs = 1000
 
         self._signal_check_counter = 0
         self._last_signals: list = []
+        self._dirty = False
         from src.common.knowledge_tree.optimization.anti_oscillation import (
             OptimizationHistory,
         )
@@ -108,7 +111,7 @@ class KnowledgeTree:
         )
 
     def _on_fs_change(self, change_type: str, directory: str) -> None:
-        """文件系统变更回调：刷新受影响目录的锚点。"""
+        """文件系统变更回调：刷新受影响目录的锚点 + 标记脏数据。"""
         if directory:
             from src.common.knowledge_tree.storage.sync import _refresh_anchor
 
@@ -125,6 +128,8 @@ class KnowledgeTree:
                 self.config.content_weight,
                 self.config.structural_weight,
             )
+
+        self.mark_dirty()
 
     @staticmethod
     def _create_embedder(
@@ -270,6 +275,21 @@ class KnowledgeTree:
         if self.vector_store.get_all_anchors():
             return {"ok": True, "message": "Tree already initialized", "skipped": True}
 
+        if self._load_vector_index() and self.vector_store.get_all_anchors():
+            logger.info(
+                "KT: loaded vector index from disk "
+                "(%d nodes, %d anchors), skipping bootstrap",
+                self.vector_store.node_count,
+                len(self.vector_store.get_all_anchors()),
+            )
+            return {
+                "ok": True,
+                "message": "Loaded from persisted vector index",
+                "skipped": True,
+                "nodes_loaded": self.vector_store.node_count,
+                "anchors_loaded": len(self.vector_store.get_all_anchors()),
+            }
+
         seed_dir = self.config.markdown_root
         if not seed_dir.is_dir():
             return {"ok": False, "errors": [f"Seed directory not found: {seed_dir}"]}
@@ -289,6 +309,8 @@ class KnowledgeTree:
             seed_meta_rules(self)
         except Exception as e:
             logger.warning("Meta rule seeding failed (non-critical): %s", e)
+
+        self.save(force=True)
 
         return {
             "ok": True,
@@ -351,6 +373,11 @@ class KnowledgeTree:
         report.nodes_ingested = ingest_report.nodes_ingested
         report.nodes_deduplicated = ingest_report.nodes_deduplicated
         report.errors = ingest_report.errors
+
+        if report.nodes_ingested > 0:
+            self.mark_dirty()
+            self._flush_embedding_cache()
+
         return report
 
     def overlay_add(
@@ -436,8 +463,32 @@ class KnowledgeTree:
             return {"ok": True, "message": "No changes needed", "report": None}
 
         report = execute_reorganize(moves, self.md_store, self.overlay_store)
+
+        # 清理重组后的旧向量条目，并重建新路径的嵌入
+        for old_id, actual_new_id in report.executed_moves.items():
+            self.vector_store.delete_embedding(old_id)
+            node = self.md_store.read_node(actual_new_id)
+            if node is not None:
+                node_embedding = self.embedder(node.content or node.title)
+                self.vector_store.upsert_embedding(actual_new_id, node_embedding)
+                if node.title:
+                    title_embedding = self.embedder(node.title)
+                    self.vector_store.upsert_embedding(
+                        f"title:{actual_new_id}", title_embedding
+                    )
+                from src.common.knowledge_tree.editing.stored_vector import (
+                    compute_and_store_stored_vector,
+                )
+                compute_and_store_stored_vector(
+                    actual_new_id,
+                    self.vector_store,
+                    self.config.content_weight,
+                    self.config.structural_weight,
+                )
+
         if report.moves_executed > 0:
             self._opt_history.record()
+            self.mark_dirty()
         return {
             "ok": True,
             "report": {
@@ -465,3 +516,47 @@ class KnowledgeTree:
             n for n in all_nodes
             if n.metadata.get("node_type") == "meta_rule"
         ]
+
+    def save(self, force: bool = False) -> bool:
+        """保存向量索引到磁盘。仅在有脏数据或 force=True 时写入。"""
+        if not self.config.vector_persistence_enabled:
+            return False
+        if not force and not self._dirty:
+            return True
+        self._flush_embedding_cache()
+        from src.common.knowledge_tree.storage.vector_persistence import (
+            save_vector_index,
+        )
+        ok = save_vector_index(
+            self.vector_store,
+            self.config.markdown_root,
+            self.embedder_type,
+            self._vector_index_path,
+        )
+        if ok:
+            self._dirty = False
+        return ok
+
+    def mark_dirty(self) -> None:
+        """标记向量索引为脏，下次 save() 时写入磁盘。"""
+        self._dirty = True
+
+    def _load_vector_index(self) -> bool:
+        """尝试从磁盘加载向量索引。返回 True 表示加载成功。"""
+        if not self.config.vector_persistence_enabled:
+            return False
+        from src.common.knowledge_tree.storage.vector_persistence import (
+            load_vector_index,
+        )
+        return load_vector_index(
+            self.vector_store,
+            self.config.markdown_root,
+            self.embedder_type,
+            self._vector_index_path,
+        )
+
+    def _flush_embedding_cache(self) -> None:
+        """Flush embedding cache to disk if available."""
+        cache = getattr(self.embedder, "_cache", None)
+        if cache is not None and hasattr(cache, "flush"):
+            cache.flush()

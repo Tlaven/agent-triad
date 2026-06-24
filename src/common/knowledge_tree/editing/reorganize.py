@@ -34,6 +34,7 @@ class ReorganizeReport:
     directories_removed: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     overlay_edges_updated: int = 0
+    executed_moves: dict[str, str] = field(default_factory=dict)
 
 
 def diff_trees(
@@ -143,6 +144,8 @@ def execute_reorganize(
         if not md_store.get_directory_files(d):
             if md_store.remove_directory_if_empty(d):
                 report.directories_removed.append(d)
+
+    report.executed_moves = executed_moves
 
     return report
 

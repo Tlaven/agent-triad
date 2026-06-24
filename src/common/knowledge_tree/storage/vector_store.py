@@ -12,6 +12,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,12 @@ class InMemoryVectorStore(BaseVectorStore):
             del self._embeddings[title_key]
             removed = True
 
+        # 清理 stored 辅助索引键
+        stored_key = f"stored:{node_id}"
+        if stored_key in self._embeddings:
+            del self._embeddings[stored_key]
+            removed = True
+
         # 清理 alias 辅助索引键
         alias_prefix = f"alias:{node_id}:"
         for key in [k for k in self._embeddings if k.startswith(alias_prefix)]:
@@ -265,6 +272,52 @@ class InMemoryVectorStore(BaseVectorStore):
                 results.append((node_id, score))
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
+
+    def to_dict(self) -> dict[str, Any]:
+        """将向量存储状态序列化为字典。"""
+        return {
+            "version": 1,
+            "dimension": self._dimension,
+            "embeddings": dict(self._embeddings),
+            "anchors": [a.to_dict() for a in self._anchors.values()],
+        }
+
+    def load_from_dict(self, data: dict[str, Any]) -> None:
+        """从字典恢复向量存储状态。先验证再替换，失败时保持原数据不变。"""
+        if data.get("version") != 1:
+            raise ValueError(f"Unsupported vector index version: {data.get('version')}")
+        if data.get("dimension") != self._dimension:
+            raise ValueError(
+                f"Dimension mismatch: expected {self._dimension}, got {data.get('dimension')}"
+            )
+        raw_embeddings = data.get("embeddings", {})
+        for key, vec in raw_embeddings.items():
+            if not isinstance(vec, list):
+                raise ValueError(f"Invalid embedding for key {key!r}: expected list")
+            if len(vec) != self._dimension:
+                raise ValueError(
+                    f"Dimension mismatch for key {key!r}: "
+                    f"expected {self._dimension}, got {len(vec)}"
+                )
+        new_anchors: dict[str, DirectoryAnchor] = {}
+        for anchor_data in data.get("anchors", []):
+            anchor = DirectoryAnchor(
+                directory=anchor_data["directory"],
+                anchor_vector=anchor_data["anchor_vector"],
+                file_count=anchor_data["file_count"],
+                last_updated=anchor_data.get("last_updated", ""),
+            )
+            new_anchors[anchor.directory] = anchor
+        self._embeddings = dict(raw_embeddings)
+        self._anchors = new_anchors
+
+    @property
+    def node_count(self) -> int:
+        """返回内容节点数（不含辅助索引键）。"""
+        return sum(
+            1 for k in self._embeddings
+            if not k.startswith(("title:", "alias:", "stored:"))
+        )
 
     def close(self) -> None:
         self.clear()

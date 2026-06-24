@@ -291,7 +291,12 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
                 kt.md_store.write_node(n)
                 kt.vector_store.upsert_embedding(n.node_id, n.embedding)
                 _reindex_aliases(kt, n.node_id, aliases)
-                result: dict[str, Any] = {"ok": True, "action": "updated", "node_id": n.node_id}
+                kt.mark_dirty()
+                result: dict[str, Any] = {
+                    "ok": True,
+                    "action": "updated",
+                    "node_id": n.node_id,
+                }
                 if conflicts:
                     result["warnings"] = _format_conflict_warnings(conflicts)
                 return json.dumps(result, ensure_ascii=False)
@@ -319,6 +324,7 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         kt.md_store.write_node(node)
         kt.vector_store.upsert_embedding(node.node_id, node.embedding)
         _reindex_aliases(kt, node.node_id, aliases)
+        kt.mark_dirty()
         result = {"ok": True, "action": "created", "node_id": node.node_id}
         if conflicts:
             result["warnings"] = _format_conflict_warnings(conflicts)
@@ -403,8 +409,14 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
         _reindex_aliases(kt, target.node_id, [])
         # Delete file
         kt.md_store.delete_node(target.node_id)
+        kt.mark_dirty()
         return json.dumps(
-            {"ok": True, "action": "deleted", "node_id": target.node_id, "title": title},
+            {
+                "ok": True,
+                "action": "deleted",
+                "node_id": target.node_id,
+                "title": title,
+            },
             ensure_ascii=False,
         )
 

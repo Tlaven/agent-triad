@@ -53,6 +53,9 @@ class KnowledgeTreeConfig:
     rag_false_positive_threshold: int = 3
     content_insufficient_threshold: int = 5
 
+    # -- 向量索引持久化 --
+    vector_persistence_enabled: bool = True
+
     @classmethod
     def from_context(cls, ctx: Context) -> KnowledgeTreeConfig:
         """从 Context 构造配置。"""
@@ -74,4 +77,7 @@ class KnowledgeTreeConfig:
             total_failure_threshold=ctx.kt_total_failure_threshold,
             rag_false_positive_threshold=ctx.kt_rag_false_positive_threshold,
             content_insufficient_threshold=ctx.kt_content_insufficient_threshold,
+            vector_persistence_enabled=getattr(
+                ctx, 'kt_vector_persistence_enabled', True
+            ),
         )

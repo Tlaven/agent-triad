@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import time as _time
 from typing import Any
@@ -12,6 +13,7 @@ from src.common.knowledge_tree.core import KnowledgeTree
 logger = logging.getLogger(__name__)
 
 _kt_cache: dict[str, KnowledgeTree] = {}
+_atexit_registered: set[str] = set()
 
 
 def get_or_create_kt(
@@ -62,4 +64,16 @@ def get_or_create_kt(
     else:
         logger.debug("KT init: no seed directory at %s", config.markdown_root)
     _kt_cache[cache_key] = kt
+
+    if cache_key not in _atexit_registered and kt.config.vector_persistence_enabled:
+        _atexit_registered.add(cache_key)
+
+        def _save_on_exit(kt_ref=kt):
+            try:
+                kt_ref.save(force=True)
+            except Exception:
+                pass
+
+        atexit.register(_save_on_exit)
+
     return kt
