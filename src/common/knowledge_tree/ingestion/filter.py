@@ -35,9 +35,34 @@ _DECISION_KEYWORDS = {
 # 数字检测
 _HAS_NUMBER = re.compile(r"\d+")
 
+# 技术内容模式（URL、路径、代码片段、JSON、技术术语）
+_TECHNICAL_PATTERNS = re.compile(
+    r"(https?://\S+|"
+    r"[a-zA-Z_]\w*\.\w+\(\)|"
+    r"\{.*:.*\}|"
+    r"src/[a-zA-Z_/]+\.py|"
+    r"[a-zA-Z_]+\.py\s|"
+    r"exit code \d+|"
+    r"[A-Z_]{3,}=\S+|"
+    r"(?:FastAPI|HTTP|API|SDK|SQL|JSON|REST|TCP|UDP|DNS|SSL|JWT)\b)"
+)
+
 # 通用模板文本（Executor 自动输出的低信息量短语）
 _GENERIC_PATTERNS = re.compile(
     r"^(所有步骤执行完成|执行成功|任务完成|已完成|步骤\d+已成功完成)$"
+)
+
+# 低信息量模式（自动摄入时应过滤）
+_LOW_VALUE_PATTERNS = re.compile(
+    r"(成功列出|成功执行|已通过|成功使用|成功完成|成功创建|成功写入)"
+    r".{0,20}(目录|文件|命令|步骤)"
+    r".{0,30}$"
+)
+
+# 重复性任务描述模式（仅匹配成功/完成的低价值描述，不过滤失败原因）
+_REDUNDANT_TASK_PATTERNS = re.compile(
+    r"^(步骤\s*step_\d+\s*(?!.*失败原因)"
+    r"(完成|成功|已创建|已实现|已配置|已添加|执行了))"
 )
 
 
@@ -51,14 +76,17 @@ class FilterResult:
 
 
 def should_remember(chunk: str, trigger: str = "") -> FilterResult:
-    """规则判断是否值得记忆。低阈值（宁多勿漏）。
+    """规则判断是否值得记忆。
+
+    策略：宁缺毋滥。自动摄入（task_complete）需要额外质量检查；
+    用户显式指令始终通过。
 
     通过条件（满足任一）：
     - trigger == "user_explicit"（用户显式指令）
-    - trigger == "task_complete"（任务完成的 summary）
-    - 含决策/结论关键词
-    - 含数字
-    - 文本长度 > 50 字（信息密度足够）
+    - trigger == "task_complete" 且通过质量检查
+    - 含决策/结论关键词 且非低信息量模式
+    - 含数字 且含决策关键词
+    - 文本长度 > 80 字 且含决策关键词
 
     Args:
         chunk: 待判断的文本片段。
@@ -72,33 +100,51 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
 
     text = chunk.strip()
 
-    # 通用模板文本过滤（即使 task_complete 也不记忆无信息量的模板输出）
+    # 通用模板文本过滤
     if _GENERIC_PATTERNS.match(text):
         return FilterResult(passed=False, reason="generic_template", confidence=0.0)
+
+    # 低信息量模式过滤（如"成功列出了 X 目录下所有文件"）
+    if _LOW_VALUE_PATTERNS.match(text):
+        return FilterResult(passed=False, reason="low_value_pattern", confidence=0.0)
+
+    # 重复性任务描述过滤（如"步骤 step_1 在 workspace 目录下执行..."）
+    if _REDUNDANT_TASK_PATTERNS.match(text):
+        return FilterResult(passed=False, reason="redundant_task_desc", confidence=0.0)
 
     # 用户显式指令：直接通过
     if trigger == "user_explicit":
         return FilterResult(passed=True, reason="user_explicit", confidence=1.0)
 
-    # 任务完成 summary：直接通过
-    if trigger == "task_complete":
-        return FilterResult(passed=True, reason="task_complete", confidence=0.9)
-
     # 含决策/结论关键词
-    for kw in _DECISION_KEYWORDS:
-        if kw in text:
-            return FilterResult(
-                passed=True,
-                reason=f"keyword:{kw}",
-                confidence=0.7,
-            )
+    has_keyword = any(kw in text for kw in _DECISION_KEYWORDS)
 
-    # 含数字（可能包含具体信息）
-    if _HAS_NUMBER.search(text):
+    # 任务完成 summary：需要关键词 + 合理长度，或足够长
+    if trigger == "task_complete":
+        if has_keyword and len(text) > 15:
+            return FilterResult(passed=True, reason="task_complete_with_substance", confidence=0.8)
+        if len(text) > 100:
+            return FilterResult(passed=True, reason="task_complete_long_summary", confidence=0.6)
+        return FilterResult(passed=False, reason="task_complete_low_substance", confidence=0.0)
+
+    # 非显式/非 task_complete 的自动摄入：需满足更严格条件
+    if has_keyword:
+        return FilterResult(passed=True, reason="keyword_match", confidence=0.7)
+
+    # 含数字 + 含关键词 → 通过
+    if _HAS_NUMBER.search(text) and has_keyword:
+        return FilterResult(passed=True, reason="number_with_keyword", confidence=0.6)
+
+    # 含数字（独立路径，较低置信度）
+    if _HAS_NUMBER.search(text) and len(text) > 20:
         return FilterResult(passed=True, reason="has_number", confidence=0.5)
 
-    # 文本长度足够
-    if len(text) > 50:
+    # 技术内容（URL/路径/代码/JSON）→ 通过
+    if _TECHNICAL_PATTERNS.search(text):
+        return FilterResult(passed=True, reason="technical_content", confidence=0.5)
+
+    # 长文本兜底（> 100 字符）
+    if len(text) > 100:
         return FilterResult(passed=True, reason="sufficient_length", confidence=0.3)
 
     # 过短且无关键词

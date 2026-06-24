@@ -30,7 +30,7 @@ class TestExtractFromCompletedPlan:
     """完成的计划应提取步骤级 result_summary。"""
 
     def test_completed_with_summaries(self):
-        summary = "已完成所有步骤：创建了文件并修改了配置。"
+        summary = "发现重要结论：创建文件和修改配置需要遵循特定模式。"
         plan_json = _make_plan_json(
             goal="创建并配置新模块",
             steps=[
@@ -39,21 +39,21 @@ class TestExtractFromCompletedPlan:
                     "intent": "创建文件",
                     "expected_output": "新文件已创建",
                     "status": "completed",
-                    "result_summary": "在 src/module/ 下创建了 api.py 文件，包含 FastAPI 端点。",
+                    "result_summary": "发现 src/module/ 下创建 api.py 文件时需要 FastAPI 端点。",
                 },
                 {
                     "step_id": "step_2",
                     "intent": "修改配置",
                     "expected_output": "配置已更新",
                     "status": "completed",
-                    "result_summary": "在 config.toml 中添加了新模块的配置项，端口设为 8080。",
+                    "result_summary": "发现 config.toml 中添加新模块配置项需要端口设为 8080。",
                 },
                 {
                     "step_id": "step_3",
                     "intent": "编写测试",
                     "expected_output": "测试通过",
                     "status": "completed",
-                    "result_summary": "编写了 5 个单元测试，全部通过。",
+                    "result_summary": "发现编写 5 个单元测试覆盖了关键错误模式。",
                 },
             ],
         )
@@ -114,22 +114,28 @@ class TestEdgeCases:
         assert result == []
 
     def test_empty_json_string(self):
-        result = extract_knowledge_from_executor_result("summary", "  ", "completed")
+        result = extract_knowledge_from_executor_result(
+            "发现配置加载完成后需要更新环境变量才能生效。", "  ", "completed"
+        )
         assert len(result) >= 1
 
     def test_invalid_json(self):
-        result = extract_knowledge_from_executor_result("summary", "{malformed", "completed")
-        # summary 仍应被提取
+        result = extract_knowledge_from_executor_result(
+            "发现重要模式：异步调用必须添加 timeout 参数避免永久阻塞。", "{malformed", "completed"
+        )
         assert len(result) >= 1
 
     def test_none_json(self):
-        result = extract_knowledge_from_executor_result("summary", None, "completed")
+        result = extract_knowledge_from_executor_result(
+            "发现配置差异：production 与 staging 环境参数不一致需要修复。", None, "completed"
+        )
         assert len(result) >= 1
 
     def test_plan_with_empty_steps(self):
-        plan_json = _make_plan_json(steps=[])
-        result = extract_knowledge_from_executor_result("", plan_json, "completed")
-        # 空 steps + completed → goal 提取
+        plan_json = _make_plan_json(goal="发现并记录重要架构决策", steps=[])
+        result = extract_knowledge_from_executor_result(
+            "发现关键架构决定。", plan_json, "completed"
+        )
         assert len(result) >= 1
 
 
@@ -161,10 +167,9 @@ class TestFilterIntegration:
         assert any("超时" in r or "规则" in r for r in result)
 
     def test_task_complete_trigger_passes(self):
-        """task_complete trigger 应让大多数内容通过。"""
-        summary = "在 src/common/context.py 中添加了配置字段。"
+        """task_complete trigger + 有意义内容应通过。"""
+        summary = "发现配置变更：在 src/common/context.py 中添加了超时配置字段。"
         result = extract_knowledge_from_executor_result(summary, "", "completed")
-        # trigger="task_complete" → 所有非空 chunk 都应通过
         assert len(result) >= 1
 
 
@@ -173,9 +178,9 @@ class TestRealExecutorFormat:
 
     def test_real_format_parsing(self):
         summary = (
-            "已完成文件创建和测试验证。\n"
+            "发现重要模式：文件创建和测试验证需要遵循特定顺序。\n"
             "创建了 src/common/knowledge_tree/ingestion/extractor.py。\n"
-            "所有测试通过。"
+            "发现测试通过需要正确的环境配置。"
         )
         plan_json = _make_plan_json(
             goal="实现 Executor 结果知识提取器",
@@ -185,7 +190,7 @@ class TestRealExecutorFormat:
                     "intent": "创建提取器模块",
                     "expected_output": "extractor.py 文件已创建",
                     "status": "completed",
-                    "result_summary": "创建了 extractor.py，实现了 extract_knowledge_from_executor_result 函数。",
+                    "result_summary": "发现 extractor.py 中 extract_knowledge_from_executor_result 需要关键词过滤。",
                     "failure_reason": "",
                 },
                 {
@@ -193,7 +198,7 @@ class TestRealExecutorFormat:
                     "intent": "编写单元测试",
                     "expected_output": "测试文件已创建",
                     "status": "completed",
-                    "result_summary": "编写了 10 个测试用例覆盖正常和边界情况。",
+                    "result_summary": "发现 10 个测试用例需要覆盖正常和错误的边界情况。",
                     "failure_reason": "",
                 },
             ],
@@ -212,15 +217,16 @@ class TestExperienceExtraction:
 
     def test_failed_task_extracts_experience(self):
         """失败任务应提取经验四元组。"""
-        summary = "执行失败：在处理大规模文件时 Executor 超时退出。"
+        summary = "执行失败：发现处理大规模文件时 Executor 超时退出。"
         plan_json = _make_plan_json(
+            goal="验证 Executor 在大规模数据下的稳定性",
             steps=[
                 {
                     "step_id": "step_1",
-                    "intent": "扫描目录下所有文件",
+                    "intent": "扫描目录下所有文件并建立索引",
                     "status": "failed",
                     "result_summary": "",
-                    "failure_reason": "Executor 进程超时，可能是文件数量过多导致内存溢出。",
+                    "failure_reason": "发现 Executor 进程超时，文件数量过多导致内存溢出。",
                 },
             ],
         )
@@ -279,10 +285,11 @@ class TestExperienceExtraction:
         """经验节点包含完整的四元组字段。"""
         summary = "使用 uv run pytest 运行测试时，需要确保 .env 文件存在，否则会加载失败。"
         plan_json = _make_plan_json(
+            goal="验证项目测试环境的配置完整性",
             steps=[
                 {
                     "step_id": "step_1",
-                    "intent": "运行测试",
+                    "intent": "运行单元测试并验证环境配置",
                     "status": "failed",
                     "result_summary": "",
                     "failure_reason": "缺少 .env 文件导致配置加载失败。",
@@ -302,8 +309,8 @@ class TestEntryAExperienceIngestion:
         """失败结果应触发经验提取。"""
         summary = "Executor 超时导致任务失败。"
         plan_json = json.dumps({
-            "plan_id": "p1", "version": 1, "goal": "测试",
-            "steps": [{"step_id": "s1", "intent": "执行", "status": "failed",
+            "plan_id": "p1", "version": 1, "goal": "验证 Executor 稳定性",
+            "steps": [{"step_id": "s1", "intent": "执行压力测试", "status": "failed",
                         "result_summary": "", "failure_reason": "超时退出。"}],
         })
 

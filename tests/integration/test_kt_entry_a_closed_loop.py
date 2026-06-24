@@ -151,16 +151,16 @@ class TestEntryASuccessFullLoop:
         """completed 状态应提取 goal 作为上下文知识。"""
         plan_json = _make_plan_json(
             plan_id="plan_goal_extract",
-            goal="验证 Plan JSON 格式的完整性",
+            goal="验证 Plan JSON 格式的设计原则",
             steps=[
                 _make_step(
                     step_id="step_1",
                     intent="检查字段",
-                    result_summary="确认所有必需字段存在：plan_id, version, goal, steps。",
+                    result_summary="发现所有必需字段存在：plan_id, version, goal, steps。",
                 ),
             ],
         )
-        summary = "验证通过，Plan JSON 格式完整。"
+        summary = "验证通过，发现 Plan JSON 格式设计完整。"
 
         chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
 
@@ -320,12 +320,16 @@ class TestEntryAFilterBehavior:
             assert result.reason == "generic_template"
 
     def test_meaningful_result_summary_passes(self):
-        """有意义的 result_summary 应通过 filter。"""
+        """有意义的 result_summary 应通过 filter。
+
+        新策略（决策 29）下 task_complete 路径需要关键词 + 合理长度，
+        或纯长度 >100。这里所有样本都含决策关键词或技术模式。
+        """
         meaningful_texts = [
-            "在 context.py 中添加了 executor_call_model_timeout (180s) 配置。",
+            "在 context.py 中添加了 executor_call_model_timeout (180s) 配置，发现可消除冷启动。",
             "发现 Python 进程在 Windows 下不会自动退出，需要 atexit 注册清理。",
-            "新增 3 个测试用例，覆盖率从 78% 提升到 85%。",
-            "使用 asyncio.wait_for 包裹 LLM 调用实现超时保护。",
+            "新增 3 个测试用例，发现覆盖率从 78% 提升到 85% 的关键模式。",
+            "使用 asyncio.wait_for 包裹 LLM 调用实现超时保护，避免异常阻塞。",
         ]
         for text in meaningful_texts:
             result = should_remember(text, trigger="task_complete")
@@ -346,10 +350,16 @@ class TestEntryAFilterBehavior:
                 f"Short no-info text should be filtered: '{text}' got {result}"
             )
 
-    def test_task_complete_trigger_bypasses_length(self):
-        """task_complete 触发下，非模板文本即使较短也通过。"""
-        result = should_remember("修复了编码问题", trigger="task_complete")
-        assert result.passed, "task_complete should bypass length check"
+    def test_task_complete_trigger_with_keyword_passes(self):
+        """task_complete 触发 + 决策关键词 + 合理长度 → 通过。
+
+        新策略（决策 29）：task_complete 不再无条件绕过长度检查，
+        需要含决策关键词且长度 >15 字符。
+        """
+        result = should_remember("修复了编码错误的根本原因，需要重新验证", trigger="task_complete")
+        assert result.passed, (
+            f"task_complete + keyword + reasonable length should pass: {result}"
+        )
 
     def test_user_explicit_always_passes(self):
         """user_explicit 触发下任何非空文本都通过。"""
@@ -358,12 +368,11 @@ class TestEntryAFilterBehavior:
         assert result.confidence == 1.0
 
     def test_filter_integration_with_extractor(self):
-        """extractor 的输出中，通用 summary 应被过滤。
+        """extractor 的输出中，通用 summary 和通用 result_summary 都应被过滤。
 
-        注意：extractor 格式化为 "步骤 X (intent): result_summary"，添加了
-        step_id 和 intent 上下文，所以 result_summary 即使是通用文本，被包裹后
-        也含有足够信息（step_id + intent）。这是可接受的行为。
-        通用模板过滤主要针对纯粹的 summary 文本。
+        新策略（决策 29）下，extractor 包裹 "步骤 X (intent): result_summary"
+        不再无条件通过——若 result_summary 本身是通用模板或不含决策关键词，
+        包裹后仍会被过滤。这是设计意图：避免低信息量上下文污染知识树。
         """
         plan_json = _make_plan_json(
             plan_id="plan_filter_test",
@@ -377,7 +386,7 @@ class TestEntryAFilterBehavior:
                 _make_step(
                     step_id="step_2",
                     intent="有意义的步骤",
-                    result_summary="在 graph.py 中修复了状态更新的竞态条件，使用 threading.Lock 保护。",
+                    result_summary="发现 graph.py 中状态更新存在异常，使用 threading.Lock 保护是最佳实践。",
                 ),
             ],
         )
@@ -390,16 +399,16 @@ class TestEntryAFilterBehavior:
             assert chunk != "执行成功", f"Generic summary should be filtered: {chunk}"
 
         # 有意义的 step_2 result_summary 应保留
-        meaningful = [c for c in chunks if "竞态条件" in c or "threading.Lock" in c]
+        meaningful = [c for c in chunks if "异常" in c or "threading.Lock" in c]
         assert len(meaningful) > 0, (
             f"Meaningful result_summary should pass: {chunks}"
         )
 
-        # step_1 的包裹格式也应存在（含 step_id + intent 上下文）
-        wrapped = [c for c in chunks if "step_1" in c and "通用步骤" in c]
-        assert len(wrapped) > 0, (
-            f"Wrapped step_1 should exist (contains context): {chunks}"
-        )
+        # 通用 step_1 result_summary 即使包裹也应被过滤
+        for chunk in chunks:
+            assert "通用步骤" not in chunk, (
+                f"Generic step_1 wrapped chunk should be filtered: {chunk}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -436,7 +445,7 @@ class TestEntryAEdgeCases:
             goal="无需执行步骤的简单任务",
             steps=[],
         )
-        summary = "任务直接完成。"
+        summary = "任务直接完成，发现重要经验。"
         chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
         # summary + goal (completed 状态)
         assert len(chunks) >= 1, f"Should extract from summary and goal: {chunks}"
@@ -451,11 +460,11 @@ class TestEntryAEdgeCases:
                 _make_step(
                     step_id="step_2",
                     intent="有结果",
-                    result_summary="生成了 5 个配置文件。",
+                    result_summary="生成了 5 个配置文件，发现重要的配置模式。",
                 ),
             ],
         )
-        summary = "部分步骤有结果。"
+        summary = "部分步骤有结果，发现重要经验。"
         chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
         # summary + step_2 result_summary + goal
         assert len(chunks) >= 2
@@ -488,11 +497,11 @@ class TestEntryAEdgeCases:
                 _make_step(
                     step_id="step_1",
                     intent="测试去重",
-                    result_summary="这是唯一的测试知识：Executor 使用 uvicorn 启动 FastAPI 服务。",
+                    result_summary="发现重要经验：Executor 使用 uvicorn 启动 FastAPI 服务的最佳实践。",
                 ),
             ],
         )
-        summary = "去重测试完成。"
+        summary = "去重测试完成，发现关键模式。"
 
         chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
         assert len(chunks) >= 1

@@ -146,16 +146,16 @@ class TestAutoIngestFromExecutorResult:
             extract_knowledge_from_executor_result,
         )
 
-        summary = "完成了知识提取器的实现，创建了 extractor.py 模块。"
+        summary = "完成了知识提取器的实现，发现最佳实践是使用结构化模板提取知识。"
         plan_json = json.dumps({
             "plan_id": "plan_test",
-            "goal": "实现 Entry A",
+            "goal": "实现 Entry A 知识提取",
             "steps": [
                 {
                     "step_id": "step_1",
                     "intent": "创建提取器模块",
                     "status": "completed",
-                    "result_summary": "创建了 extract_knowledge_from_executor_result 函数。",
+                    "result_summary": "发现使用正则提取比 JSON 解析更稳健的经验。",
                     "failure_reason": "",
                 },
             ],
@@ -164,7 +164,7 @@ class TestAutoIngestFromExecutorResult:
         chunks = extract_knowledge_from_executor_result(summary, plan_json, "completed")
         assert len(chunks) >= 2  # summary + step result + goal
         all_text = " ".join(chunks)
-        assert "extractor" in all_text
+        assert "知识提取" in all_text
 
     def test_failed_status_still_extracts(self):
         """failed 状态也应提取 failure_reason 作为负面知识。"""
@@ -172,17 +172,17 @@ class TestAutoIngestFromExecutorResult:
             extract_knowledge_from_executor_result,
         )
 
-        summary = "执行失败：Executor 进程超时。"
+        summary = "执行失败：发现 Executor 进程超时是因为内存不足。"
         plan_json = json.dumps({
             "plan_id": "plan_test",
-            "goal": "测试任务",
+            "goal": "验证 Executor 稳定性",
             "steps": [
                 {
                     "step_id": "step_1",
-                    "intent": "执行任务",
+                    "intent": "执行压力测试",
                     "status": "failed",
                     "result_summary": "",
-                    "failure_reason": "Executor 超时，exit code 137 (SIGKILL)。",
+                    "failure_reason": "发现内存泄漏导致 Executor 超时，exit code 137 (SIGKILL)。",
                 },
             ],
         })

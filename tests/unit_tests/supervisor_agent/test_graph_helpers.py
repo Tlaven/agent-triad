@@ -301,13 +301,13 @@ class TestAutoIngestExecutorResult:
 
         plan_json = json.dumps({
             "plan_id": "plan_test",
-            "goal": "test",
+            "goal": "configure timeout settings",
             "steps": [
                 {"step_id": "s1", "intent": "do", "status": "completed",
-                 "result_summary": "Added timeout config (180s).", "failure_reason": ""},
+                 "result_summary": "发现最佳超时配置为 180s，避免长时间阻塞。", "failure_reason": ""},
             ],
         })
-        content = f"Task done\n\n[EXECUTOR_RESULT] {{\"status\":\"completed\",\"updated_plan_json\":{json.dumps(plan_json)}}}"
+        content = f"发现最佳超时配置\n\n[EXECUTOR_RESULT] {{\"status\":\"completed\",\"updated_plan_json\":{json.dumps(plan_json)}}}"
 
         _try_auto_ingest_executor_result(content, None, "completed")
 

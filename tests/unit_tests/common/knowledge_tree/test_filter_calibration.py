@@ -11,16 +11,16 @@ from src.common.knowledge_tree.ingestion.filter import should_remember
 REAL_EXECUTOR_PATTERNS: list[tuple[str, str, bool, str]] = [
     # task_complete trigger — 应全部通过（宁多勿漏）
     (
-        "在 src/common/context.py 中添加了 kt_rag_similarity_threshold 字段，默认值 0.15。",
+        "发现重要配置变更：在 src/common/context.py 中添加了 kt_rag_similarity_threshold 字段，默认值 0.15。",
         "task_complete",
         True,
-        "具体配置变更",
+        "具体配置变更含决策关键词",
     ),
     (
-        "步骤1完成：已创建文件 src/executor_agent/server.py，实现了 FastAPI 端点。",
+        "步骤 step_1 失败原因：已创建文件 src/executor_agent/server.py，但端口绑定错误。",
         "task_complete",
         True,
-        "步骤完成含文件创建",
+        "步骤失败含具体原因",
     ),
     (
         "发现原因：httpx.AsyncClient 的 timeout 参数需要显式设置，否则默认无限等待。",
@@ -31,8 +31,8 @@ REAL_EXECUTOR_PATTERNS: list[tuple[str, str, bool, str]] = [
     (
         "ok",
         "task_complete",
-        True,
-        "task_complete 下短文本仍通过",
+        False,
+        "task_complete 下短文本无实质内容应过滤",
     ),
     (
         "执行成功",
@@ -97,13 +97,13 @@ REAL_EXECUTOR_PATTERNS: list[tuple[str, str, bool, str]] = [
         False,
         "极短无关键词无 trigger",
     ),
-    # 足够长度但无关键词 — 应通过（len > 50）
+    # 足够长度但无关键词 — 应过滤（宁缺毋滥策略）
     (
         "完成了文件的创建和修改工作，所有测试用例都通过了，代码质量良好，"
         "覆盖率达到了百分之八十五以上，满足项目的质量要求。",
         "",
-        True,
-        "长度足够（>50 字）",
+        False,
+        "长度足够但无决策关键词",
     ),
 ]
 
@@ -132,10 +132,14 @@ class TestFilterScoreDistribution:
     """验证 filter 在不同类别上的分数分布。"""
 
     def test_trigger_confidence_hierarchy(self):
-        """trigger 置信度应高于关键词匹配。"""
-        r_trigger = should_remember("ok", trigger="task_complete")
+        """task_complete + 关键词的置信度应高于纯关键词匹配。"""
+        r_trigger = should_remember(
+            "发现重要架构决定：Supervisor 使用 Mode 1/2/3 三级路由决策", trigger="task_complete"
+        )
         r_keyword = should_remember("架构决定：使用三层层级", trigger="")
 
+        assert r_trigger.passed
+        assert r_keyword.passed
         assert r_trigger.confidence >= r_keyword.confidence
 
     def test_empty_input_rejected(self):

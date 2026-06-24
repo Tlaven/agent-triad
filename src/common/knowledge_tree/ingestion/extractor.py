@@ -142,8 +142,17 @@ def extract_experience_from_executor_result(
 
     # 判断是否值得提取经验
     if status == "failed":
-        # 失败任务始终提取
-        pass
+        # 失败任务只在有具体失败原因时提取
+        if not step_failures and (not summary or len(summary.strip()) < 20):
+            return []
+        # 过滤掉测试/框架级别的失败（非项目知识）
+        combined = f"{summary} {' '.join(step_failures)}"
+        _FRAMEWORK_ERRORS = re.compile(
+            r"(mock|MagicMock|TypeError|await|import\s+error|module\s+not\s+found)",
+            re.IGNORECASE,
+        )
+        if _FRAMEWORK_ERRORS.search(combined) and not step_failures:
+            return []
     elif status == "completed":
         # 完成任务只有含有发现性内容时才提取
         combined = f"{summary} {' '.join(step_results)}"
@@ -155,9 +164,15 @@ def extract_experience_from_executor_result(
         # paused 等其他状态不提取经验
         return []
 
+    # 信息密度检查：goal + intents 都太短时，经验无实际价值
+    context = goal if goal else ""
+    actions = "；".join(step_intents) if step_intents else ""
+    if len(context) < 5 and len(actions) < 10:
+        return []
+
     # 构造情境
-    context = goal if goal else "（无明确目标）"
-    actions = "；".join(step_intents) if step_intents else "（执行了任务）"
+    context = context or "（无明确目标）"
+    actions = actions or "（执行了任务）"
 
     # 构造结果和教训
     if status == "failed":
