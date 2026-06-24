@@ -12,6 +12,7 @@ from src.common.knowledge_tree.config import (
     KnowledgeTreeConfig,
     MAX_META_RULES,
     META_RULE_CONFLICT_THRESHOLD,
+    META_RULE_REJECT_THRESHOLD,
 )
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.factory import get_or_create_kt
@@ -272,7 +273,23 @@ def build_knowledge_tree_tools(runtime_context: Any) -> list:
             if n.embedding is None:
                 n.embedding = kt.embedder(n.content)
             sim = cosine_similarity(new_embedding, n.embedding)
-            if sim > META_RULE_CONFLICT_THRESHOLD and n.content.strip() != content.strip():
+            if n.content.strip() == content.strip():
+                continue
+            if sim > META_RULE_REJECT_THRESHOLD:
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "error": (
+                            f"新规则与已有规则'{n.title}'高度重复(相似度 {sim:.3f} "
+                            f"≥ {META_RULE_REJECT_THRESHOLD})，已拒绝创建。"
+                            f"请改用 update 或调整内容后重试。"
+                        ),
+                        "conflicting_rule": n.title,
+                        "similarity": round(sim, 3),
+                    },
+                    ensure_ascii=False,
+                )
+            if sim > META_RULE_CONFLICT_THRESHOLD:
                 conflicts.append({
                     "title": n.title,
                     "similarity": round(sim, 3),

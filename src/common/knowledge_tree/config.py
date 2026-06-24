@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 # -- 治理常量（系统硬限制，非运行时可调参数）--
 MAX_META_RULES = 15
 META_RULE_CONFLICT_THRESHOLD = 0.7
+META_RULE_REJECT_THRESHOLD = 0.85
 
 
 @dataclass(kw_only=True)

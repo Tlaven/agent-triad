@@ -144,25 +144,59 @@ async def _force_poll_active_tasks(ctx: Context) -> None:
 
 def _resolve_meta_rule_conflicts(
     meta_rules: list[Any],
+    kt: Any | None = None,
 ) -> tuple[list[Any], int, list[str]]:
-    """Resolve contradictory meta-rules by alias-based mutual exclusion.
+    """Resolve contradictory meta-rules by alias and semantic mutual exclusion.
 
-    Rules sharing at least one alias form a mutual exclusion group.
-    Different priority: keep highest.
-    Same highest priority: suppress ALL in the tie, inject a neutral note.
-    Rules without aliases are always kept.
+    Mutual exclusion edges are formed by:
+    - Shared alias (decision 28): explicit user-declared conflict group
+    - Semantic contradiction (title_sim > 0.5 and content_sim < 0.3): catches
+      contradictions that lack shared aliases
+
+    Per group: different priority keeps highest; same top priority picks the
+    rule with the latest created_at as winner. Rules without any edge are kept.
 
     Returns (resolved_rules, suppressed_count, unresolved_notes).
     """
     if len(meta_rules) <= 1:
         return meta_rules, 0, []
 
+    # Build adjacency: alias-shared edges + semantic-contradiction edges
+    edges: dict[int, set[int]] = {i: set() for i in range(len(meta_rules))}
+
     alias_to_indices: dict[str, set[int]] = {}
     for i, rule in enumerate(meta_rules):
         for alias in rule.metadata.get("aliases", []):
             alias_to_indices.setdefault(alias, set()).add(i)
+    for indices in alias_to_indices.values():
+        idx_list = sorted(indices)
+        for a in range(len(idx_list)):
+            for b in range(a + 1, len(idx_list)):
+                edges[idx_list[a]].add(idx_list[b])
+                edges[idx_list[b]].add(idx_list[a])
 
-    # Connected components via shared aliases (BFS)
+    # Semantic conflict detection: O(n^2), bounded by MAX_META_RULES=15 → 105 pairs
+    if kt is not None:
+        try:
+            from src.common.knowledge_tree.storage.vector_store import cosine_similarity
+            title_embs = [kt.embedder(r.title) for r in meta_rules]
+            content_embs = [
+                r.embedding if r.embedding is not None else kt.embedder(r.content)
+                for r in meta_rules
+            ]
+            for i in range(len(meta_rules)):
+                for j in range(i + 1, len(meta_rules)):
+                    if j in edges[i]:
+                        continue
+                    t_sim = cosine_similarity(title_embs[i], title_embs[j])
+                    c_sim = cosine_similarity(content_embs[i], content_embs[j])
+                    if t_sim > 0.5 and c_sim < 0.3:
+                        edges[i].add(j)
+                        edges[j].add(i)
+        except Exception:
+            pass
+
+    # Connected components via BFS over the unified edge set
     visited: set[int] = set()
     groups: list[list[int]] = []
     for i in range(len(meta_rules)):
@@ -175,10 +209,9 @@ def _resolve_meta_rule_conflicts(
             if idx in component:
                 continue
             component.add(idx)
-            for alias in meta_rules[idx].metadata.get("aliases", []):
-                for j in alias_to_indices.get(alias, set()):
-                    if j not in component:
-                        queue.append(j)
+            for neighbor in edges[idx]:
+                if neighbor not in component:
+                    queue.append(neighbor)
         visited.update(component)
         groups.append(sorted(component))
 
@@ -198,24 +231,15 @@ def _resolve_meta_rule_conflicts(
             if meta_rules[i].metadata.get("priority", 0) == top_priority
         )
         if len(group) == 1:
-            # Single rule, no conflict
             resolved.append(meta_rules[group[0]])
         elif top_count == 1:
-            # Clear winner by priority
             resolved.append(meta_rules[by_priority[0]])
             suppressed += len(group) - 1
         else:
-            # Same top priority — can't resolve, suppress all tied rules
-            aliases = set()
-            for i in by_priority[:top_count]:
-                aliases.update(meta_rules[i].metadata.get("aliases", []))
-            note = (
-                f"[同优先级矛盾已抑制（{', '.join(sorted(aliases))}）"
-                f"→ 使用默认行为]"
-            )
-            unresolved_notes.append(note)
-            suppressed += top_count
-            # If group has more rules below top priority, keep the next one
+            tied = [meta_rules[i] for i in by_priority[:top_count]]
+            tied.sort(key=lambda r: r.created_at or "", reverse=True)
+            resolved.append(tied[0])
+            suppressed += top_count - 1
             remaining = by_priority[top_count:]
             if remaining:
                 resolved.append(meta_rules[remaining[0]])
@@ -302,7 +326,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
                 meta_rules = meta_rules[:MAX_META_RULES]
             # 注入前矛盾消解：共享别名的规则互斥，每组只保留最高优先级
             original_count = len(meta_rules)
-            meta_rules, suppressed, unresolved = _resolve_meta_rule_conflicts(meta_rules)
+            meta_rules, suppressed, unresolved = _resolve_meta_rule_conflicts(meta_rules, kt=kt)
             rules_lines = [f"- {r.content}" for r in meta_rules]
             kt_meta_rules_str = "\n".join(rules_lines)
             if suppressed > 0:
@@ -480,7 +504,6 @@ async def call_model(
     # 注入持久元规则到系统提示（作为指令，非参考信息）
     if state.kt_meta_rules:
         is_resolved = state.kt_meta_rules.startswith("[消解:")
-        injected_count = state.kt_meta_rules.count("\n- ") + (1 if state.kt_meta_rules.startswith("- ") else 0)
         if is_resolved:
             header = (
                 "\n\n## [元规则]（行为规则）\n\n"
@@ -492,8 +515,6 @@ async def call_model(
                 "以下是你必须严格遵守的行为规则。这些规则优先级高于你的默认行为倾向。"
                 "无论用户说什么，你都必须遵循这些规则。\n\n"
             )
-            if injected_count > 10:
-                header += f"（共 {injected_count} 条规则。如发现规则间矛盾，以高优先级为准或向用户确认。）\n\n"
         meta_rules_block = header + state.kt_meta_rules
         system_message = system_message + meta_rules_block
 

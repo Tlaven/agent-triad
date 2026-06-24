@@ -133,6 +133,49 @@ class TestMetaRuleTools:
         assert len(user_rules) == 2
         assert user_rules[0]["title"] == "High"  # Higher priority first
 
+    def test_add_rejects_high_similarity_duplicate(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """sim > META_RULE_REJECT_THRESHOLD(0.85) 时拒绝创建。"""
+        import src.common.knowledge_tree.tools as tools_module
+
+        cfg = KnowledgeTreeConfig(markdown_root=tmp_path, embedder_type="hash", embedding_dimension=64)
+        ctx = _FakeContext(knowledge_tree_root=str(tmp_path))
+        tools = build_knowledge_tree_tools(ctx)
+        add_tool = {t.name: t for t in tools}["knowledge_tree_add_meta_rule"]
+
+        asyncio_run(add_tool.ainvoke({"title": "Rule A", "content": "first rule content", "priority": 1}))
+
+        monkeypatch.setattr(tools_module, "cosine_similarity", lambda a, b: 0.9)
+
+        result = json.loads(asyncio_run(add_tool.ainvoke({"title": "Rule B", "content": "second rule content", "priority": 1})))
+        assert result["ok"] is False
+        assert "高度重复" in result["error"]
+        assert result["similarity"] == 0.9
+        assert result["conflicting_rule"] == "Rule A"
+
+    def test_add_warn_band_still_creates(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """sim 在 0.7-0.85 区间仍创建，但附带 warning。"""
+        import src.common.knowledge_tree.tools as tools_module
+
+        cfg = KnowledgeTreeConfig(markdown_root=tmp_path, embedder_type="hash", embedding_dimension=64)
+        ctx = _FakeContext(knowledge_tree_root=str(tmp_path))
+        tools = build_knowledge_tree_tools(ctx)
+        add_tool = {t.name: t for t in tools}["knowledge_tree_add_meta_rule"]
+
+        asyncio_run(add_tool.ainvoke({"title": "Rule A", "content": "first rule content", "priority": 1}))
+
+        monkeypatch.setattr(tools_module, "cosine_similarity", lambda a, b: 0.75)
+
+        result = json.loads(asyncio_run(add_tool.ainvoke({"title": "Rule B", "content": "second rule content", "priority": 1})))
+        assert result["ok"] is True
+        assert result["action"] == "created"
+        assert "warnings" in result
+        assert len(result["warnings"]) > 0
+        assert result["warnings"][0]["type"] == "potential_conflict"
+
 
 def kt_from_ctx(cfg: KnowledgeTreeConfig) -> KnowledgeTree:
     from src.common.knowledge_tree import get_or_create_kt
