@@ -14,6 +14,7 @@ import json
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +22,9 @@ ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SCRIPTS = ROOT / "tests/e2e/scripts/kt_stress"
 RESULTS = ROOT / "tests/e2e/results/stress"
 MODEL = "openai:deepseek-v4-flash"
+
+MAX_CONCURRENCY = 4
+DEPENDENT_PAIRS = [("L2", "L3")]
 
 LEVELS = {
     "L1": {
@@ -240,6 +244,18 @@ def run_level(level_id: str, model: str, output_dir: Path) -> LevelResult:
     return lr
 
 
+def _run_level_safe(level_id: str, model: str, output_dir: Path) -> LevelResult:
+    """run_level 的失败隔离包装。任一 level 异常不影响其他 level。"""
+    try:
+        return run_level(level_id, model, output_dir)
+    except Exception as e:
+        lr = LevelResult(level=level_id, desc=LEVELS[level_id]["desc"])
+        lr.error = f"{type(e).__name__}: {e}"
+        lr.probe_ok = False
+        print(f"  [{level_id}] EXCEPTION: {lr.error}")
+        return lr
+
+
 def generate_report(results: list[LevelResult], model: str, output_dir: Path) -> str:
     lines = [
         "# KT Stress Test Report (L1-L6)",
@@ -298,7 +314,7 @@ def main():
     parser.add_argument("--levels", nargs="+", default=list(LEVELS.keys()))
     parser.add_argument("--output", default=None)
     parser.add_argument("--delay", type=float, default=5.0, help="Delay between levels in seconds (default: 5)")
-    parser.add_argument("--concurrency", type=int, default=1, help="Max concurrent levels (default: 1, sequential)")
+    parser.add_argument("--concurrency", type=int, default=3, help="Max concurrent levels (default: 3, max: 4)")
     args = parser.parse_args()
 
     model = args.model
@@ -311,25 +327,55 @@ def main():
     print(f"Output: {output_dir}")
     print(f"Levels: {args.levels}")
 
-    if args.concurrency > 1:
-        print("[WARN] --concurrency > 1 is not yet implemented, running sequentially")
+    if args.concurrency > MAX_CONCURRENCY:
+        print(f"[WARN] --concurrency {args.concurrency} too high, capping at {MAX_CONCURRENCY}")
+        args.concurrency = MAX_CONCURRENCY
 
     # L3 requires L2 first
     if "L3" in args.levels and "L2" not in args.levels:
         print("[INFO] L3 requires L2, adding L2 to run list")
         args.levels = ["L2"] + args.levels
 
-    results: list[LevelResult] = []
-    for level_id in args.levels:
+    locked: set[str] = set()
+    for prereq, dep in DEPENDENT_PAIRS:
+        if prereq in args.levels and dep in args.levels:
+            locked.update({prereq, dep})
+    free_levels = [l for l in args.levels if l not in locked]
+    locked_chain = [l for l in args.levels if l in locked]
+
+    results_by_level: dict[str, LevelResult] = {}
+
+    for level_id in locked_chain:
         if level_id not in LEVELS:
             print(f"[WARN] Unknown level: {level_id}, skipping")
             continue
-        lr = run_level(level_id, model, output_dir)
-        results.append(lr)
-        if args.delay > 0 and level_id != args.levels[-1]:
-            print(f"  [DELAY] waiting {args.delay}s before next level...")
+        results_by_level[level_id] = _run_level_safe(level_id, model, output_dir)
+        if args.delay > 0 and level_id != locked_chain[-1]:
+            print(f"  [DELAY] waiting {args.delay}s before next locked level...")
             time.sleep(args.delay)
 
+    if args.concurrency <= 1 or len(free_levels) <= 1:
+        for level_id in free_levels:
+            if level_id not in LEVELS:
+                print(f"[WARN] Unknown level: {level_id}, skipping")
+                continue
+            results_by_level[level_id] = _run_level_safe(level_id, model, output_dir)
+            if args.delay > 0 and level_id != free_levels[-1]:
+                print(f"  [DELAY] waiting {args.delay}s before next level...")
+                time.sleep(args.delay)
+    else:
+        runnable = [l for l in free_levels if l in LEVELS]
+        print(f"[INFO] running {len(runnable)} levels with concurrency={args.concurrency}")
+        with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
+            futures = {
+                pool.submit(_run_level_safe, lid, model, output_dir): lid
+                for lid in runnable
+            }
+            for fut in as_completed(futures):
+                lr = fut.result()
+                results_by_level[lr.level] = lr
+
+    results = [results_by_level[l] for l in args.levels if l in results_by_level]
     generate_report(results, model, output_dir)
 
     # Summary
