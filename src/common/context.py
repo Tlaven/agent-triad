@@ -281,11 +281,13 @@ class Context:
         },
     )
     executor_wait_timeout: float = field(
-        default=300.0,
+        default=200.0,
         metadata={
             "description": "Wall-clock timeout in seconds for Supervisor to wait for Executor "
             "result (call_executor wait_for_result=True / manage_executor). "
-            "Should be > executor_call_model_timeout to avoid premature kills.",
+            "Should be > executor_call_model_timeout to avoid premature kills. "
+            "Lowered from 300 to 200 after nightly probe (2026-06-25) found Mode 2 stuck "
+            "for 150s+ with no internal timeout firing before probe client.",
         },
     )
 

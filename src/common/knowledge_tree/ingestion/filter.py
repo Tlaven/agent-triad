@@ -65,6 +65,15 @@ _REDUNDANT_TASK_PATTERNS = re.compile(
     r"(完成|成功|已创建|已实现|已配置|已添加|执行了))"
 )
 
+# 假阴性事实模式：Executor workspace 边界限制产生的"不存在"类结论。
+# 自动摄入时过滤，避免污染 KT（夜间 probe 2026-06-25 session-003 发现的 BUG）。
+# 用户显式指令不应用此过滤（should_remember 中 user_explicit 早返回）。
+_NEGATIVE_FACT_PATTERNS = re.compile(
+    r"(不存在|未找到|找不到|没有[该这](?:个)?文件|无此文件|无该文件"
+    r"|No such file|not found|cannot find|does not exist)",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class FilterResult:
@@ -121,6 +130,12 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
 
     # 任务完成 summary：需要关键词 + 合理长度，或足够长
     if trigger == "task_complete":
+        # 假阴性事实过滤：Executor workspace 边界限制产生的"不存在"类结论
+        # 不应作为事实摄入 KT（用户显式指令已在前 bypass）。
+        if _NEGATIVE_FACT_PATTERNS.search(text):
+            return FilterResult(
+                passed=False, reason="workspace_negative_fact", confidence=0.0
+            )
         if has_keyword and len(text) > 15:
             return FilterResult(passed=True, reason="task_complete_with_substance", confidence=0.8)
         if len(text) > 100:
