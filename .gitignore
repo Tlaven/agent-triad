@@ -41,6 +41,7 @@ tests/e2e/*_results.json
 
 # LangGraph 本地 API / 状态
 .langgraph_api/
+.langgraph_api.bak.*/
 
 # IDE / OS
 .idea/
