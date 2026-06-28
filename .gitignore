@@ -32,6 +32,7 @@ htmlcov/
 # 运行时产物
 logs/*.port
 logs/*.log
+logs/probes/
 tests/e2e/*_results.json
 
 # 环境与密钥（勿提交）
@@ -42,6 +43,9 @@ tests/e2e/*_results.json
 # LangGraph 本地 API / 状态
 .langgraph_api/
 .langgraph_api.bak.*/
+
+# Claude Code 临时文件
+.claude/scheduled_tasks.lock
 
 # IDE / OS
 .idea/
