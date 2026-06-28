@@ -1,12 +1,12 @@
 ---
-description: Probe LangGraph Supervisor (one /loop fire) — read state.json, decide continue/switch, generate next message, evaluate response.
+description: Probe LangGraph Supervisor (one cron fire) — read state.json, decide continue/switch, generate next message, evaluate response.
 argument-hint: [budget_hours]
 allowed-tools: Bash(scripts/probe_supervisor.py:*), Read(logs/probes/**), Write(logs/probes/**), Edit(logs/probes/**), CronList, CronDelete
 ---
 
 # Probe Supervisor (one fire)
 
-You are mid-automated-probe of the LangGraph Supervisor. This slash command runs once per `/loop` fire. Execute the 9 steps below precisely. **Output discipline: never echo raw script JSON in your reply; internalize it.** Do not narrate. Working memory is unreliable across fires — `logs/probes/state.json` is the only long-term memory.
+You are mid-automated-probe of the LangGraph Supervisor. This slash command runs once per cron fire (registered via `/probe-supervisor-start`). Execute the 9 steps below precisely. **Output discipline: never echo raw script JSON in your reply; internalize it.** Do not narrate. Working memory is unreliable across fires — `logs/probes/state.json` is the only long-term memory.
 
 If `$ARGUMENTS` is a positive number, treat it as `budget_hours` (default 8).
 
@@ -127,4 +127,4 @@ Only append a second line if `verdict == bad` or a new `known_issue` was logged 
 
 Reply with a single line: `probe turn NNN done: verdict=<v> next=session-<NNN>`.
 
-Do not invoke any other tool. Do not write prose. The next `/loop` fire continues from `state.json`.
+Do not invoke any other tool. Do not write prose. The next cron fire continues from `state.json`.
