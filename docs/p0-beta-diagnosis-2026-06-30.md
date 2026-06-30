@@ -3,6 +3,8 @@
 > 诊断日期：2026-06-30
 > 触发来源：`docs/probe-analysis-2026-06-29.md` P0-β 改进建议
 > 方法：代码考古 + 一次实机复现（probe 客户端 + instrumented 日志）
+>
+> ✅ **已实施**：方案 2（content 语义判别 + strip 冗余 tool_calls）落地为决策 31，详见 [`architecture-decisions.md`](architecture-decisions.md) 决策 31。预期效果：s002-t5 类场景从 182s 降至 < 30s。
 
 ---
 

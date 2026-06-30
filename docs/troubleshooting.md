@@ -146,6 +146,18 @@ def _normalize(msg):
 
 ---
 
+## 9. Supervisor duration 异常长 + mode=1 但执行了 Executor
+
+**症状**：用户问"Executor 都有哪些内置工具？"或"查找 X 配置"等本应 mode 1（纯问答）的问题，dev server 返回 `supervisor_decision.mode=1` 但 `duration_s > 60s`，且 `tool_calls` 列表含 `call_executor`/`call_planner`。
+
+**原因**：LLM 在中间轮"既写出完整答案又冗余调工具"——`route_model_output` 只看 tool_calls 是否为空，无条件路由到 tools 节点执行 Executor 链路（200s+ 阻塞）。这是 LLM 行为纪律问题，prompt 治不了。
+
+**解决**：决策 31 在 `call_model` 内加 `_looks_like_final_answer()` content 语义判别 + strip 冗余 tool_calls。默认开启（`SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS=1`）。若新场景出现误判（合理工具调用被误 strip），设 `=0` 即时关闭，无需重启。
+
+**关联**：[`architecture-decisions.md`](architecture-decisions.md) 决策 31；诊断报告 [`p0-beta-diagnosis-2026-06-30.md`](p0-beta-diagnosis-2026-06-30.md)；探测分析 [`probe-analysis-2026-06-29.md`](probe-analysis-2026-06-29.md)。
+
+---
+
 ## 诊断工具
 
 | 需求 | 方法 |
