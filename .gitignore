@@ -33,6 +33,7 @@ htmlcov/
 logs/*.port
 logs/*.log
 logs/probes/
+logs/probe-timing-*
 tests/e2e/*_results.json
 
 # 环境与密钥（勿提交）
