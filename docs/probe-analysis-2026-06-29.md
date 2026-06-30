@@ -219,6 +219,8 @@ Agent 自评承认 3 处不足，被追问后**立刻调用 `knowledge_tree_inge
 
 ### P1-β：Entry A Provenance Tagging
 
+> ✅ **已实施**（决策 32）：摄入层加 `metadata.executor_status`，inject 层加 `[失败教训]` tag。详见 `docs/architecture-decisions.md` 决策 32。方式 B（阈值调整）留作后续观察期优化。
+
 **问题**：Executor 的失败输出（假阴性）被 Entry A 无差别归档到 KT，形成错误记忆的自我强化循环。
 
 **方向**：

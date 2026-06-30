@@ -107,7 +107,7 @@ class ExecutorResult:
 
 - `call_planner` 后：`plan_json` 写入 Planner 会话。
 - `call_executor` 后：更新 `last_executor_*`；`updated_plan_json` 非空则刷新 `plan_json`，**空则保留**原 `plan_json`。
-- `completed` 或 `failed` 后，Entry A 自动从 Executor 结果提取知识：`_try_auto_ingest_executor_result()`（`asyncio.to_thread` 包裹，避免 LangGraph dev server 的 BlockingError）调用 `extract_knowledge_from_executor_result()`（提取 summary + 步骤 result_summary + failure_reason）+ `extract_experience_from_executor_result()`（提取结构化经验节点，`node_type=experience`），过滤通用模板后摄入知识树。全程 try/except 包裹，KT 失败不影响主图。
+- `completed` 或 `failed` 后，Entry A 自动从 Executor 结果提取知识：`_try_auto_ingest_executor_result()`（`asyncio.to_thread` 包裹，避免 LangGraph dev server 的 BlockingError）调用 `extract_knowledge_from_executor_result()`（提取 summary + 步骤 result_summary + failure_reason）+ `extract_experience_from_executor_result()`（提取结构化经验节点，`node_type=experience`），过滤通用模板后摄入知识树。**摄入时写入 `metadata.executor_status`（决策 32），检索 inject 时 `failed` 节点带 `[失败教训]` 前缀**。全程 try/except 包裹，KT 失败不影响主图。
 - `completed` 时 Supervisor 默认只收 `summary`；步骤级细节用 `manage_executor(action="get_result", plan_id=..., detail="full")`（任务已结束且 `plan_id` 与会话计划一致时读缓存；异步仍在跑时与 `overview` 相同先等待，再由图节点附带详情）。
 
 ---

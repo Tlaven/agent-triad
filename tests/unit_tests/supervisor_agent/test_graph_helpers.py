@@ -281,7 +281,7 @@ class TestAutoIngestExecutorResult:
         ingested_chunks = []
 
         class FakeKT:
-            def ingest(self, chunk, trigger="", source=""):
+            def ingest(self, chunk, trigger="", source="", **kwargs):
                 ingested_chunks.append(chunk)
                 class Report:
                     nodes_ingested = 1
@@ -320,7 +320,7 @@ class TestAutoIngestExecutorResult:
         ingested_chunks = []
 
         class FakeKT:
-            def ingest(self, chunk, trigger="", source=""):
+            def ingest(self, chunk, trigger="", source="", **kwargs):
                 ingested_chunks.append(chunk)
                 class Report:
                     nodes_ingested = 1
@@ -383,7 +383,7 @@ class TestAutoIngestExecutorResult:
         ingest_called = []
 
         class FakeKT:
-            def ingest(self, chunk, trigger="", source=""):
+            def ingest(self, chunk, trigger="", source="", **kwargs):
                 ingest_called.append(chunk)
                 class Report:
                     nodes_ingested = 0

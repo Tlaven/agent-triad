@@ -369,6 +369,9 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         tag = "[高可信]" if score >= (0.75 if is_semantic else 0.55) else "[参考]"
         if idx in contradiction_indices:
             tag = "[矛盾]" + tag
+        exec_status_meta = node.metadata.get("executor_status") if node.metadata else None
+        if exec_status_meta == "failed":
+            tag = "[失败教训]" + tag
         context_lines.append(f"- {tag} {node.title}（相似度 {score:.2f}）")
         context_lines.append(f"  {node.content[:300]}")
 
@@ -378,6 +381,13 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
         query[:40],
         [round(s, 2) for _, s in high_quality],
     )
+    low_confidence = sum(
+        1
+        for node, _ in results_to_inject
+        if node.metadata and node.metadata.get("executor_status") == "failed"
+    )
+    if low_confidence:
+        logger.info("KT inject: %d failed-lesson nodes tagged [失败教训]", low_confidence)
 
     # P3: 获取优化建议（信号检测发现的问题）
     kt_suggestions_str = ""
@@ -1159,6 +1169,7 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
                 chunk,
                 trigger="task_complete",
                 source="auto:executor",
+                metadata={"executor_status": exec_status},
             )
             total_ingested += report.nodes_ingested
 
@@ -1171,14 +1182,18 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
                 exp,
                 trigger="task_complete",
                 source="auto:executor_experience",
-                metadata={"node_type": "experience"},
+                metadata={
+                    "node_type": "experience",
+                    "executor_status": exec_status,
+                },
             )
             total_ingested += exp_report.nodes_ingested
 
         if total_ingested > 0:
             logger.info(
-                "Entry A: auto-ingested %d knowledge chunks (%d experiences) from executor result",
+                "Entry A: auto-ingested %d nodes from executor result (status=%s, experiences=%d)",
                 total_ingested,
+                exec_status,
                 len(experiences),
             )
     except Exception:

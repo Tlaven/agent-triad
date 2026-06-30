@@ -1098,3 +1098,62 @@ strip 后 `route_model_output` 看到 `tool_calls=[]` → 自然走 `__end__`。
 **原因**：mode 推断与工具调用路由是两个独立机制——前者事后打标签，后者只看 tool_calls 是否为空。LLM 在中间轮的"行为纪律"无法靠 prompt 解决（trigger 词覆盖规则），必须在路由层用 content 语义判别 + strip。方案 2（`call_model` 内 strip）比方案 1（`route` 内短路）更稳——后者依赖 `_infer_supervisor_decision` 反转，但该函数纯 tool_calls 驱动，短路条件永远不成立。
 
 **关联决策**：决策 8（Supervisor 三种回复模式）、决策 4（Executor 遇阻即停）。
+
+---
+
+## 决策 32：Entry A Provenance Tagging — 失败教训标记
+
+**背景**：夜间探测（`docs/probe-analysis-2026-06-29.md` §九）发现 P1-β：Executor 失败输出（假阴性）被 Entry A 自动摄入 KT，形成错误记忆自我强化循环。s002-t5 案例完整链路：Executor unreachable → Supervisor 基于失败结果报假阴性（声称 `.env.example` 和 `config/` 不存在，实际均存在）→ 假阴性被自动归档 → 下次检索被 `[相关知识]` 注入 → Supervisor 基于错误记忆决策。
+
+**根因分析**：
+
+| 证据 | 位置 | 说明 |
+|------|------|------|
+| 摄入时 status 丢失 | `graph.py:1157-1176` 两处 `kt.ingest` | `_try_auto_ingest_executor_result` 接收 `exec_status` 但没传给 `kt.ingest` |
+| inject 路径不看 metadata | `graph.py:368-373` 注入循环 | 只看相似度 score 决定 tag，完全没用 `node.metadata` |
+| KT 节点已有 metadata dict | `dag/node.py:32` | `metadata: dict[str, Any]` 是自由 dict，零迁移扩展 |
+
+`completed` 和 `failed` 在摄入元数据层完全无区分——这是 P1-β 根因。
+
+**决策**：A（摄入层加 metadata）+ C（inject 层加 `[失败教训]` tag）组合。
+
+### 1. 摄入层：`metadata={"executor_status": exec_status}`
+
+普通 chunk 摄入（`graph.py:1157-1163`）：
+```python
+kt.ingest(chunk, trigger="task_complete", source="auto:executor",
+          metadata={"executor_status": exec_status})
+```
+
+经验节点摄入（`graph.py:1169-1176`）：保留 `node_type` + 加 `executor_status`：
+```python
+kt.ingest(exp, trigger="task_complete", source="auto:executor_experience",
+          metadata={"node_type": "experience", "executor_status": exec_status})
+```
+
+### 2. inject 层：`[失败教训]` tag 前缀
+
+`graph.py:368-373` 注入循环加判别：
+```python
+exec_status_meta = node.metadata.get("executor_status") if node.metadata else None
+if exec_status_meta == "failed":
+    tag = "[失败教训]" + tag
+```
+
+tag 累积顺序：`[失败教训]` + `[矛盾]` + `[高可信]/[参考]`。
+
+**tag 选择理由**：`[失败教训]` 比 `[低可信]` 更准确——节点是真实记录但源自失败执行；`[未验证]` 语义不准（其实被记录了）。
+
+### 3. 不做 B（检索层调相似度阈值）
+
+留作后续观察期优化——需要调参周期，且需要先观测 `[失败教训]` tag 出现频率再决定是否加严。
+
+### 效果
+
+- 6 个新增单元测试 + 既有 entry A 集成测试全通过
+- 已存 KT 节点（无 metadata）安全降级——`.get()` 返回 None，按普通节点处理
+- 失败教训节点在 inject 时显式标记，Supervisor 不会再当事实引用
+
+**原因**：Executor 失败的假阴性是 LLM 基于 unreachable 状态的推测，不是真实事实。把它们无差别摄入 KT 会让"错误记忆"在后续检索中持续污染决策。在摄入层加 source 标记 + inject 层加 tag 是双层防护——前者提供数据基础（零迁移成本），后者即时止血（LLM 看到标记不再当事实）。
+
+**关联决策**：决策 26（知识摄入管道）、决策 6（Session 同步，Entry A 摄入时机）。

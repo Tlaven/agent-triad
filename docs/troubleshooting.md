@@ -171,6 +171,21 @@ def _normalize(msg):
 
 ---
 
+## 10. KT 检索结果含 `[失败教训]` 前缀
+
+**症状**：Supervisor 检索 KT 时，`[相关知识]` 注入的某些节点 tag 形如 `[失败教训][高可信] xxx`。
+
+**原因**：决策 32 给 Entry A 摄入的节点加 `executor_status` metadata。检索 inject 时，`failed` 状态的节点会被加 `[失败教训]` 前缀，提示 Supervisor 该节点源自失败执行（可能是假阴性），不应作为事实引用。
+
+**解决**：这是预期行为，不是错误。如果 tag 出现频率过高（说明失败结果被大量摄入），可：
+- 检查 Entry A 摄入是否过滤失效（`src/common/knowledge_tree/ingestion/filter.py` 的 `_NEGATIVE_FACT_PATTERNS`）
+- 调整 `extract_failure_reason` 的提取逻辑
+- 后续可考虑加方式 B（检索层按 source 调相似度阈值）
+
+**关联**：决策 32；探测分析 [`probe-analysis-2026-06-29.md`](probe-analysis-2026-06-29.md) §九。
+
+---
+
 ## 关联文档
 
 - [`environment-variables.md`](environment-variables.md) — 配置变量完整参考
