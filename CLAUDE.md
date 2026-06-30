@@ -89,7 +89,7 @@ class ExecutorResult:
 
 ---
 
-## 失败处理（决策 4 / 5 / 5.1）
+## 失败处理（决策 4 / 5 / 5.1 / 33）
 
 | status | updated_plan_json | replan_count | Supervisor |
 |--------|-------------------|--------------|------------|
@@ -99,7 +99,7 @@ class ExecutorResult:
 | failed | 空 | < MAX_REPLAN | 依 `summary`；可升 Mode 3 |
 | failed | 任意 | ≥ MAX_REPLAN | 失败分析，终止 |
 
-正常失败由 Executor 写 `status`/`failure_reason`；异常由 `_mark_plan_steps_failed()` 兜底。Mode 3 下 `updated_plan_json` 非空；Mode 2 可空。Mode 2→3：仅 `failed` 且 `summary` 表明需计划层重构时由 Supervisor 升级。
+正常失败由 Executor 写 `status`/`failure_reason`；异常由 `_mark_plan_steps_failed()` 兜底。Mode 3 下 `updated_plan_json` 非空；Mode 2 可空。Mode 2→3：仅 `failed` 且 `summary` 表明需计划层重构时由 Supervisor 升级。**MAX_REPLAN 触发后（决策 33）早返回同时重置 `replan_count=0` + `last_executor_status=None`，避免 thread bricked**。
 
 ---
 

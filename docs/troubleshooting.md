@@ -186,6 +186,18 @@ def _normalize(msg):
 
 ---
 
+## 11. Thread bricked：连续多轮返回相同 stale 响应
+
+**症状**：某轮触发 MAX_REPLAN 后，后续任何请求（"你好"/"?"）都秒回上一轮的失败消息（byte-identical）。`messages_count` 仅 +1（只有 user，无新 AI 响应）。Thread 不可恢复，只能 switch session。
+
+**原因**：MAX_REPLAN 早返回分支（决策 33 之前）的 guard 条件（`last_executor_status=="failed"` + `replan_count >= max_replan`）永不重置。早返回 return dict 只写 `messages` + `supervisor_decision`，不写 `replan_count` 或 `planner_session`。下一轮 call_model 进入时 guard 仍命中 → deterministic 早返回（不到 LLM 调用）→ "2.3s 秒回 byte-identical" 的根因。
+
+**解决**：决策 33 在 MAX_REPLAN 早返回 return dict 加 `replan_count=0` + `planner_session`（用 `dataclasses.replace` 清 `last_executor_status`）。下一轮 user message 进入时 guard 不再命中，正常走 LLM 分支。
+
+**关联**：决策 33；探测分析 [`probe-analysis-2026-06-29.md`](probe-analysis-2026-06-29.md) §七。
+
+---
+
 ## 关联文档
 
 - [`environment-variables.md`](environment-variables.md) — 配置变量完整参考

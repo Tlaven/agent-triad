@@ -208,6 +208,8 @@ Agent 自评承认 3 处不足，被追问后**立刻调用 `knowledge_tree_inge
 
 ### P1-α：MAX_REPLAN 状态污染后的 Thread 自愈
 
+> ✅ **已实施**（决策 33）：MAX_REPLAN 早返回同时重置 `replan_count=0` + `last_executor_status=None`，下一轮 user message 不再命中早返回 guard，正常走 LLM 分支。详见 `docs/architecture-decisions.md` 决策 33。
+
 **问题**：Executor 超时后，thread 的 `messages` 状态被 MAX_REPLAN 失败标志污染，后续请求只返回 stale 响应。
 
 **方向**：

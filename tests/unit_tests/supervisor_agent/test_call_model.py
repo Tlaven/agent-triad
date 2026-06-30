@@ -40,6 +40,56 @@ async def test_call_model_max_replan_reached_returns_mode1(make_runtime) -> None
     assert isinstance(result["messages"][0], AIMessage)
 
 
+async def test_call_model_max_replan_resets_state(make_runtime) -> None:
+    """MAX_REPLAN 早返回应重置 replan_count + last_executor_status，避免 thread bricked。"""
+    state = State(
+        messages=[HumanMessage(content="do something complex")],
+        planner_session=PlannerSession(
+            session_id="s1",
+            last_executor_status="failed",
+        ),
+        replan_count=2,
+    )
+    runtime = make_runtime(Context(max_replan=2))
+
+    result = await call_model(state, runtime)
+
+    assert result["replan_count"] == 0
+    assert result["planner_session"].last_executor_status is None
+    assert result["planner_session"].session_id == "s1"
+
+
+async def test_call_model_recovers_after_max_replan(make_runtime) -> None:
+    """下一轮 user message 后应走 LLM 分支，不再命中 MAX_REPLAN 早返回。"""
+    state_t1 = State(
+        messages=[HumanMessage(content="task that fails N times")],
+        planner_session=PlannerSession(
+            session_id="s1",
+            last_executor_status="failed",
+        ),
+        replan_count=2,
+    )
+    runtime = make_runtime(Context(max_replan=2))
+    result_t1 = await call_model(state_t1, runtime)
+
+    state_t2 = State(
+        messages=[
+            HumanMessage(content="task that fails N times"),
+            result_t1["messages"][0],
+            HumanMessage(content="你好"),
+        ],
+        planner_session=result_t1["planner_session"],
+        replan_count=result_t1["replan_count"],
+    )
+    mock_llm = _make_mock_llm(AIMessage(content="你好！有什么可以帮你的？"))
+
+    with patch("src.supervisor_agent.graph.load_chat_model", return_value=mock_llm):
+        result_t2 = await call_model(state_t2, runtime)
+
+    mock_llm.ainvoke.assert_called_once()
+    assert result_t2["messages"][0].content == "你好！有什么可以帮你的？"
+
+
 async def test_call_model_below_max_replan_does_not_force_terminate(make_runtime) -> None:
     """When replan_count < max_replan, it should NOT short-circuit to mode-1."""
     state = State(

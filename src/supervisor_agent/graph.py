@@ -4,6 +4,7 @@ Works with a chat model with tool calling support.
 """
 
 import asyncio
+import dataclasses
 import json
 import logging
 import os
@@ -451,6 +452,9 @@ async def call_model(
             reason=f"已达到最大重规划次数（{runtime.context.max_replan}）",
             confidence=0.95,
         )
+        reset_session = dataclasses.replace(
+            state.planner_session, last_executor_status=None
+        )
         return {
             "messages": [
                 AIMessage(
@@ -461,6 +465,8 @@ async def call_model(
                 )
             ],
             "supervisor_decision": decision,
+            "replan_count": 0,
+            "planner_session": reset_session,
         }
 
     # Mode2 失败且语义上需要计划层重构时，显式升级到 Mode3（由 Supervisor 决策）。

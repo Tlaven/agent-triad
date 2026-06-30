@@ -1157,3 +1157,61 @@ tag 累积顺序：`[失败教训]` + `[矛盾]` + `[高可信]/[参考]`。
 **原因**：Executor 失败的假阴性是 LLM 基于 unreachable 状态的推测，不是真实事实。把它们无差别摄入 KT 会让"错误记忆"在后续检索中持续污染决策。在摄入层加 source 标记 + inject 层加 tag 是双层防护——前者提供数据基础（零迁移成本），后者即时止血（LLM 看到标记不再当事实）。
 
 **关联决策**：决策 26（知识摄入管道）、决策 6（Session 同步，Entry A 摄入时机）。
+
+---
+
+## 决策 33：Thread Bricked 自愈 — MAX_REPLAN 早返回重置状态
+
+**背景**：夜间探测（`docs/probe-analysis-2026-06-29.md` §七）发现 P1-α：MAX_REPLAN 触发后 thread 永久 bricked。3 个 session（s001/s004/s006）因同一模式 bricked，共浪费 12 turns（17%）。即使决策 31 修了 P0-α 上游放大器（减少进入 MAX_REPLAN 的频率），一旦进入 MAX_REPLAN，thread 仍然不可恢复。
+
+**根因分析**：
+
+| 证据 | 位置 | 说明 |
+|------|------|------|
+| 早返回 guard 永不重置 | `graph.py:443-464` | guard 条件基于 `last_executor_status=="failed"` + `replan_count >= max_replan`，但 return dict 不写这两个字段 |
+| 下一轮 deterministic 早返回 | `call_model` 入口 | guard 条件仍然成立 → 直接返回固定 AIMessage，不到 LLM 调用 |
+| "2.3s 秒回 byte-identical" | probe s001-t5 / s004-t3-5 | 不是 LLM 推理结果，是常量字符串 |
+
+`call_model` 早返回分支只读 guard 条件、不写"已处理"标志——这是 P1-α 根因。下一轮 user message 进入时 guard 仍命中，LLM 永远拿不到新用户消息。
+
+**决策**：在 MAX_REPLAN 早返回的 return dict 里加状态重置。
+
+### 1. return dict 加 `replan_count=0` + `planner_session`
+
+```python
+import dataclasses  # 顶部新增
+
+# 早返回分支
+reset_session = dataclasses.replace(
+    state.planner_session, last_executor_status=None
+)
+return {
+    "messages": [AIMessage(...)],
+    "supervisor_decision": decision,
+    "replan_count": 0,                  # 新增：重置计数器
+    "planner_session": reset_session,   # 新增：清理 last_executor_status
+}
+```
+
+### 2. 为什么安全
+
+- MAX_REPLAN 触发轮已经汇报用户失败（AIMessage 含 "执行已多次失败..."），用户看到完整信息
+- 重置 `replan_count=0` 和 `last_executor_status=None` 不影响本轮返回的 messages
+- 下一轮 user message 进入时 guard 不命中 → 正常走 LLM 分支
+- `dataclasses.replace` 只覆盖 `last_executor_status`，其他 PlannerSession 字段（`plan_json` / `planner_history_by_plan_id` 等）保留——与 `_build_executor_updates` 同样的修改模式
+
+### 3. 不做的事
+
+- **不引入** 新的 state 字段（如"已汇报"标志）——重置 guard 条件本身更直接
+- **不加** `manage_executor(reset_thread)` 工具——bricked 时 LLM 根本不被调用，工具没用
+- **不动** probe 客户端——修源码 bug 比探测端绕过更彻底
+
+### 效果
+
+- 2 个新增单元测试 + 既有 max_replan 测试全通过（含跨轮恢复测试）
+- s001-t5 / s004-t3-5 类场景：下一轮 user message 进入时走 LLM 分支，获得新响应（非 stale）
+- thread 不再 bricked，无需 session switch
+
+**原因**：MAX_REPLAN 是"放弃重规划"的终态语义，但早返回的实现把"终态"做成了"永久锁死"——下一轮的 user message 是新对话意图，不应该继承上一轮的失败状态。在早返回里清 guard 条件，让"放弃"只影响当前轮、不污染 thread。
+
+**关联决策**：决策 5（失败处理双重保障）、决策 5.1（Mode 2→3 切换）、决策 31（mode 路由脱节，P0-α 上游放大器）。
