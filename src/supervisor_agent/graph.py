@@ -455,6 +455,12 @@ async def call_model(
         reset_session = dataclasses.replace(
             state.planner_session, last_executor_status=None
         )
+        logger.info(
+            "[BRICKED-RECOVERY] MAX_REPLAN 触发，重置 replan_count + last_executor_status "
+            "(session=%s, prev_replan_count=%d)",
+            state.planner_session.session_id,
+            state.replan_count,
+        )
         return {
             "messages": [
                 AIMessage(
