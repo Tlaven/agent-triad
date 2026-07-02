@@ -1,4 +1,4 @@
-.PHONY: all help setup dev dev_ui lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_coverage test_lint_coverage test_full test_all test_everything test_v1_auto test_v1_acceptance
+.PHONY: all help setup dev dev_ui dev_probe lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_coverage test_lint_coverage test_full test_all test_everything test_v1_auto test_v1_acceptance
 
 all: help
 
@@ -13,6 +13,11 @@ dev:
 
 dev_ui:
 	uv run langgraph dev --config langgraph.json --port $(DEV_PORT)
+
+# 探测专用：禁用 watchfiles 热重载，避免 kt_probe 写盘 / 日志轮转触发 reload 杀掉 run
+# 详见 docs/probe-analysis-2026-07-01.md N1
+dev_probe:
+	uv run langgraph dev --config langgraph.json --port $(DEV_PORT) --no-browser --no-reload
 
 lint:
 	uv run ruff check src tests
@@ -73,6 +78,7 @@ help:
 	@echo "  make setup              安装依赖（uv sync --dev）"
 	@echo "  make dev                启动 langgraph dev（无 UI，默认端口 2024）"
 	@echo "  make dev_ui             启动 langgraph dev（Studio UI，默认端口 2024）"
+	@echo "  make dev_probe          同 dev 但禁用热重载（探测专用，避免 kt_probe/log 触发 reload）"
 	@echo "                          可覆盖端口：make dev DEV_PORT=2025"
 	@echo ""
 	@echo "Quality:"

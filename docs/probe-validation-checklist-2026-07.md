@@ -9,6 +9,8 @@
 
 - [ ] `state.json` 状态干净（若 `status != running`，归档后再启动，避免 stale state 自毁）
 - [ ] dev server 端口 2024 可用
+- [ ] **dev server 用 `make dev_probe` 启动**（`--no-reload`），不是 `make dev`
+  - 原因：watchfiles 持续触发"7 changes detected"热重载（日志/kt_probe 写盘），杀掉运行中 run 但 API 层仍标 running → 探测假死。详见 [probe-analysis-2026-07-01.md N1](probe-analysis-2026-07-01.md)
 - [ ] API key 有效（`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`）
 - [ ] `.env` 中 `SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS` 未被显式设为 `0`（默认 `1` 开启）
 
