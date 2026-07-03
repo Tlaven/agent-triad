@@ -25,6 +25,10 @@ from src.common.context import Context
 
 logger = logging.getLogger(__name__)
 
+# 模块级缓存 cwd：避免 subprocess.Popen / create_subprocess_exec 默认 cwd=None
+# 触发内部 os.getcwd() → langgraph dev BlockingError（检测器看穿 asyncio.to_thread）。
+_CWD_CACHE = os.getcwd()
+
 
 @dataclass
 class ProcessHandle:
@@ -165,6 +169,7 @@ class ExecutorProcessManager:
                 "-m",
                 "src.executor_agent",
                 env=env,
+                cwd=_CWD_CACHE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
@@ -179,6 +184,7 @@ class ExecutorProcessManager:
                 subprocess.Popen,
                 [sys.executable, "-m", "src.executor_agent"],
                 env=env,
+                cwd=_CWD_CACHE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
             )
