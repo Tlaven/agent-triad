@@ -126,7 +126,7 @@ class ExecutorResult:
 - **MCP**：`enable_deepwiki` / `enable_filesystem_mcp` 等须在 `.env` 显式开启方生效。
 - **消息历史限制**：`SUPERVISOR_MAX_HISTORY_MESSAGES`（默认 100）；`call_model` 构造 LLM 输入时截断，保持工具调用序列完整性。0 = 不限制。截断算法：保留末尾 N 条消息，扫描窗口内所有 AI 消息的 `tool_calls` 声明，过滤掉无父 AI 引用的孤立 `ToolMessage`（含散布在中间的孤立消息）。
 - **LLM 调用超时保护**（决策 30）：三个 Agent 各自独立——`supervisor_call_model_timeout`/`planner_call_model_timeout`（默认 120s）、`executor_call_model_timeout`（默认 180s）。Supervisor 超时返回友好提示；Planner 超时抛 RuntimeError；Executor 超时终止进程。0 禁用。`invoke_chat_model` 自动记录每次调用耗时。
-- **Mode 纪律**（决策 31）：LLM 输出完整答案但冗余调工具时，`call_model` 内 strip 掉 `tool_calls`。判别：长度 ≥ 80 + markdown 结构 + 无过程词（`接下来`/`我将`/`[EXECUTOR_RESULT]` 等）+ 非 mode-3。env `SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS=0` 即时关闭。
+- **Mode 纪律**（决策 31，已撤销 2026-07-03）：探测触发 0 次，谓词为死代码，已删除 strip 逻辑与 `_looks_like_final_answer`。mode 路由脱节问题由 N4 修复（见 `docs/n4-diagnosis-result.md` / 实施计划 Task 1）。
 - **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
 - **Mailbox 驱逐**：`_MAX_BOXES=80` 触发驱逐，保留 `_RETAIN_BOXES=50`；优先驱逐 `has_completion=True` 的 box，必要时驱逐未完成 box 防止无限堆积。
 - **ExecutorPoller 注册上限**：`_MAX_ACTIVE_TASKS=100`；`register()` 时自动驱逐 `registered_at` 最旧的条目，防止长时间运行后内存泄漏。

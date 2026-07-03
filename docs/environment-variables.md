@@ -212,25 +212,6 @@
 
 ---
 
-## 10. Mode 纪律（决策 31）
-
-Supervisor 工具调用路由的硬约束——LLM 输出完整答案但冗余调工具时，strip 掉 `tool_calls` 让 `route_model_output` 自然走 `__end__`。
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS` | `1` | 启用 mode 纪律。`0` 即时关闭（每轮读 env，无需重启） |
-
-**触发条件**（全部满足才 strip）：
-
-- content 长度 ≥ 80 字符 **AND** 含 markdown 结构（`##` / 表格 / 列表）
-- content 不含过程性措辞（`接下来`/`我将`/`让我先`/`恢复后`/`我可以帮你`）
-- content 不含内部标记（`[PLANNER_REASONING]`/`[EXECUTOR_RESULT]`/`[EXECUTOR_DISPATCH]`/`[STALE]`）
-- `tool_calls` 不含 `call_planner`（mode-3 多步任务保护）
-
-**观测**：触发时记录 `[MODE-DISCIPLINE] strip tool_calls=[...] content_len=N` 日志。
-
----
-
 ## 关联文档
 
 - [`CLAUDE.md`](../CLAUDE.md) §运行与环境（硬规则摘要）、§多模型环境变量

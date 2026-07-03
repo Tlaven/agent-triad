@@ -7,8 +7,8 @@ import asyncio
 import dataclasses
 import json
 import logging
-import os
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Literal, cast
@@ -32,6 +32,15 @@ from src.supervisor_agent.state import (
 from src.supervisor_agent.tools import get_tools
 
 logger = logging.getLogger(__name__)
+
+
+def _n4_diag(msg: str) -> None:
+    """N4 诊断日志：写文件，避开 langgraph dev 吞 logger 的问题。探测后删除。"""
+    try:
+        with open("logs/n4-diag.log", "a", encoding="utf-8") as _f:
+            _f.write(f"{time.time():.3f} {msg}\n")
+    except OSError:
+        pass
 
 
 async def _build_executor_status_brief(state: State, ctx: Context) -> str:
@@ -612,19 +621,19 @@ async def call_model(
             ),
         }
 
+    content_str = (
+        response.content
+        if isinstance(response.content, str)
+        else str(response.content or "")
+    )
+    tc_names = [tc.get("name") for tc in (response.tool_calls or [])]
+    _n4_diag(
+        f"call_model raw response: content_len={len(content_str)} "
+        f"content_head={content_str[:60]!r} tool_calls={tc_names}"
+    )
+
     if _is_thinking_visible(runtime.context) and not response.tool_calls:
         response = _inject_reasoning_for_visible_mode(response)
-
-    if response.tool_calls and _looks_like_final_answer(
-        response.content, response.tool_calls
-    ):
-        if os.getenv("SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS", "1") != "0":
-            logger.info(
-                "[MODE-DISCIPLINE] strip tool_calls=%s content_len=%d",
-                [tc.get("name") for tc in response.tool_calls],
-                len(response.content or ""),
-            )
-            response = response.model_copy(update={"tool_calls": []})
 
     decision = _infer_supervisor_decision(response)
 
@@ -1407,43 +1416,6 @@ def _infer_supervisor_decision(response: AIMessage) -> SupervisorDecision:
             mode=2, reason="目标明确，直接工具执行", confidence=0.75
         )
     return SupervisorDecision(mode=2, reason="存在工具调用", confidence=0.6)
-
-
-_FINAL_STRUCT_RE = re.compile(
-    r"(^|\n)\s*(#{1,3}\s+\S|\|.*\|.*\||[-*•]\s+\S|\d+[.)、]\s+\S)",
-    re.MULTILINE,
-)
-_PROCESS_MARKERS = (
-    "正在调用",
-    "接下来",
-    "需要先",
-    "我将",
-    "让我先",
-    "首先",
-    "然后调用",
-    "恢复后",
-    "我可以帮你",
-    "[PLANNER_REASONING]",
-    "[EXECUTOR_RESULT]",
-    "[EXECUTOR_DISPATCH]",
-    "[STALE]",
-)
-
-
-def _looks_like_final_answer(content: Any, tool_calls: list[Any]) -> bool:
-    """判别 content 是否已是完整最终答案（用于 strip 冗余 tool_calls）。"""
-    if not isinstance(content, str):
-        content = str(content or "")
-    if len(content) < 80:
-        return False
-    if not _FINAL_STRUCT_RE.search(content):
-        return False
-    for marker in _PROCESS_MARKERS:
-        if marker in content:
-            return False
-    if tool_calls and any(tc.get("name") == "call_planner" for tc in tool_calls):
-        return False
-    return True
 
 
 def _is_thinking_visible(ctx: Context) -> bool:

@@ -152,9 +152,9 @@ def _normalize(msg):
 
 **原因**：LLM 在中间轮"既写出完整答案又冗余调工具"——`route_model_output` 只看 tool_calls 是否为空，无条件路由到 tools 节点执行 Executor 链路（200s+ 阻塞）。这是 LLM 行为纪律问题，prompt 治不了。
 
-**解决**：决策 31 在 `call_model` 内加 `_looks_like_final_answer()` content 语义判别 + strip 冗余 tool_calls。默认开启（`SUPERVISOR_STRIP_REDUNDANT_TOOL_CALLS=1`）。若新场景出现误判（合理工具调用被误 strip），设 `=0` 即时关闭，无需重启。
+**解决**：决策 31 已于 2026-07-03 撤销（07-01+07-02 探测触发 0 次，谓词为死代码，strip 逻辑与 `_looks_like_final_answer` 已删除）。mode 路由脱节问题由 N4 修复（用户明示禁止工具时 strip tool_calls），详见 `docs/n4-diagnosis-result.md`。
 
-**关联**：[`architecture-decisions.md`](architecture-decisions.md) 决策 31；诊断报告 [`p0-beta-diagnosis-2026-06-30.md`](p0-beta-diagnosis-2026-06-30.md)；探测分析 [`probe-analysis-2026-06-29.md`](probe-analysis-2026-06-29.md)。
+**关联**：[`architecture-decisions.md`](architecture-decisions.md) 决策 31（已撤销）；N4 诊断 [`n4-diagnosis-result.md`](n4-diagnosis-result.md)；诊断报告 [`p0-beta-diagnosis-2026-06-30.md`](p0-beta-diagnosis-2026-06-30.md)。
 
 ---
 
