@@ -24,6 +24,10 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
 
+# 模块级缓存 cwd：避免在 langgraph dev 的 async event loop 内调 os.getcwd
+# 触发 BlockingError（检测器看穿 asyncio.to_thread 包装）。
+_CWD_CACHE = os.getcwd()
+
 from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
 from src.common.mcp import get_readonly_mcp_tools
@@ -152,7 +156,7 @@ async def planner_tools_node(
     tool_node = ToolNode(tools)
     result = await tool_node.ainvoke(state)
     messages = result.get("messages", [])
-    cwd = await asyncio.to_thread(os.getcwd)
+    cwd = _CWD_CACHE
     out: list[BaseMessage] = []
     for m in messages:
         if isinstance(m, ToolMessage):

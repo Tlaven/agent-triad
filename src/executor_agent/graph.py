@@ -33,6 +33,10 @@ from src.executor_agent.tools import get_executor_tools
 
 logger = logging.getLogger(__name__)
 
+# 模块级缓存 cwd：避免在 langgraph dev 的 async event loop 内调 os.getcwd
+# 触发 BlockingError（检测器看穿 asyncio.to_thread 包装）。
+_CWD_CACHE = os.getcwd()
+
 
 # ==================== State ====================
 
@@ -228,7 +232,7 @@ async def tools_node(state: ExecutorState, runtime: Runtime[Context]) -> dict[st
     finally:
         clear_current_plan_id()
 
-    cwd = await asyncio.to_thread(os.getcwd)
+    cwd = _CWD_CACHE
     out: list[BaseMessage] = []
     has_interrupt = False
     for m in messages:

@@ -11,6 +11,10 @@ from typing import Any
 
 from src.common.context import Context
 
+# 模块级缓存 cwd：避免在 langgraph dev 的 async event loop 内调 os.getcwd
+# 触发 BlockingError（检测器看穿 asyncio.to_thread 包装）。
+_CWD_CACHE = os.getcwd()
+
 
 @dataclass(frozen=True)
 class NormalizedObservation:
@@ -56,7 +60,7 @@ def normalize_observation(
 
     raw = _serialize_tool_result(result)
     n = len(raw)
-    base_cwd = cwd if cwd and os.path.isdir(cwd) else os.getcwd()
+    base_cwd = cwd if cwd and os.path.isdir(cwd) else _CWD_CACHE
 
     # 1. 优先尝试外置大输出
     if (
