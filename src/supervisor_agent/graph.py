@@ -8,7 +8,6 @@ import dataclasses
 import json
 import logging
 import re
-import time
 import uuid
 from datetime import datetime
 from typing import Any, Literal, cast
@@ -32,15 +31,6 @@ from src.supervisor_agent.state import (
 from src.supervisor_agent.tools import get_tools
 
 logger = logging.getLogger(__name__)
-
-
-def _n4_diag(msg: str) -> None:
-    """N4 诊断日志：写文件，避开 langgraph dev 吞 logger 的问题。探测后删除。"""
-    try:
-        with open("logs/n4-diag.log", "a", encoding="utf-8") as _f:
-            _f.write(f"{time.time():.3f} {msg}\n")
-    except OSError:
-        pass
 
 
 async def _build_executor_status_brief(state: State, ctx: Context) -> str:
@@ -620,17 +610,6 @@ async def call_model(
                 confidence=0.99,
             ),
         }
-
-    content_str = (
-        response.content
-        if isinstance(response.content, str)
-        else str(response.content or "")
-    )
-    tc_names = [tc.get("name") for tc in (response.tool_calls or [])]
-    _n4_diag(
-        f"call_model raw response: content_len={len(content_str)} "
-        f"content_head={content_str[:60]!r} tool_calls={tc_names}"
-    )
 
     if _is_thinking_visible(runtime.context) and not response.tool_calls:
         response = _inject_reasoning_for_visible_mode(response)
