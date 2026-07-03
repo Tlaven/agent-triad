@@ -32,28 +32,48 @@ def _write_port_file(port_file: Path, port: int) -> None:
 
 
 if __name__ == "__main__":
-    import uvicorn
+    import logging
+    import traceback
 
-    port = int(os.environ.get("EXECUTOR_PORT", "0"))
-    port_file = _get_port_file()
+    logging.basicConfig(
+        filename="logs/executor-startup.log",
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    log = logging.getLogger("executor_main")
 
-    # Bind socket to discover OS-assigned port (port=0 → dynamic)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    if port != 0:
-        # SO_REUSEADDR only meaningful for fixed-port reuse; skip on dynamic
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(("0.0.0.0", port))
-    actual_port = sock.getsockname()[1]
+    try:
+        import uvicorn
 
-    # Persist port for Supervisor discovery
-    _write_port_file(port_file, actual_port)
+        port = int(os.environ.get("EXECUTOR_PORT", "0"))
+        port_file = _get_port_file()
 
-    sock.listen()
-    uvicorn.Server(
-        uvicorn.Config(
-            "src.executor_agent.server:app",
-            host="0.0.0.0",
-            port=actual_port,
-            log_level="info",
+        # Bind socket to discover OS-assigned port (port=0 → dynamic)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if port != 0:
+            # SO_REUSEADDR only meaningful for fixed-port reuse; skip on dynamic
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", port))
+        actual_port = sock.getsockname()[1]
+
+        # Persist port for Supervisor discovery
+        _write_port_file(port_file, actual_port)
+        log.info(
+            "Executor binding port=%d (plan_id=%s)",
+            actual_port,
+            os.environ.get("PLAN_ID", ""),
         )
-    ).run(sockets=[sock])
+
+        sock.listen()
+        uvicorn.Server(
+            uvicorn.Config(
+                "src.executor_agent.server:app",
+                host="0.0.0.0",
+                port=actual_port,
+                log_level="info",
+            )
+        ).run(sockets=[sock])
+    except Exception:
+        traceback.print_exc()
+        log.error("Executor 启动失败:\n%s", traceback.format_exc())
+        raise

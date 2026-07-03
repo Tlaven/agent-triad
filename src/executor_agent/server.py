@@ -162,6 +162,13 @@ async def _run_executor_task(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+
+    logging.basicConfig(
+        filename="logs/executor-startup.log",
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     logger.info("Executor server started (PID=%d)", os.getpid())
     yield
     # Cancel running tasks on shutdown
