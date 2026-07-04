@@ -78,5 +78,8 @@ When running in an ASGI web server, blocking calls can degrade performance...
 ## §5 经验教训
 
 1. **probe 客户端读 state.messages 累积值 ≠ 单轮 LLM emit**：07-02 报告 N4 的整个论证基于 probe 客户端记录的 `tool_calls` 字段——但这是 state.messages 累积历史，非单轮 raw response。诊断 LLM 行为 bug 应在 `call_model` 内加 raw response 日志（本次 `_n4_diag` 方法正确）。
-2. **langgraph dev 的 BlockingError 检测器看穿 `asyncio.to_thread`**：to_thread 包装不能绕过检测器，因为检测器在调度层拦截，看的是被调度函数的同步性。需用模块级常量缓存 import-time 计算的值。
+2. ~~**langgraph dev 的 BlockingError 检测器看穿 `asyncio.to_thread`**~~ **【2026-07-04 推翻】**：blockbuster 源码 line 78-80 表明，wrapper 入口先 `asyncio.get_running_loop()`，`to_thread` 的 worker thread 没有 running loop → 抛 RuntimeError → 直接放行。`asyncio.to_thread` 是有效的。错判源于把"模块级 `os.getcwd()` 在首次 import 时触发"误归因到 to_thread。
 3. **langgraph API 是诊断利器**：`POST /threads/search` 可拉取完整 thread state，含工具返回的原始文本，无需依赖 probe 客户端或控制台输出。
+4. **真根因（2026-07-04 最终）**：`kt_retrieve` 节点（V4 设计 `d73f02e` 引入）的 `kt = get_or_create_kt(config)` 同步调用，触发 `MarkdownStore.__init__` 的 `root.resolve()` 与 `bootstrap` 的 `rglob` / `scandir` 同步 IO。**V4 设计埋的雷**——langgraph-api 0.5.x 时代无 blockbuster 检测器能跑，0.7.x 升级引入 blockbuster 后开始踩雷。`ae87b80`（2026-05-23）用 `asyncio.to_thread` 修了 `dynamic_tools_node` 的 auto-ingest，**但漏了 `kt_retrieve`**。修复：`graph.py:306` 改为 `kt = await asyncio.to_thread(get_or_create_kt, config)`，与 `ae87b80` 模式一致。212 supervisor 单测全绿。
+5. **诊断要找到真正抛错的日志行**：07-03 §4 错误归因到 Executor os.getcwd，是因为只看了"Executor 启动失败"的预设立场，没在 dev-server.log 里 grep `BlockingError` 找到真正的 warning 行（`KT auto-retrieve failed:`）。下次诊断先 grep 完整日志再下结论。
+6. **langgraph-api 自己的解决方案就是 eager init**：`langgraph_api/graph.py` 顶层用 `_get_ddtracer()` 预加载 ddtrace，注释直接说"runs synchronously before the event loop starts, not lazily on the first request (which would trigger a blockbuster BlockingError)"。我们用 `asyncio.to_thread` 是同等效果（worker thread 无 running loop，blockbuster 放行）。

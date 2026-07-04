@@ -23,10 +23,13 @@ from langchain_core.messages import (
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
+from pathlib import Path
 
-# 模块级缓存 cwd：避免在 langgraph dev 的 async event loop 内调 os.getcwd
-# 触发 BlockingError（检测器看穿 asyncio.to_thread 包装）。
-_CWD_CACHE = os.getcwd()
+# 项目根目录：本文件位于 src/planner_agent/graph.py → parents[2] = 项目根。
+# 不能用 os.getcwd()：langgraph-api 0.7.x 的 blockbuster 检测器会拦截 event loop
+# 内的同步调用，而本模块顶层代码在懒加载首次 import 时执行（可能在 async 节点内）。
+# Path(__file__).parents[N] 是纯路径操作，不触发 blockbuster。
+_CWD_CACHE = str(Path(__file__).parents[2])
 
 from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context

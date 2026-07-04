@@ -130,6 +130,7 @@ class ExecutorResult:
 - **子进程生命周期**：atexit + SIGTERM/SIGINT 信号处理确保 executor 子进程随主进程退出；`sync_terminate` 使用 terminate → kill 升级策略。
 - **Mailbox 驱逐**：`_MAX_BOXES=80` 触发驱逐，保留 `_RETAIN_BOXES=50`；优先驱逐 `has_completion=True` 的 box，必要时驱逐未完成 box 防止无限堆积。
 - **ExecutorPoller 注册上限**：`_MAX_ACTIVE_TASKS=100`；`register()` 时自动驱逐 `registered_at` 最旧的条目，防止长时间运行后内存泄漏。
+- **模块顶层禁同步 syscall**（langgraph-api 0.7.x+）：`langgraph dev` 的 blockbuster 检测器会拦截 event loop 内的 `os.getcwd` / `os.path.abspath` / `Path.resolve()` / `os.scandir` 等同步调用。懒加载模块（在 async 节点内首次 import 的模块）的顶层代码会在 event loop 内执行，触发 `BlockingError`。规则：(1) 模块顶层禁调上述函数；(2) 需要项目根用 `Path(__file__).parents[N]`（纯路径操作，不触发检测）；(3) 同步 IO 操作（如 KT bootstrap 的扫描、KT 自动摄入）必须包 `asyncio.to_thread(...)`——worker thread 无 running loop，blockbuster 放行。参考：`src/supervisor_agent/graph.py:kt_retrieve`（to_thread 模式）、`src/common/process_manager.py:_CWD_CACHE`（路径锚定模式）。
 
 > **环境变量完整参考**（30+ 变量：Provider 接口、分 Agent LLM 参数、超时、KT 阈值、MCP 开关等）见 [`docs/environment-variables.md`](docs/environment-variables.md)。**常见错误排查**见 [`docs/troubleshooting.md`](docs/troubleshooting.md)。
 

@@ -58,12 +58,12 @@ def _make_mock_popen_process(**overrides) -> MagicMock:
 async def test_start_for_task_spawns_process() -> None:
     ctx = _make_ctx()
     mgr = ExecutorProcessManager(ctx)
-    mock_process = _make_mock_process()
+    mock_process = _make_mock_popen_process()
     mock_client = _make_mock_client()
 
     with (
         patch.object(mgr, "_read_port_file", return_value=8199),
-        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("subprocess.Popen", return_value=mock_process),
         patch("httpx.AsyncClient", return_value=mock_client),
     ):
         handle = await mgr.start_for_task("plan_test", ctx, mailbox_url="http://127.0.0.1:5555")
@@ -77,18 +77,18 @@ async def test_start_for_task_spawns_process() -> None:
 async def test_start_for_task_passes_env_vars() -> None:
     ctx = _make_ctx()
     mgr = ExecutorProcessManager(ctx)
-    mock_process = _make_mock_process()
+    mock_process = _make_mock_popen_process()
     mock_client = _make_mock_client()
 
     captured_env = {}
 
-    async def fake_exec(*args, **kwargs):
+    def fake_popen(*args, **kwargs):
         captured_env.update(kwargs.get("env", {}))
         return mock_process
 
     with (
         patch.object(mgr, "_read_port_file", return_value=8199),
-        patch("asyncio.create_subprocess_exec", side_effect=fake_exec),
+        patch("subprocess.Popen", side_effect=fake_popen),
         patch("httpx.AsyncClient", return_value=mock_client),
     ):
         await mgr.start_for_task("plan_env_test", ctx, mailbox_url="http://127.0.0.1:5555")
@@ -112,12 +112,12 @@ async def test_start_for_task_evicts_dead_handle_then_spawns_again() -> None:
         port=1111,
         client=dead_client,
     )
-    mock_process = _make_mock_process()
+    mock_process = _make_mock_popen_process()
     mock_client = _make_mock_client()
 
     with (
         patch.object(mgr, "_read_port_file", return_value=8200),
-        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch("subprocess.Popen", return_value=mock_process),
         patch("httpx.AsyncClient", return_value=mock_client),
     ):
         handle = await mgr.start_for_task("plan_reuse", ctx, mailbox_url="http://127.0.0.1:5555")
@@ -127,7 +127,13 @@ async def test_start_for_task_evicts_dead_handle_then_spawns_again() -> None:
     dead_client.aclose.assert_awaited_once()
 
 
-async def test_start_for_task_falls_back_to_popen_when_asyncio_subprocess_unsupported() -> None:
+async def test_start_for_task_uses_popen_via_to_thread() -> None:
+    """Spawn must use subprocess.Popen + asyncio.to_thread (not create_subprocess_exec).
+
+    防回归：asyncio.create_subprocess_exec 在 event loop 主线程内调 os.getcwd 等
+    同步 syscall，被 langgraph dev blockbuster 检测器拦截。Popen + to_thread 在
+    worker thread 执行，绕过检测。
+    """
     ctx = _make_ctx()
     mgr = ExecutorProcessManager(ctx)
     mock_client = _make_mock_client()
@@ -135,13 +141,13 @@ async def test_start_for_task_falls_back_to_popen_when_asyncio_subprocess_unsupp
 
     with (
         patch.object(mgr, "_read_port_file", return_value=8199),
-        patch("asyncio.create_subprocess_exec", side_effect=NotImplementedError),
+        patch("asyncio.create_subprocess_exec", side_effect=AssertionError("must not be used")),
         patch("subprocess.Popen", return_value=mock_popen) as mock_popen_ctor,
         patch("httpx.AsyncClient", return_value=mock_client),
     ):
-        handle = await mgr.start_for_task("plan_fallback", ctx, mailbox_url="http://127.0.0.1:5555")
+        handle = await mgr.start_for_task("plan_popen_path", ctx, mailbox_url="http://127.0.0.1:5555")
 
-    assert handle.plan_id == "plan_fallback"
+    assert handle.plan_id == "plan_popen_path"
     assert handle.base_url == "http://localhost:8199"
     assert handle.process.pid == 23456
     mock_popen_ctor.assert_called_once()

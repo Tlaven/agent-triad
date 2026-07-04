@@ -25,9 +25,11 @@ from src.common.context import Context
 
 logger = logging.getLogger(__name__)
 
-# 模块级缓存 cwd：避免 subprocess.Popen / create_subprocess_exec 默认 cwd=None
-# 触发内部 os.getcwd() → langgraph dev BlockingError（检测器看穿 asyncio.to_thread）。
-_CWD_CACHE = os.getcwd()
+# 项目根目录：本文件位于 src/common/process_manager.py → parents[2] = 项目根。
+# 不能用 os.getcwd()：langgraph-api 0.7.x 的 blockbuster 检测器会拦截 event loop
+# 内的同步调用，而本模块顶层代码在懒加载首次 import 时执行（可能在 async 节点内）。
+# Path(__file__).parents[N] 是纯路径操作，不触发 blockbuster。
+_CWD_CACHE = str(Path(__file__).parents[2])
 
 
 @dataclass
@@ -162,33 +164,24 @@ class ExecutorProcessManager:
             return ""
 
     async def _spawn_executor_process(self, env: dict[str, str]):
-        """Spawn Executor subprocess with a Windows-compatible fallback."""
-        try:
-            return await asyncio.create_subprocess_exec(
-                sys.executable,
-                "-m",
-                "src.executor_agent",
-                env=env,
-                cwd=_CWD_CACHE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
-        except NotImplementedError:
-            # Windows SelectorEventLoop does not implement subprocess APIs.
-            # Fall back to subprocess.Popen so call_executor can still boot Executor.
-            logger.warning(
-                "asyncio subprocess is unsupported in current event loop; "
-                "falling back to subprocess.Popen"
-            )
-            popen_proc = await asyncio.to_thread(
-                subprocess.Popen,
+        """Spawn Executor subprocess.
+
+        用 subprocess.Popen + asyncio.to_thread，不用 asyncio.create_subprocess_exec：
+        后者会在 event loop 主线程内调 os.getcwd 等同步 syscall，被 langgraph dev
+        的 blockbuster 检测器拦截（即使传了 cwd=_CWD_CACHE）。to_thread 让 Popen
+        在 worker thread 执行，worker thread 无 running loop → blockbuster 放行。
+        """
+        def _spawn() -> subprocess.Popen:
+            return subprocess.Popen(
                 [sys.executable, "-m", "src.executor_agent"],
                 env=env,
                 cwd=_CWD_CACHE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
             )
-            return _PopenProcessAdapter(popen_proc)
+
+        popen_proc = await asyncio.to_thread(_spawn)
+        return _PopenProcessAdapter(popen_proc)
 
     # ------------------------------------------------------------------
     # Per-task lifecycle

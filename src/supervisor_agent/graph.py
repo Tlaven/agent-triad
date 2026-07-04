@@ -303,7 +303,7 @@ async def kt_retrieve(state: State, runtime: Runtime[Context]) -> dict:
     config = KnowledgeTreeConfig.from_context(runtime.context)
 
     try:
-        kt = get_or_create_kt(config)
+        kt = await asyncio.to_thread(get_or_create_kt, config)
         results, _log = await asyncio.to_thread(kt.retrieve, query)
     except Exception as e:
         logger.warning("KT auto-retrieve failed: %s", e)

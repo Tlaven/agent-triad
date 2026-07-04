@@ -16,6 +16,7 @@ from langgraph.runtime import Runtime
 
 from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
+from pathlib import Path
 from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.tools import apply_context_workspace_root
@@ -33,9 +34,11 @@ from src.executor_agent.tools import get_executor_tools
 
 logger = logging.getLogger(__name__)
 
-# 模块级缓存 cwd：避免在 langgraph dev 的 async event loop 内调 os.getcwd
-# 触发 BlockingError（检测器看穿 asyncio.to_thread 包装）。
-_CWD_CACHE = os.getcwd()
+# 项目根目录：本文件位于 src/executor_agent/graph.py → parents[2] = 项目根。
+# 不能用 os.getcwd()：langgraph-api 0.7.x 的 blockbuster 检测器会拦截 event loop
+# 内的同步调用，而本模块顶层代码在懒加载首次 import 时执行（可能在 async 节点内）。
+# Path(__file__).parents[N] 是纯路径操作，不触发 blockbuster。
+_CWD_CACHE = str(Path(__file__).parents[2])
 
 
 # ==================== State ====================
