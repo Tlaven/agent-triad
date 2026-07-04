@@ -318,3 +318,65 @@ class TestEntryAExperienceIngestion:
         assert len(result) == 1
         assert "教训" in result[0]
         assert "失败" in result[0]
+
+
+class TestFrameworkErrorBypassFix:
+    """回归：framework error 即使有 step_failures 也必须被拦。
+
+    原 bug 被 `and not step_failures` 门控方向写反——失败任务几乎都有
+    step_failures，过滤被 bypass，导致 MagicMock 残留 7+ 节点。
+    """
+
+    def test_mock_with_step_failures_filtered(self):
+        """MagicMock 型错误含 step_failures 时仍不应产经验节点（原 bug 让其漏过）。"""
+        summary = "Executor internal error: object MagicMock cannot be used in await expression."
+        plan_json = _make_plan_json(
+            goal="探测 Executor 启动",
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "调用 Executor",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "TypeError: object MagicMock can't be used in 'await' expression",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert result == [], f"应被 framework error 过滤，但得到: {result}"
+
+    def test_blocking_error_with_step_failures_filtered(self):
+        summary = "Executor 启动失败：BlockingError raised in scope."
+        plan_json = _make_plan_json(
+            goal="启动 Executor 子进程",
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "spawn",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "BlockingError: ... raised in scope",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert result == [], f"应被 framework error 过滤，但得到: {result}"
+
+    def test_legit_business_failure_still_extracts_experience(self):
+        """真实业务失败（非基础设施错误）应仍提取经验。"""
+        summary = "任务失败：发现部署脚本中端口冲突导致服务启动失败。"
+        plan_json = _make_plan_json(
+            goal="部署 v2 服务",
+            steps=[
+                {
+                    "step_id": "step_1",
+                    "intent": "启动服务",
+                    "status": "failed",
+                    "result_summary": "",
+                    "failure_reason": "端口 8080 被占用，部署脚本未做端口冲突检测。",
+                },
+            ],
+        )
+        result = extract_experience_from_executor_result(summary, plan_json, "failed")
+        assert len(result) == 1
+        assert "教训" in result[0]

@@ -148,10 +148,12 @@ def extract_experience_from_executor_result(
         # 过滤掉测试/框架级别的失败（非项目知识）
         combined = f"{summary} {' '.join(step_failures)}"
         _FRAMEWORK_ERRORS = re.compile(
-            r"(mock|MagicMock|TypeError|await|import\s+error|module\s+not\s+found)",
+            r"(mock|MagicMock|TypeError|await\s+expression|"
+            r"BlockingError|"
+            r"import\s+error|module\s+not\s+found)",
             re.IGNORECASE,
         )
-        if _FRAMEWORK_ERRORS.search(combined) and not step_failures:
+        if _FRAMEWORK_ERRORS.search(combined):
             return []
     elif status == "completed":
         # 完成任务只有含有发现性内容时才提取
