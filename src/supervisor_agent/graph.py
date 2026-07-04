@@ -1156,6 +1156,26 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
         summary = _extract_executor_summary(content)
         updated_plan = _extract_updated_plan_from_executor(content) or ""
 
+        # 解析 plan_json 提取 goal / primary_intent 用于 title fallback
+        goal = ""
+        primary_intent = ""
+        if updated_plan:
+            try:
+                import json as _json
+                _plan_obj = _json.loads(updated_plan)
+                goal = (_plan_obj.get("goal") or "").strip()
+                _steps = _plan_obj.get("steps") or []
+                if _steps:
+                    primary_intent = (_steps[0].get("intent") or "").strip()
+            except (ValueError, TypeError):
+                pass
+
+        common_meta = {
+            "executor_status": exec_status,
+            "goal": goal,
+            "primary_intent": primary_intent,
+        }
+
         chunks = extract_knowledge_from_executor_result(
             summary, updated_plan, exec_status
         )
@@ -1169,7 +1189,7 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
                 chunk,
                 trigger="task_complete",
                 source="auto:executor",
-                metadata={"executor_status": exec_status},
+                metadata=common_meta,
             )
             total_ingested += report.nodes_ingested
 
@@ -1184,7 +1204,7 @@ def _try_auto_ingest_executor_result(content: str, ctx: Any, exec_status: str = 
                 source="auto:executor_experience",
                 metadata={
                     "node_type": "experience",
-                    "executor_status": exec_status,
+                    **common_meta,
                 },
             )
             total_ingested += exp_report.nodes_ingested

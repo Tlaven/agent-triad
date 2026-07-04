@@ -343,15 +343,19 @@ class KnowledgeTree:
             return report
 
         candidates: list[KnowledgeNode] = []
+        meta_in = metadata or {}
+        goal_title = (meta_in.get("goal") or "")[:60]
+        intent_title = (meta_in.get("primary_intent") or "")[:60]
         for chunk in chunks:
             result = should_remember(chunk, trigger=trigger)
             if result.passed:
                 meta = dict(metadata) if metadata else {}
                 meta["trigger"] = trigger
                 meta["filter_confidence"] = result.confidence
+                title = goal_title or intent_title or chunk[:50]
                 node = KnowledgeNode.create(
                     node_id="",
-                    title=chunk[:50],
+                    title=title,
                     content=chunk,
                     source=source,
                     metadata=meta,
