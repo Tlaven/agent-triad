@@ -320,3 +320,41 @@ class TestFilterSpecialContent:
         text = "step_1\t添加配置\tcompleted\texecutor_call_model_timeout=180"
         result = should_remember(text, trigger="")
         assert result.passed is True
+
+
+class TestInfraErrorPreFilter:
+    """基础设施错误文本应在 task_complete 路径前置 reject（user_explicit 仍通过）。
+
+    过滤插入位置必须在 user_explicit 早返回之后，确保用户显式覆盖权。
+    """
+
+    def test_blocking_error_rejected_task_complete(self):
+        text = "Executor 启动失败：BlockingError: ... raised in scope, would block"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "infra_error"
+
+    def test_magicmock_rejected_task_complete(self):
+        text = "TypeError: object MagicMock can't be used in 'await' expression"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "infra_error"
+
+    def test_traceback_rejected_task_complete(self):
+        text = "Traceback (most recent call last): File src/foo.py line 42"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "infra_error"
+
+    def test_infra_error_user_explicit_still_passes(self):
+        """用户显式指令仍通过（覆盖权高于过滤）。"""
+        text = "记录这场 BlockingError 教训：os.getcwd 阻塞"
+        result = should_remember(text, trigger="user_explicit")
+        assert result.passed is True
+        assert result.reason == "user_explicit"
+
+    def test_legit_business_failure_still_passes(self):
+        """合法业务失败文本（无 infra 关键词）仍走原 keyword 路径通过。"""
+        text = "任务失败：端口 8080 冲突导致服务未启动，需要在部署脚本前置端口检测。"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is True

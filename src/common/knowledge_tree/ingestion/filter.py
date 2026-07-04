@@ -74,6 +74,18 @@ _NEGATIVE_FACT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# 基础设施错误模式（自动摄入前置 reject）。
+# 这些是框架/运行时错误，不属于业务知识。用户显式指令不走此过滤
+# （在 user_explicit 早返回之后才检查）。
+_INFRA_ERROR_PATTERNS = re.compile(
+    r"(BlockingError|blocking\s+call|object\s+MagicMock|"
+    r"Traceback\s+\(most\s+recent|"
+    r"await\s+expression|"
+    r"ImportError|ModuleNotFoundError|"
+    r"TypeError:.*await)",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class FilterResult:
@@ -124,6 +136,11 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
     # 用户显式指令：直接通过
     if trigger == "user_explicit":
         return FilterResult(passed=True, reason="user_explicit", confidence=1.0)
+
+    # 基础设施错误前置过滤（仅对自动摄入触发，user_explicit 已早返回通过）。
+    # BlockingError / MagicMock / Traceback 等不属于业务知识。
+    if trigger == "task_complete" and _INFRA_ERROR_PATTERNS.search(text):
+        return FilterResult(passed=False, reason="infra_error", confidence=0.0)
 
     # 含决策/结论关键词
     has_keyword = any(kw in text for kw in _DECISION_KEYWORDS)
