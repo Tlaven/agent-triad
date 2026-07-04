@@ -384,6 +384,66 @@ class KnowledgeTree:
 
         return report
 
+    def delete_node(self, node_id: str) -> dict[str, Any]:
+        """一站式删除节点：md 文件 + content/title/stored/alias embeddings + 空目录锚点。
+
+        Args:
+            node_id: 节点相对路径 ID（如 "patterns/async_care.md"）。
+
+        Returns:
+            结构化报告：{"ok": bool, "deleted": [node_id], "skipped": [...],
+            "errors": [...]}。单点失败不中断，errors 列表收集异常。
+        """
+        deleted: list[str] = []
+        skipped: list[str] = []
+        errors: list[str] = []
+
+        # 1. 删 md 文件（不存在则跳过但仍清残留 embeddings）
+        try:
+            if not self.md_store.node_exists(node_id):
+                skipped.append(node_id)
+                self.vector_store.delete_embedding(node_id)
+                return {
+                    "ok": True,
+                    "deleted": deleted,
+                    "skipped": skipped,
+                    "errors": errors,
+                }
+            self.md_store.delete_node(node_id)
+            deleted.append(node_id)
+        except Exception as e:
+            errors.append(f"md_store.delete_node failed for {node_id}: {e}")
+
+        # 2. 删 content/title/stored/alias embeddings（vector_store.delete_embedding 一次性）
+        try:
+            self.vector_store.delete_embedding(node_id)
+        except Exception as e:
+            errors.append(f"vector_store.delete_embedding failed for {node_id}: {e}")
+
+        # 3. 删空目录锚点
+        directory = node_id.rsplit("/", 1)[0] if "/" in node_id else ""
+        if directory:
+            try:
+                files = self.md_store.get_directory_files(directory)
+                if not files:
+                    self.vector_store.delete_anchor(directory)
+                    # 物理目录清理（可选，失败无害）
+                    try:
+                        self.md_store.remove_directory_if_empty(directory)
+                    except Exception:
+                        pass
+            except Exception as e:
+                errors.append(f"anchor/dir cleanup failed for {directory}: {e}")
+
+        if deleted:
+            self.mark_dirty()
+        return {
+            "ok": len(errors) == 0,
+            "deleted": deleted,
+            "skipped": skipped,
+            "errors": errors,
+        }
+
     def overlay_add(
         self,
         source: str,
