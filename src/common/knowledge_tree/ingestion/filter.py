@@ -86,6 +86,18 @@ _INFRA_ERROR_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# 测试任务结构判据：hello world / test_runner / tmp_test / attempt N 等
+# 明显测试任务模式。仅匹配结构化模式，避免词面黑名单（test/echo/mock
+# 等单字）误伤合法业务。仅在 task_complete 路径前置 reject。
+# 注意：hello\.{ext} 分支须配合创建动作词，避免误伤"修改 hello.py"等合法业务。
+_TEST_TASK_PATTERNS = re.compile(
+    r"(hello\s+world|"
+    r"(?:创建|create|write|写入|建立)[^\n。]{0,40}hello\.(?:py|js|txt)\b|"
+    r"test_runner\.py|tmp_test_|_test_\d+|"
+    r"\battempt\s+\d+\b)",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class FilterResult:
@@ -141,6 +153,11 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
     # BlockingError / MagicMock / Traceback 等不属于业务知识。
     if trigger == "task_complete" and _INFRA_ERROR_PATTERNS.search(text):
         return FilterResult(passed=False, reason="infra_error", confidence=0.0)
+
+    # 测试任务结构判据（仅 auto task_complete；user_explicit 已早返回）。
+    # hello world / test_runner / tmp_test / attempt N 等明显测试任务模式。
+    if trigger == "task_complete" and _TEST_TASK_PATTERNS.search(text):
+        return FilterResult(passed=False, reason="test_task_residual", confidence=0.0)
 
     # 含决策/结论关键词
     has_keyword = any(kw in text for kw in _DECISION_KEYWORDS)

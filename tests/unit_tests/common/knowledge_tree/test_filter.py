@@ -358,3 +358,47 @@ class TestInfraErrorPreFilter:
         text = "任务失败：端口 8080 冲突导致服务未启动，需要在部署脚本前置端口检测。"
         result = should_remember(text, trigger="task_complete")
         assert result.passed is True
+
+
+class TestTestTaskPreFilter:
+    """测试任务的结构性模式应在 task_complete 路径前置 reject。"""
+
+    def test_hello_world_creation_rejected(self):
+        text = "Create a file named hello.py with the greet function that prints hello world."
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "test_task_residual"
+
+    def test_test_runner_rejected(self):
+        text = "在工作区创建 test_runner.py 并执行它，输出 ok 表示测试通过。"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "test_task_residual"
+
+    def test_tmp_test_txt_rejected(self):
+        text = "在 workspace 目录下创建 test.txt 文件写入 hello world。"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "test_task_residual"
+
+    def test_attempt_n_rejected(self):
+        text = "attempt 1: 在终端执行 echo hello 测试 Executor。"
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "test_task_residual"
+
+    def test_legit_hello_modification_passes(self):
+        """合法业务——修改 hello.py 的 greet 函数——应通过。"""
+        text = (
+            "发现修改 hello.py 的 greet 函数为接受 name 参数时，"
+            "需要同步更新调用方传入 'World'，否则会触发 TypeError。"
+        )
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is True
+
+    def test_test_task_user_explicit_passes(self):
+        """用户显式指令仍通过。"""
+        text = "记录这次 test_runner 调试经验"
+        result = should_remember(text, trigger="user_explicit")
+        assert result.passed is True
+        assert result.reason == "user_explicit"
