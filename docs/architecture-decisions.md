@@ -783,7 +783,7 @@ metadata={"plan_id": "xxx", "trigger": "task_complete", "filter_confidence": 0.8
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
 | `kt_ingest_chunk_max_tokens` | 512 | 切分粒度 |
-| `kt_dedup_threshold` | 0.95 | 去重阈值 |
+| `kt_dedup_threshold` | 0.88 | 去重阈值（0.88 = 结构高度相似即合并，保留语义差异节点）|
 | `kt_ingest_enabled` | True | 管道开关 |
 
 ### 集成方式
