@@ -12,8 +12,13 @@ from src.common.knowledge_tree.config import KnowledgeTreeConfig
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 
 
-def _mock_embedder(dim: int = 16):
-    """确定性 embedder。"""
+def _mock_embedder(dim: int = 64):
+    """确定性 embedder。
+
+    dim=64 以避免低维下的哈希碰撞——dim=16 时 dedup_threshold=0.88
+    会被新 ingest 与现节点 embedding 命中（mock embedder 在低 dim 下
+    相似度计算集中），与生产 dim=1024 hash embedder 行为不符。
+    """
     def embed(text: str) -> list[float]:
         vec = [0.0] * dim
         for i, c in enumerate(text):
