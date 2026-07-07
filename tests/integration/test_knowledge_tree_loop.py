@@ -15,9 +15,9 @@ from src.common.knowledge_tree.dag.node import KnowledgeNode
 def _mock_embedder(dim: int = 64):
     """确定性 embedder。
 
-    dim=64 以避免低维下的哈希碰撞——dim=16 时 dedup_threshold=0.88
-    会被新 ingest 与现节点 embedding 命中（mock embedder 在低 dim 下
-    相似度计算集中），与生产 dim=1024 hash embedder 行为不符。
+    dim=64 更接近生产 dim=1024 hash embedder 的分布特性，避免低维（dim=16）
+    下相似度集中导致的 dedup 误判。原 0.88 阈值时此 fixture 因 dim=16 撞库
+    FAIL；回滚 0.95 后 dim=16 也能用，但保留 dim=64 与生产语义更贴近。
     """
     def embed(text: str) -> list[float]:
         vec = [0.0] * dim

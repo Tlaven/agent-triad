@@ -341,7 +341,7 @@ class Context:
         metadata={"description": "Max token count per chunk for ingestion."},
     )
     kt_dedup_threshold: float = field(
-        default=0.88,
+        default=0.95,
         metadata={
             "description": "Cosine similarity threshold for deduplication (skip if above)."
         },

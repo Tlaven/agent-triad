@@ -1,11 +1,13 @@
-"""dedup_threshold 离线摄入压测（spec §B5 后续工单）。
+"""dedup_threshold 离线摄入压测（spec §B5 / §4.4 撤销记录）。
 
-目的：用真实 KT 节点 + 历史 embedding cache 验证当前 0.88 dedup_threshold 在生产
-dim=1024 hash embedder 下的 FAR / merge count / 簇结构。
+目的：用真实 KT 节点 + 历史 embedding cache 量化各 dedup_threshold 在生产
+dim=1024 hash embedder 下的 FAR / merge count / 簇结构。压测结果推翻了原 0.88
+决定，遵循"宁缺毋滥"哲学回滚为 0.95。
 
 数据源：
   A) workspace/knowledge_tree/.vector_index.json — 当前 26 节点的 content 向量（按
-     文件路径标注目录，"同目录 = 应合并，跨目录 = 不应合并"作为 ground truth）
+     文件路径标注目录；ground truth 用 cosine≥0.9999 = hash embedder 下"token 集
+     合完全相同" = 应合并）
   B) workspace/knowledge_tree/.embedding_cache_*.json — 历史 SHA256→向量 集合；含
      已删除节点的遗留向量。**无标签**，仅用作纯聚类分析
 

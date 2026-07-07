@@ -171,6 +171,15 @@ title = (
 
 `KnowledgeTreeConfig.from_context` 的默认值 0.95 → 0.88。env `KT_DEDUP_THRESHOLD` 已存在（见 `src/common/context.py:343` 与 `docs/environment-variables.md:146`），仅需同步：`config.py:43` 默认值 + `context.py:343` 默认值 + `docs/environment-variables.md:146` 表格 + `docs/architecture-decisions.md:786` 表格。
 
+> **撤销记录（2026-07-07）**：上述 0.88 决定被离线压测推翻。`scripts/dedup_benchmark.py` 在真实 26 节点 + 历史 301 cache chunk 上跑 6 阈值扫描，结果显示：
+>
+> - 0.88 与 0.95 在真实节点层的 **precision/recall 完全相同**（都 100% / 100%）
+> - 0.88 的初衷"合并结构相似节点"未达成：结构相似节点 sim 都在 0.73–0.79 区间，**0.88 也根本不合它们**
+> - 0.88 headroom 仅 0.008（最高近边界 sim=0.872，`executor-protocol` vs `process-management`）
+> - dedup 失败代价非对称：误合并 = 永久丢失独立节点；漏合并 = 仅占存储空间（可后续清理）
+>
+> 遵循 filter.py "宁缺毋滥"哲学，**回滚为 0.95**。改 `config.py:43` + `context.py:344` + 两表。Phase B 那看似 23% 多余剔除其实全是 cache artifact（alias/title/stored 向量重算），不进 KT 真节点层。
+
 ### 4.5 一次性清理脚本
 
 `scripts/cleanup_kt.py`：

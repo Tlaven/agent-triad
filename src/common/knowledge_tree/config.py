@@ -40,7 +40,7 @@ class KnowledgeTreeConfig:
     # -- 摄入管道 --
     ingest_enabled: bool = True
     ingest_chunk_max_tokens: int = 512
-    dedup_threshold: float = 0.88
+    dedup_threshold: float = 0.95
     ingest_attach_threshold: float = 0.7  # 目录锚点相似度阈值
 
     # -- P2 混合向量 --

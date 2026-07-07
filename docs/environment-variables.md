@@ -143,7 +143,7 @@
 |------|--------|------|
 | `KT_RAG_SIMILARITY_THRESHOLD` | 0.15 | RAG 相似度阈值（semantic embedder 时自动升至 0.5） |
 | `KT_INGEST_ATTACH_THRESHOLD` | 0.7 | 目录锚点吸附阈值 |
-| `KT_DEDUP_THRESHOLD` | 0.88 | 去重阈值（0.88 = 结构高度相似即合并，保留语义差异节点）|
+| `KT_DEDUP_THRESHOLD` | 0.95 | 去重阈值（宁缺毋滥：宁可保留少量真重复也不误合并独立节点；详见 spec §4.4 与 `scripts/dedup_benchmark.py` 离线压测）|
 | `KT_MAX_TREE_DEPTH` | — | 树最大深度 |
 
 ### 结构权重（stored_vector 混合）
