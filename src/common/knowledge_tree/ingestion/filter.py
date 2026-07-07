@@ -98,6 +98,13 @@ _TEST_TASK_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# 熔断模板判据：MAX_REPLAN 触发后的固定模板回复（决策 33）。
+# 这些回复是 Supervisor 状态机终止信号，无知识价值；Entry A 自动摄入时前置 reject。
+# 用户显式 ingest 失败教训不走此过滤（user_explicit 早返回通过）。
+# 判据特异：仅匹配 "[熔断模板]" 字面前缀——probe 脚本特殊标注，不误伤合法
+# 讨论 MAX_REPLAN 机制的回答（如"已达到最大重规划次数（3）"是合法配置差异讨论）。
+_CIRCUIT_BREAKER_PATTERNS = re.compile(r"\[熔断模板\]", re.IGNORECASE)
+
 
 @dataclass
 class FilterResult:
@@ -158,6 +165,11 @@ def should_remember(chunk: str, trigger: str = "") -> FilterResult:
     # hello world / test_runner / tmp_test / attempt N 等明显测试任务模式。
     if trigger == "task_complete" and _TEST_TASK_PATTERNS.search(text):
         return FilterResult(passed=False, reason="test_task_residual", confidence=0.0)
+
+    # 熔断模板判据（仅 auto task_complete；user_explicit 已早返回）。
+    # MAX_REPLAN 触发后的固定模板回复，无知识价值。
+    if trigger == "task_complete" and _CIRCUIT_BREAKER_PATTERNS.search(text):
+        return FilterResult(passed=False, reason="circuit_breaker_template", confidence=0.0)
 
     # 含决策/结论关键词
     has_keyword = any(kw in text for kw in _DECISION_KEYWORDS)

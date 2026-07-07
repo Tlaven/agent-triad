@@ -402,3 +402,47 @@ class TestTestTaskPreFilter:
         result = should_remember(text, trigger="user_explicit")
         assert result.passed is True
         assert result.reason == "user_explicit"
+
+
+class TestCircuitBreakerPreFilter:
+    """熔断模板（MAX_REPLAN 后固定回复）应在 task_complete 路径前置 reject。"""
+
+    def test_bracket_prefix_rejected(self):
+        """[熔断模板] 前缀的固定回复应被 reject。"""
+        text = (
+            "[熔断模板] 执行已多次失败，且达到最大重规划次数。"
+            "请基于当前失败信息汇报用户并给出可执行的下一步建议。"
+        )
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is False
+        assert result.reason == "circuit_breaker_template"
+
+    def test_legit_failure_description_passes(self):
+        """合法失败描述（不含 [熔断模板] 字面）应通过——不误伤。"""
+        text = (
+            "执行失败：worker 进程因 timeout=30s 过短被杀，"
+            "建议提升到 120s 并加 retry。这是失败教训。"
+        )
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is True
+
+    def test_legit_max_replan_discussion_passes(self):
+        """合法讨论 MAX_REPLAN 机制的回答应通过——不误伤。
+
+        如 Supervisor 解释"已达到最大重规划次数（3）"是配置差异讨论，
+        不是熔断模板本身。
+        """
+        text = (
+            "Supervisor 规范文档明确写明同一子任务最大重规划次数为 2 次，"
+            "但实际运行中用户观察到错误提示为已达到最大重规划次数（3）。"
+            "记录分析了两种可能原因：底层框架把总规划尝试次数误标成了重规划次数。"
+        )
+        result = should_remember(text, trigger="task_complete")
+        assert result.passed is True
+
+    def test_circuit_breaker_user_explicit_passes(self):
+        """用户显式指令仍通过——可主动记录熔断事件作失败教训。"""
+        text = "记录这次 [熔断模板] 事件作为教训"
+        result = should_remember(text, trigger="user_explicit")
+        assert result.passed is True
+        assert result.reason == "user_explicit"
