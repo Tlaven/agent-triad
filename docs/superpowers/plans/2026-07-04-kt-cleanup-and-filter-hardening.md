@@ -424,40 +424,22 @@ import pytest
 
 from src.common.knowledge_tree.config import KnowledgeTreeConfig
 from src.common.knowledge_tree.core import KnowledgeTree
-from src.common.knowledge_tree.storage.markdown_store import MarkdownStore
-from src.common.knowledge_tree.storage.overlay import OverlayStore
-from src.common.knowledge_tree.storage.vector_store import InMemoryVectorStore
-
-
-def _diverse_embedder(dim: int = 16):
-    """多样性 embedder。"""
-    def embed(text: str) -> list[float]:
-        vec = [0.0] * dim
-        for i, c in enumerate(text):
-            idx = (ord(c) + i) % dim
-            vec[idx] += 1.0
-        mag = sum(x * x for x in vec) ** 0.5
-        if mag > 0:
-            vec = [x / mag for x in vec]
-        return vec
-    return embed
 
 
 @pytest.fixture
 def kt(tmp_path: Path) -> KnowledgeTree:
-    """构造一个最简 KnowledgeTree 实例。"""
-    md_store = MarkdownStore(tmp_path / "md")
-    vector_store = InMemoryVectorStore(dimension=16)
-    overlay_store = OverlayStore(tmp_path / "md" / ".overlay.json")
-    embedder = _diverse_embedder(16)
-    config = KnowledgeTreeConfig(markdown_root=tmp_path / "md")
-    return KnowledgeTree(
-        config=config,
-        md_store=md_store,
-        vector_store=vector_store,
-        overlay_store=overlay_store,
-        embedder=embedder,
+    """构造一个最简 KnowledgeTree 实例（hash embedder, dim=64）。
+
+    注意：KnowledgeTree.__init__ 实际签名是 (config, embedder=None, llm=None)，
+    内部构建 md_store / vector_store / overlay_store——不接受这些作为参数。
+    早期 plan 草稿曾把它们当 kwargs 传入，是错的。
+    """
+    cfg = KnowledgeTreeConfig(
+        markdown_root=tmp_path,
+        embedder_type="hash",
+        embedding_dimension=64,
     )
+    return KnowledgeTree(cfg)
 
 
 class TestIngestTitleFallback:
