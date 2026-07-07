@@ -37,14 +37,16 @@ def _make_kt_with_seeds(tmp_path: Path) -> KnowledgeTree:
 class TestSeedMetaRules:
     """验证元规则从种子文件写入。"""
 
-    def test_seeds_five_rules(self, tmp_path: Path):
+    def test_seeds_six_rules(self, tmp_path: Path):
         # 原 6 条 bootstrap:meta_rule 种子中 proactive_ingest 与 auto_ingest
         # 语义高度重复（"用户分享项目信息→ingest"），Task 9 删除 proactive_ingest
         # 后剩 5 条 bootstrap:meta_rule 种子 + 1 条 source:agent:supervisor 的
         # auto_ingest（不进 _make_kt_with_seeds 的复制路径）。
+        # 后续 dedup_meta_rules 清理把 auto_ingest 的 source 也统一为
+        # bootstrap:meta_rule 并补 aliases，使其纳入种子复制路径——故 6 条全 seed。
         kt = _make_kt_with_seeds(tmp_path)
         rules = kt.get_meta_rules()
-        assert len(rules) == 5
+        assert len(rules) == 6
 
     def test_seed_content_contains_kt_guidance(self, tmp_path: Path):
         kt = _make_kt_with_seeds(tmp_path)
