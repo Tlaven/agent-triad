@@ -3,9 +3,9 @@ import asyncio
 import json
 import logging
 import operator
-import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
@@ -16,7 +16,6 @@ from langgraph.runtime import Runtime
 
 from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
-from pathlib import Path
 from src.common.mcp import get_readonly_mcp_tools
 from src.common.observation import normalize_tool_message_content
 from src.common.tools import apply_context_workspace_root

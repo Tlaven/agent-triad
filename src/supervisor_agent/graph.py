@@ -254,6 +254,7 @@ def _detect_rag_contradictions(
     kt: Any, results: list[tuple[Any, float]]
 ) -> set[int]:
     """检测 RAG 结果间的潜在矛盾：同主题但内容分歧。
+
     使用 title 相似度高 + content 相似度低作为矛盾信号。
     """
     if len(results) < 2:
@@ -425,6 +426,7 @@ async def call_model(
     state: State, runtime: Runtime[Context]
 ) -> dict[str, list[AIMessage]]:
     """调用 LLM 支持 Agent。
+
     负责准备提示、初始化模型并处理响应。
     """
     # Lazy-start Executor subprocess on first invocation

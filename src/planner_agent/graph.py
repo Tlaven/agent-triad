@@ -7,10 +7,10 @@
 import asyncio
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -23,13 +23,6 @@ from langchain_core.messages import (
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import Runtime
-from pathlib import Path
-
-# 项目根目录：本文件位于 src/planner_agent/graph.py → parents[2] = 项目根。
-# 不能用 os.getcwd()：langgraph-api 0.7.x 的 blockbuster 检测器会拦截 event loop
-# 内的同步调用，而本模块顶层代码在懒加载首次 import 时执行（可能在 async 节点内）。
-# Path(__file__).parents[N] 是纯路径操作，不触发 blockbuster。
-_CWD_CACHE = str(Path(__file__).parents[2])
 
 from src.common.capabilities import get_executor_capabilities_docs
 from src.common.context import Context
@@ -39,6 +32,12 @@ from src.common.utils import invoke_chat_model, load_chat_model
 from src.planner_agent.prompts import get_planner_system_prompt
 from src.planner_agent.state import PlannerState
 from src.planner_agent.tools import get_planner_tools
+
+# 项目根目录：本文件位于 src/planner_agent/graph.py → parents[2] = 项目根。
+# 不能用 os.getcwd()：langgraph-api 0.7.x 的 blockbuster 检测器会拦截 event loop
+# 内的同步调用，而本模块顶层代码在懒加载首次 import 时执行（可能在 async 节点内）。
+# Path(__file__).parents[N] 是纯路径操作，不触发 blockbuster。
+_CWD_CACHE = str(Path(__file__).parents[2])
 
 logger = logging.getLogger(__name__)
 

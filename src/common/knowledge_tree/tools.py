@@ -9,10 +9,10 @@ from typing import Any
 from langchain_core.tools import tool as lc_tool
 
 from src.common.knowledge_tree.config import (
-    KnowledgeTreeConfig,
     MAX_META_RULES,
     META_RULE_CONFLICT_THRESHOLD,
     META_RULE_REJECT_THRESHOLD,
+    KnowledgeTreeConfig,
 )
 from src.common.knowledge_tree.dag.node import KnowledgeNode
 from src.common.knowledge_tree.factory import get_or_create_kt

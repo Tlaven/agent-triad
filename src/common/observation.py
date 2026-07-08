@@ -1,5 +1,7 @@
 """Normalize tool observations before they enter ReAct message history.
-改进：使用头尾保留 + 智能断行的 _truncate_smart 替代纯头部截断。"""
+
+改进：使用头尾保留 + 智能断行的 _truncate_smart 替代纯头部截断。
+"""
 
 from __future__ import annotations
 
@@ -7,9 +9,8 @@ import json
 import os
 import uuid
 from dataclasses import dataclass
-from typing import Any
-
 from pathlib import Path
+from typing import Any
 
 from src.common.context import Context
 
@@ -118,7 +119,6 @@ def _truncate_smart(
     raw: str, n: int, max_chars: int, *, head_ratio: float = _DEFAULT_HEAD_RATIO
 ) -> NormalizedObservation:
     """保留头部 + 尾部，中间插入清晰的省略提示，并在自然断行处切割。"""
-
     if max_chars < 300:  # 极端小预算，直接 fallback
         return _truncate_fallback(raw, n, max_chars)
 

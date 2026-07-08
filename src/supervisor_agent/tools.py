@@ -225,6 +225,7 @@ def _build_call_executor_tool(runtime_context: Context):
         wait_for_result: bool = True,
     ) -> str:
         """派发 Executor 执行任务。二选一传参：
+
         - task_description：描述要执行的简短任务（自动生成 plan）
         - plan_id：执行 call_planner 已生成的计划
 

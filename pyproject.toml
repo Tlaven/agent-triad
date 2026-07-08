@@ -63,6 +63,9 @@ lint.ignore = [
     # Relax the convention by _not_ requiring documentation for every function parameter.
     "D417",
     "E501",
+    # D415 要求 docstring 首行以 ASCII . ? ! 结尾；中文 docstring 以。？！结尾
+    # 不被 ruff 识别为合法结尾，产生 false positive。项目 docstring 以中文为主。
+    "D415",
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D", "UP"]
