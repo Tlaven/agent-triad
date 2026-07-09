@@ -1,0 +1,189 @@
+name: CI
+
+# AgentTriad CI
+# - PR/push: lint + 单元/集成测试 + dedup benchmark 阈值门禁 + 覆盖率
+# - nightly + workflow_dispatch: 上述 + filter_recall + 真 LLM Entry A 回归
+#
+# 前置：repo Settings → Secrets and variables → Actions 配 4 个 secret
+#   - OPENAI_API_KEY / OPENAI_BASE_URL  (Supervisor + Executor)
+#   - ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL  (Planner)
+# PR CI（lint-test/coverage）不需要 secrets；仅 nightly-live-llm 需要。
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    # 每日 02:00 UTC（北京时间 10:00）跑 nightly
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_live_llm:
+        description: '跑真 LLM Entry A 回归（消耗 API 配额）'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.11'
+  UV_CACHE_DIR: ${{ github.workspace }}/.uv-cache
+
+jobs:
+  lint-test:
+    name: Lint + Test (Mock LLM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Ruff check
+        run: uv run ruff check src tests scripts
+
+      # 过渡：项目历史 mypy --strict 状态未清零，首次引入 CI 时允许失败
+      # 待 issue 跟踪清零后改硬门禁
+      - name: Mypy strict
+        continue-on-error: true
+        run: uv run mypy --strict src
+
+      - name: Unit + Integration tests
+        run: uv run pytest tests/unit_tests tests/integration -q
+
+      - name: KT dedup benchmark gate
+        run: make test_kt_benchmarks
+
+  coverage:
+    name: Coverage (≥ 80%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run coverage
+        run: make test_coverage
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 7
+
+  nightly:
+    name: Nightly (filter_recall + live_llm)
+    runs-on: ubuntu-latest
+    # 仅 nightly cron 或手动 dispatch 触发
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_live_llm)
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Configure LLM credentials
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::secrets 未配置，跳过 live_llm 步骤"
+            echo "RUN_LIVE_LLM=false" >> $GITHUB_ENV
+          else
+            {
+              echo "OPENAI_API_KEY=$OPENAI_API_KEY"
+              echo "OPENAI_BASE_URL=$OPENAI_BASE_URL"
+              echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+              echo "ANTHROPIC_BASE_URL=$ANTHROPIC_BASE_URL"
+            } > .env
+            echo "RUN_LIVE_LLM=true" >> $GITHUB_ENV
+          fi
+
+      - name: filter_recall benchmark gate
+        run: make test_filter_recall
+
+      - name: Start langgraph dev server (background)
+        if: env.RUN_LIVE_LLM == 'true'
+        run: |
+          uv run langgraph dev --config langgraph.json --port 2024 --no-browser --no-reload > server.log 2>&1 &
+          echo $! > server.pid
+          # 等待 health check（最多 90s）
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:2024/ok > /dev/null 2>&1; then
+              echo "Server healthy after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:2024/ok > /dev/null || { echo "::error::server 启动失败"; cat server.log; exit 1; }
+
+      - name: KT Entry A hardening (live_llm)
+        if: env.RUN_LIVE_LLM == 'true'
+        env:
+          E2E_TEST_TIMEOUT: '300'
+        run: make test_kt_hardening
+
+      - name: Dump server log on failure
+        if: failure() && env.RUN_LIVE_LLM == 'true'
+        run: |
+          echo "=== server.log (last 200 lines) ==="
+          tail -n 200 server.log || true
+
+      - name: Stop server
+        if: always() && env.RUN_LIVE_LLM == 'true'
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) 2>/dev/null || true
+            sleep 2
+            kill -9 $(cat server.pid) 2>/dev/null || true
+          fi
