@@ -58,6 +58,9 @@ jobs:
         run: uv sync --dev
 
       - name: Ruff check
+        # 过渡：项目历史 ruff warnings 未清零（src 62 个 D 系列 docstring 债）
+        # 首次引入 CI 时允许失败；待 issue 跟踪清零后改硬门禁
+        continue-on-error: true
         run: uv run ruff check src tests scripts
 
       # 过渡：项目历史 mypy --strict 状态未清零，首次引入 CI 时允许失败

@@ -68,8 +68,9 @@ lint.ignore = [
     "D415",
 ]
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["D", "UP"]
+"tests/*" = ["D", "UP", "T201"]
 "tests/evaluations/*" = ["D", "UP", "T201"]  # Allow print statements in evaluation scripts
+"scripts/*" = ["D", "T201"]  # 脚本工具放行 print / docstring 规则
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 

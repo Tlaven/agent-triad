@@ -69,10 +69,15 @@ def cosine(a: list[float], b: list[float]) -> float:
 
 
 def load_index_vectors() -> dict[str, list[float]]:
-    """A 数据集：vector_index.json 中的 node_md 向量（content embedding）"""
+    """A 数据集：vector_index.json 中的 node_md 向量（content embedding）。
+
+    文件缺失时返回空 dict（不 sys.exit），让 main 决定是否 skip。
+    CI runner 上 workspace/ 可能未包含此文件（gitignore derived artifact）。
+    """
     path = KT_DIR / ".vector_index.json"
     if not path.exists():
-        sys.exit(f"missing {path}")
+        print(f"WARN: {path} 不存在（CI runner 可能 gitignore），跳过 index dataset")
+        return {}
     d = json.loads(path.read_text(encoding="utf-8"))
     emb = d["vectors"]["embeddings"]
     # 只取 content 向量（无 ':' 前缀），不含 title:stored:alias:
@@ -338,12 +343,16 @@ def main() -> int:
 
     if args.dataset in ("all", "index"):
         idx_vec = load_index_vectors()
-        idx_results = run_labeled(idx_vec, args.permutations)
-        all_results["index"] = idx_results
+        if idx_vec:
+            idx_results = run_labeled(idx_vec, args.permutations)
+            all_results["index"] = idx_results
+        else:
+            print("\n[skip] index dataset 无数据（.vector_index.json 不存在）")
 
     if args.dataset in ("all", "cache"):
         cache_vec = load_cache_vectors()
-        run_cache(cache_vec)
+        if cache_vec:
+            run_cache(cache_vec)
 
     # 阈值门禁：对生产阈值 0.95 行做断言
     PROD_THRESHOLD = 0.95
