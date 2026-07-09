@@ -1,4 +1,4 @@
-.PHONY: all help setup dev dev_ui dev_probe lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_coverage test_lint_coverage test_full test_all test_everything test_v1_auto test_v1_acceptance
+.PHONY: all help setup dev dev_ui dev_probe lint format test_unit test_integration test_e2e test_e2e_parallel test_llm_health test_automated test_coverage test_lint_coverage test_full test_all test_everything test_v1_auto test_v1_acceptance test_kt_hardening test_kt_benchmarks test_filter_recall
 
 all: help
 
@@ -73,6 +73,29 @@ test_v1_acceptance: test_v1_auto
 	@echo "3) 场景B：短流程任务，期望调用 call_executor 并返回结构化结果"
 	@echo "4) 场景C：故意失败任务，期望触发重规划并在 MAX_REPLAN 后收敛停止"
 
+# ─── KT 加固回归 ───────────────────────────────────────────
+# 详见 docs/superpowers/plans/2026-07-04-kt-cleanup-and-filter-hardening.md
+# 与 plan: C:\Users\TL\.claude\plans\rippling-wobbling-pretzel.md
+
+# Entry A 加固真 LLM 回归（5 场景）。前置：make dev 已启动 + .env 已配 API key。
+# 走 langgraph dev SDK，每场景 30-60s，总 ~5min。标 live_llm，PR CI 不跑。
+test_kt_hardening:
+	uv run pytest tests/e2e/test_kt_entry_a_hardening_live.py -v -m live_llm -s
+
+# dedup_benchmark 阈值门禁（PR CI 用）。读 workspace/knowledge_tree/.vector_index.json。
+# 对生产阈值 0.95 行断言 precision/recall。当前数据集无重复节点（ground truth=0），
+# precision/recall=nan 会被跳过；如未来出现真合并，断言生效。
+test_kt_benchmarks:
+	uv run python scripts/dedup_benchmark.py --dataset index --min-precision 0.90 --min-recall 0.85
+
+# filter_recall_benchmark 用 fixture（CI 用，不依赖 logs/probes/）。
+# fixture 是难样本集中版（NEGATIVE 占 43%），precision 看起来比全量低（0.53 vs 0.86）。
+# 阈值留 headroom，能抓大幅退化。
+test_filter_recall:
+	uv run python scripts/filter_recall_benchmark.py \
+		--fixture tests/fixtures/probes/turns_sample.jsonl \
+		--min-precision 0.45 --min-recall 0.65
+
 help:
 	@echo "Development:"
 	@echo "  make setup              安装依赖（uv sync --dev）"
@@ -98,4 +121,9 @@ help:
 	@echo "  make test_everything    test_lint_coverage + test_e2e（真实 LLM；见 Makefile 注释）"
 	@echo "  make test_v1_auto       运行 V1 自动化验收（等同 test_unit）"
 	@echo "  make test_v1_acceptance 运行自动化后给出手测步骤"
+	@echo ""
+	@echo "KT Hardening:"
+	@echo "  make test_kt_hardening  Entry A 真 LLM 回归（5 场景；前置 make dev + API key）"
+	@echo "  make test_kt_benchmarks dedup_benchmark 阈值门禁（PR CI）"
+	@echo "  make test_filter_recall filter_recall_benchmark fixture 阈值门禁（PR CI）"
 

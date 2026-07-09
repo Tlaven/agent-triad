@@ -58,9 +58,24 @@ class Turn:
     label: str  # "POSITIVE" / "NEGATIVE" / "NEUTRAL"
 
 
-def load_turns() -> list[Turn]:
+def load_turns(source: Path | None = None) -> list[Turn]:
+    """从指定路径（默认 logs/probes/）加载所有 turn。
+
+    Args:
+        source: 单个 jsonl 文件（fixture）或目录（递归 rglob）。默认 PROBES_DIR。
+    """
+    src = source if source is not None else PROBES_DIR
+    files: list[Path] = []
+    if src.is_file():
+        files = [src]
+    elif src.is_dir():
+        files = sorted(src.rglob("*.jsonl"))
+    else:
+        print(f"WARN: source 不存在: {src}", file=sys.stderr)
+        return []
+
     turns: list[Turn] = []
-    for f in sorted(PROBES_DIR.rglob("*.jsonl")):
+    for f in files:
         for line in f.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
@@ -75,7 +90,7 @@ def load_turns() -> list[Turn]:
             label = label_of(verdict, signals, agent)
             turns.append(
                 Turn(
-                    session=f.parent.name,
+                    session=t.get("_source_session", f.parent.name) or f.parent.name,
                     turn=t.get("turn", 0),
                     verdict=verdict,
                     signals=signals,
@@ -101,21 +116,77 @@ def label_of(verdict: str, signals: list[str], agent: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--strict", action="store_true", help="ok 也算 POSITIVE")
+    # 旧 --strict 语义错位（只是 NEUTRAL→POSITIVE 重标，无阈值门禁），
+    # 保留为 deprecated alias，等价于 --neutral-policy include_positive
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="(deprecated) 等价于 --neutral-policy include_positive",
+    )
+    parser.add_argument(
+        "--neutral-policy",
+        choices=["skip", "include_negative", "include_positive"],
+        default="skip",
+        help="NEUTRAL 标签处理：skip=不计入；include_negative=视作 NEGATIVE；"
+        "include_positive=视作 POSITIVE（旧 --strict 行为）",
+    )
+    parser.add_argument(
+        "--fixture",
+        type=str,
+        default=None,
+        help="指定 jsonl 文件或目录；默认读 logs/probes/ 全量",
+    )
+    parser.add_argument(
+        "--min-precision",
+        type=float,
+        default=None,
+        help="precision 门禁，不达标 exit 1",
+    )
+    parser.add_argument(
+        "--min-recall",
+        type=float,
+        default=None,
+        help="recall 门禁，不达标 exit 1",
+    )
     parser.add_argument("--show-fp", type=int, default=10, help="显示前 N 个假阳性样本")
     parser.add_argument("--show-fn", type=int, default=5, help="显示前 N 个假阴性样本")
     args = parser.parse_args()
 
+    # --strict deprecated alias
+    neutral_policy = args.neutral_policy
+    if args.strict:
+        print(
+            "WARN: --strict 已废弃（语义错位：只是 NEUTRAL→POSITIVE 重标，无门禁）。"
+            "请改用 --neutral-policy include_positive + --min-precision/--min-recall。",
+            file=sys.stderr,
+        )
+        neutral_policy = "include_positive"
+
     from src.common.knowledge_tree.ingestion.filter import should_remember
 
-    turns = load_turns()
-    print(f"\n[filter recall/precision benchmark] 加载 {len(turns)} turns")
+    fixture_path = Path(args.fixture).resolve() if args.fixture else None
+    turns = load_turns(fixture_path)
+    src_label = f"fixture={fixture_path}" if fixture_path else f"default={PROBES_DIR}"
+    print(f"\n[filter recall/precision benchmark] source={src_label}")
+    print(f"  加载 {len(turns)} turns")
 
-    if args.strict:
+    if not turns:
+        print("  无数据，跳过（exit 0）")
+        return 0
+
+    # 应用 neutral_policy
+    if neutral_policy == "include_positive":
         for t in turns:
             if t.label == "NEUTRAL":
                 t.label = "POSITIVE"
-        print("  --strict 模式：ok 视为 POSITIVE")
+        print(f"  neutral-policy={neutral_policy}: NEUTRAL → POSITIVE")
+    elif neutral_policy == "include_negative":
+        for t in turns:
+            if t.label == "NEUTRAL":
+                t.label = "NEGATIVE"
+        print(f"  neutral-policy={neutral_policy}: NEUTRAL → NEGATIVE")
+    else:
+        print(f"  neutral-policy={neutral_policy}: NEUTRAL 不计入")
 
     label_counts = Counter(t.label for t in turns)
     print(f"  ground truth: {dict(label_counts)}")
@@ -165,9 +236,7 @@ def main() -> int:
     print(f"  {'POSITIVE':>10} | {tp:>10} | {fn:>11} | {tp + fn:>6}")
     print(f"  {'NEGATIVE':>10} | {fp:>10} | {tn:>11} | {fp + tn:>6}")
     print()
-    print(
-        f"  precision = {precision:.3f}   recall = {recall:.3f}   F1 = {f1:.3f}"
-    )
+    print(f"  precision = {precision:.3f}   recall = {recall:.3f}   F1 = {f1:.3f}")
 
     print()
     print("  通过原因分布（PRED=PASS）:")
@@ -181,7 +250,9 @@ def main() -> int:
 
     if fp_samples:
         print()
-        print("  == 假阳性（NEGATIVE 但 filter.passed=True）— filter 漏掉的 bad turns ==")
+        print(
+            "  == 假阳性（NEGATIVE 但 filter.passed=True）— filter 漏掉的 bad turns =="
+        )
         for t, reason, preview in fp_samples:
             print(
                 f"  [{t.session} t{t.turn}] verdict={t.verdict} signals={t.signals}\n"
@@ -191,7 +262,9 @@ def main() -> int:
 
     if fn_samples:
         print()
-        print("  == 假阴性（POSITIVE 但 filter.passed=False）— filter 误杀的 good turns ==")
+        print(
+            "  == 假阴性（POSITIVE 但 filter.passed=False）— filter 误杀的 good turns =="
+        )
         for t, reason, preview in fn_samples:
             print(
                 f"  [{t.session} t{t.turn}] notes={t.notes!r}\n"
@@ -199,7 +272,30 @@ def main() -> int:
                 f"    agent={preview!r}"
             )
 
-    return 0
+    # 阈值门禁（CI 用）
+    exit_code = 0
+    if args.min_precision is not None or args.min_recall is not None:
+        failed: list[str] = []
+        if args.min_precision is not None and not (
+            precision == precision and precision >= args.min_precision
+        ):  # nan 检查
+            failed.append(f"precision={precision:.3f} < {args.min_precision:.3f}")
+        if args.min_recall is not None and not (
+            recall == recall and recall >= args.min_recall
+        ):
+            failed.append(f"recall={recall:.3f} < {args.min_recall:.3f}")
+
+        print()
+        if failed:
+            print(f"[gate] FAIL: {'; '.join(failed)}")
+            exit_code = 1
+        else:
+            print(
+                f"[gate] PASS: precision={precision:.3f} recall={recall:.3f} "
+                f"(thresholds: min_p={args.min_precision} min_r={args.min_recall})"
+            )
+
+    return exit_code
 
 
 if __name__ == "__main__":

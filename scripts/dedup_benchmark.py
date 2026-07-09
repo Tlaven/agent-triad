@@ -44,6 +44,7 @@ import random
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -130,7 +131,7 @@ def online_dedup(
 
 
 def pairwise_matrix(
-    vectors: dict[str, list[float]]
+    vectors: dict[str, list[float]],
 ) -> list[tuple[str, str, float, bool]]:
     """计算所有 pair 的 cosine sim + 是否同目录"""
     keys = list(vectors.keys())
@@ -144,9 +145,19 @@ def pairwise_matrix(
     return pairs
 
 
-def run_labeled(vectors: dict[str, list[float]], n_perm: int) -> None:
+def run_labeled(
+    vectors: dict[str, list[float]], n_perm: int
+) -> dict[float, dict[str, float]]:
+    """跑阈值扫描，返回每个 threshold 的指标 dict。
+
+    Returns:
+        {threshold: {"precision": float, "recall": float, "true_merges": float,
+                      "false_merges": float, "avg_kept": float, "avg_merges": float}}
+    """
     keys = list(vectors.keys())
-    print(f"\n[Phase A] 真实 KT 数据集：{len(keys)} 节点，{len(set(directory_of(k) for k in keys))} 目录")
+    print(
+        f"\n[Phase A] 真实 KT 数据集：{len(keys)} 节点，{len(set(directory_of(k) for k in keys))} 目录"
+    )
 
     # 全对相似度统计
     pairs = pairwise_matrix(vectors)
@@ -166,6 +177,7 @@ def run_labeled(vectors: dict[str, list[float]], n_perm: int) -> None:
         f"  {'阈值':>6} | {'≥阈值的对数':>10} | {'簇余数':>6} | {'真合并':>6} | {'误合并':>6} | {'precision':>10} | {'recall':>8}"
     )
     print("  " + "-" * 80)
+    results: dict[float, dict[str, float]] = {}
     for th in THRESHOLDS:
         # 在线单链 dedup，取 n 种随机顺序均值
         kept_counts = []
@@ -200,12 +212,24 @@ def run_labeled(vectors: dict[str, list[float]], n_perm: int) -> None:
             if (true_merges + false_merges) > 0
             else float("nan")
         )
-        recall = true_merges / len(same_content_pairs) if same_content_pairs else float("nan")
+        recall = (
+            true_merges / len(same_content_pairs)
+            if same_content_pairs
+            else float("nan")
+        )
 
         print(
             f"  {th:>6.2f} | {avg_merges:>10.2f} | {avg_kept:>6.2f} | "
             f"{true_merges:>6.2f} | {false_merges:>6.2f} | {precision:>10.3f} | {recall:>8.3f}"
         )
+        results[th] = {
+            "precision": precision,
+            "recall": recall,
+            "true_merges": true_merges,
+            "false_merges": false_merges,
+            "avg_kept": avg_kept,
+            "avg_merges": avg_merges,
+        }
 
     # 真合并样本（内容相同的 pair）
     print()
@@ -233,10 +257,14 @@ def run_labeled(vectors: dict[str, list[float]], n_perm: int) -> None:
     for k1, k2, sim, _ in same_sorted:
         print(f"    sim={sim:.4f}  [{directory_of(k1)}] {k1}  vs  {k2}")
 
+    return results
+
 
 def run_cache(cache_vectors: dict[str, list[float]]) -> None:
     keys = list(cache_vectors.keys())
-    print(f"\n[Phase B] 历史 cache 数据集：{len(keys)} 个 chunk 向量（无标签，纯聚类分析）")
+    print(
+        f"\n[Phase B] 历史 cache 数据集：{len(keys)} 个 chunk 向量（无标签，纯聚类分析）"
+    )
     if len(keys) < 2:
         print("  样本太少，跳过")
         return
@@ -281,20 +309,94 @@ def run_cache(cache_vectors: dict[str, list[float]]) -> None:
         print(f"    size={s}: {size_hist[s]} 个簇")
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", choices=["all", "index", "cache"], default="all")
     parser.add_argument("--permutations", type=int, default=len(SEEDS))
+    parser.add_argument(
+        "--min-precision",
+        type=float,
+        default=None,
+        help="对生产阈值 0.95 行的 precision 设门禁，不达标 exit 1",
+    )
+    parser.add_argument(
+        "--min-recall",
+        type=float,
+        default=None,
+        help="对生产阈值 0.95 行的 recall 设门禁，不达标 exit 1",
+    )
+    parser.add_argument(
+        "--json",
+        type=str,
+        default=None,
+        help="写机器可读 JSON 结果到指定路径（CI artifact 用）",
+    )
     args = parser.parse_args()
+
+    all_results: dict[str, Any] = {}
+    exit_code = 0
 
     if args.dataset in ("all", "index"):
         idx_vec = load_index_vectors()
-        run_labeled(idx_vec, args.permutations)
+        idx_results = run_labeled(idx_vec, args.permutations)
+        all_results["index"] = idx_results
 
     if args.dataset in ("all", "cache"):
         cache_vec = load_cache_vectors()
         run_cache(cache_vec)
 
+    # 阈值门禁：对生产阈值 0.95 行做断言
+    PROD_THRESHOLD = 0.95
+    if args.min_precision is not None or args.min_recall is not None:
+        if "index" not in all_results:
+            print(
+                "\n[gate] 跳过阈值检查：未跑 index dataset（无 precision/recall 数据）"
+            )
+        else:
+            idx = all_results["index"]
+            if PROD_THRESHOLD not in idx:
+                print(
+                    f"\n[gate] 跳过阈值检查：threshold {PROD_THRESHOLD} 不在扫描列表 {THRESHOLDS}"
+                )
+            else:
+                row = idx[PROD_THRESHOLD]
+                p = row["precision"]
+                r = row["recall"]
+                failed: list[str] = []
+                if args.min_precision is not None and (
+                    isinstance(p, float) and p == p and p < args.min_precision
+                ):
+                    failed.append(f"precision={p:.3f} < {args.min_precision:.3f}")
+                if args.min_recall is not None and (
+                    isinstance(r, float) and r == r and r < args.min_recall
+                ):
+                    failed.append(f"recall={r:.3f} < {args.min_recall:.3f}")
+
+                print()
+                if failed:
+                    print(
+                        f"[gate] FAIL @ threshold {PROD_THRESHOLD}: {'; '.join(failed)}"
+                    )
+                    exit_code = 1
+                else:
+                    print(
+                        f"[gate] PASS @ threshold {PROD_THRESHOLD}: "
+                        f"precision={p:.3f} recall={r:.3f}"
+                    )
+
+    if args.json:
+        import json as _json
+
+        out_path = Path(args.json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            _json.dumps(all_results, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+        print(f"\n[json] 写入 {out_path}")
+
+    return exit_code
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
