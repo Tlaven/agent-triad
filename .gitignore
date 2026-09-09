@@ -48,6 +48,9 @@ tests/e2e/*_results.json
 # Claude Code 临时文件
 .claude/scheduled_tasks.lock
 
+# KT 临时摄入目录（测试残留）
+kt_md/
+
 # IDE / OS
 .idea/
 .vscode/

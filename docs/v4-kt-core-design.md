@@ -257,7 +257,7 @@ V4 核心功能已全部完成。以下为推迟至 V5+ 的特性：
 1. **Leiden 全局聚类** — 全树自动重组，推迟至 V5
 2. **Agent 记忆衰减评分** — 按访问频率和时间衰减降低节点权重
 3. **Skill/Recipe 绑定** — 可执行脚本附加到知识节点
-4. **多查询扩展检索** — `multi_query_rag_search()` 已实现但未接入管道
+4. **多查询扩展检索** — 历史原型已移除（hash embedder 下 RRF 增益有限；待 api/local embedder 启用时按需重写）
 
 ### 文件结构
 
@@ -276,8 +276,7 @@ src/common/knowledge_tree/
         overlay.py           # Overlay JSON
         sync.py              # 文件系统 → 向量同步
     retrieval/
-        rag_search.py        # RAG 检索（content + title 双路 + RRF）
-        query_expander.py    # 查询扩展（保留，未来使用）
+        rag_search.py        # RAG 检索（content + title + alias + 锚点 四路 RRF）
         log.py               # 检索日志
     ingestion/
         chunker.py           # 文本切分

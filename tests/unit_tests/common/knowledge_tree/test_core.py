@@ -196,3 +196,32 @@ class TestDeleteNode:
         result = kt.delete_node("not/exist_node.md")
         assert "not/exist_node.md" in result.get("skipped", [])
         assert result.get("deleted", []) == []
+
+
+class TestEmbedderSelection:
+    def test_embedding_model_hash_overrides_api_embedder_type(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """embedding_model='hash' 时即使 embedder_type='api' 也回落 hash，且不发起网络请求。
+
+        回归测试：chat.py --kt-embedding-model hash 只覆盖模型名，embedder_type
+        残留为 api 时曾把 "hash" 当远端模型名发送（SiliconFlow 400 code 20015）。
+        """
+        import src.common.knowledge_tree.embedding.api as api_module
+
+        api_calls: list[object] = []
+
+        def _forbidden(*args: object, **kwargs: object) -> None:
+            api_calls.append(args)
+            raise AssertionError("api embedder 不应在 embedding_model=hash 时被创建")
+
+        monkeypatch.setattr(api_module, "create_api_embedder", _forbidden)
+        cfg = KnowledgeTreeConfig(
+            markdown_root=tmp_path,
+            embedder_type="api",
+            embedding_model="hash",
+            embedding_dimension=64,
+        )
+        kt = KnowledgeTree(cfg)
+        assert kt.embedder_type == "hash"
+        assert api_calls == []

@@ -19,6 +19,7 @@ class _FakeContext:
     kt_embedding_model: str = "hash"
     kt_embedding_dimension: int = 64
     kt_max_tree_depth: int = 5
+    kt_rag_k_rrf: int = 60
     kt_ingest_enabled: bool = True
     kt_ingest_chunk_max_tokens: int = 512
     kt_dedup_threshold: float = 0.95

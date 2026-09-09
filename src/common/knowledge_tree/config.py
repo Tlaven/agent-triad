@@ -31,6 +31,7 @@ class KnowledgeTreeConfig:
     # -- 检索阈值 --
     rag_similarity_threshold: float = 0.15
     max_tree_depth: int = 5
+    rag_k_rrf: int = 60  # RRF 平滑常数（Cormack 2009 标准值 60）
 
     # -- 嵌入 --
     embedder_type: str = "hash"  # "hash" | "local" | "api"
@@ -64,6 +65,7 @@ class KnowledgeTreeConfig:
             markdown_root=Path(ctx.knowledge_tree_root),
             rag_similarity_threshold=ctx.kt_rag_similarity_threshold,
             max_tree_depth=ctx.kt_max_tree_depth,
+            rag_k_rrf=ctx.kt_rag_k_rrf,
             embedder_type=ctx.kt_embedder_type,
             embedding_model=ctx.kt_embedding_model,
             embedding_dimension=ctx.kt_embedding_dimension,

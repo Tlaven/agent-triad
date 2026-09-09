@@ -1,7 +1,7 @@
 """RAG 向量相似度检索。
 
 V4: RAG 是主检索路径（不再是 fallback）。
-content_embedding + title_embedding 双路检索 + 目录锚点扩展，倒数秩融合。
+content + title + alias + 目录锚点 四路检索 + 倒数秩融合（RRF）。
 """
 
 from __future__ import annotations
@@ -23,14 +23,16 @@ def rag_search(
     top_k: int = 5,
     threshold: float = 0.15,
     anchor_boost_threshold: float = 0.5,
+    k_rrf: int = 60,
 ) -> list[tuple[KnowledgeNode, float]]:
-    """向量相似度检索（content + title + 锚点扩展 三路融合）。
+    """向量相似度检索（content + title + alias + 锚点 四路融合）。
 
     检索策略：
-    1. content embedding 路径：query_vector vs content embeddings
+    1. content embedding 路径：query_vector vs content embeddings（stored 混合向量）
     2. title embedding 路径：query_vector vs title embeddings（key 前缀 "title:"）
+    2b. alias embedding 路径：query_vector vs alias embeddings（key 前缀 "alias:{node_id}:{i}"）
     3. 锚点扩展路径：匹配目录锚点 → 将同目录节点加入候选
-    三路结果用倒数秩融合（RRF）合并
+    四路结果用倒数秩融合（RRF）合并
 
     Args:
         query_vector: 查询向量。
@@ -41,6 +43,7 @@ def rag_search(
         threshold: 相似度阈值。
         anchor_boost_threshold: 目录锚点匹配阈值。锚点相似度高于此值的目录，
             其下所有节点获得 RRF 加分（结构信号）。
+        k_rrf: RRF 平滑常数（来自 Cormack 2009，标准值 60）。
 
     Returns:
         (node, similarity) 列表，按相似度降序。
@@ -61,7 +64,6 @@ def rag_search(
 
     # 倒数秩融合（RRF）
     rrf_scores: dict[str, float] = {}
-    k_rrf = 60  # RRF 平滑常数
     # 同时跟踪每条路径的最佳余弦相似度（用于返回给调用者）
     best_similarities: dict[str, float] = {}
 
@@ -124,74 +126,4 @@ def rag_search(
     # 按实际相似度降序排列，确保返回分数单调递减
     results.sort(key=lambda x: x[1], reverse=True)
 
-    return results
-
-
-def multi_query_rag_search(
-    queries: list[str],
-    embedder: object,
-    vector_store: BaseVectorStore,
-    md_store: MarkdownStore,
-    top_k: int = 5,
-    threshold: float = 0.15,
-) -> list[tuple[KnowledgeNode, float]]:
-    """多查询 RAG 检索 + RRF 融合。
-
-    对每个查询分别执行 rag_search，然后对所有结果做 RRF 融合，
-    返回融合后的 top_k 结果。
-
-    Args:
-        queries: 查询文本列表（原查询 + 扩展变体）。
-        embedder: 文本向量化函数。
-        vector_store: 向量索引。
-        md_store: 文件系统存储。
-        top_k: 最终返回数量。
-        threshold: 相似度阈值。
-
-    Returns:
-        (node, similarity) 列表，按相似度降序。
-    """
-    if len(queries) <= 1:
-        # 单查询直接走原始路径
-        query_vec = embedder(queries[0])
-        return rag_search(query_vec, vector_store, md_store, embedder, top_k, threshold)
-
-    # 多查询 RRF 融合
-    k_rrf = 60
-    rrf_scores: dict[str, float] = {}
-    best_similarities: dict[str, float] = {}
-
-    for query_text in queries:
-        query_vec = embedder(query_text)
-        per_results = rag_search(
-            query_vec,
-            vector_store,
-            md_store,
-            embedder,
-            top_k=top_k * 2,
-            threshold=threshold,
-        )
-        for rank, (node, score) in enumerate(per_results):
-            nid = node.node_id
-            rrf_scores[nid] = rrf_scores.get(nid, 0.0) + 1.0 / (k_rrf + rank + 1)
-            best_similarities[nid] = max(best_similarities.get(nid, 0.0), score)
-
-    # RRF 排序 + 加载节点
-    sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[
-        :top_k
-    ]
-    results: list[tuple[KnowledgeNode, float]] = []
-    for node_id in sorted_ids:
-        node = md_store.read_node(node_id)
-        if node is not None:
-            node.embedding = vector_store.get_embedding(node_id)
-            results.append((node, best_similarities[node_id]))
-
-    results.sort(key=lambda x: x[1], reverse=True)
-    logger.debug(
-        "Multi-query RAG: %d queries → %d unique candidates → %d results",
-        len(queries),
-        len(rrf_scores),
-        len(results),
-    )
     return results

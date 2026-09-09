@@ -1,1 +1,1 @@
-"""双路径检索：LLM 路由树导航 + RAG 向量兜底。"""
+"""RAG 检索：V4 主检索路径（content + title + alias + 锚点 四路 RRF 融合）。"""

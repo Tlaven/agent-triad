@@ -171,8 +171,8 @@ class InMemoryVectorStore(BaseVectorStore):
 
         results: list[tuple[str, float]] = []
         for node_id, emb in self._embeddings.items():
-            # 跳过 title: 前缀的条目（它们是辅助索引）
-            if node_id.startswith("title:"):
+            # 跳过辅助索引键（title:/stored:/alias:）——它们不是独立节点
+            if node_id.startswith(("title:", "stored:", "alias:")):
                 continue
             score = _cosine_similarity(query_embedding, emb)
             if score >= threshold:

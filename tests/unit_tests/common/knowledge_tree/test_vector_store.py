@@ -57,6 +57,25 @@ class TestInMemoryVectorStore:
         results = vec_store.similarity_search([1.0, 0.0, 0.0, 0.0])
         assert results == []
 
+    def test_similarity_search_excludes_aux_prefixes(self, vec_store: InMemoryVectorStore):
+        """similarity_search 必跳过 title:/stored:/alias: 辅助索引键。
+
+        回归测试：修复前只跳 title:，导致 stored:/alias: 假节点泄漏到结果。
+        """
+        vec_store.upsert_embedding("n1", [1.0, 0.0, 0.0, 0.0])
+        # 辅助索引键：与查询完全相同方向，若漏过滤会冒充节点
+        vec_store.upsert_embedding("title:n1", [1.0, 0.0, 0.0, 0.0])
+        vec_store.upsert_embedding("stored:n1", [1.0, 0.0, 0.0, 0.0])
+        vec_store.upsert_embedding("alias:n1:0", [1.0, 0.0, 0.0, 0.0])
+        vec_store.upsert_embedding("alias:n1:1", [1.0, 0.0, 0.0, 0.0])
+
+        results = vec_store.similarity_search(
+            [1.0, 0.0, 0.0, 0.0], top_k=10, threshold=0.9
+        )
+        # 只有真实节点 n1 出现，4 个辅助键都不应返回
+        assert len(results) == 1
+        assert results[0][0] == "n1"
+
     def test_delete(self, vec_store: InMemoryVectorStore):
         vec_store.upsert_embedding("n1", [1.0, 0.0, 0.0, 0.0])
         assert vec_store.delete_embedding("n1") is True

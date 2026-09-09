@@ -330,6 +330,12 @@ class Context:
         default=5,
         metadata={"description": "Maximum tree depth."},
     )
+    kt_rag_k_rrf: int = field(
+        default=60,
+        metadata={
+            "description": "RRF smoothing constant for RAG retrieval (Cormack 2009 standard: 60)."
+        },
+    )
 
     # --- V4: Knowledge Tree — Ingestion Pipeline ---
     kt_ingest_enabled: bool = field(

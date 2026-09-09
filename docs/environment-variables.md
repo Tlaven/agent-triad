@@ -142,6 +142,7 @@
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `KT_RAG_SIMILARITY_THRESHOLD` | 0.15 | RAG 相似度阈值（semantic embedder 时自动升至 0.5） |
+| `KT_RAG_K_RRF` | 60 | RRF 平滑常数（Cormack 2009 标准值 60，通常无需调整） |
 | `KT_INGEST_ATTACH_THRESHOLD` | 0.7 | 目录锚点吸附阈值 |
 | `KT_DEDUP_THRESHOLD` | 0.95 | 去重阈值（宁缺毋滥：宁可保留少量真重复也不误合并独立节点；详见 spec §4.4 与 `scripts/dedup_benchmark.py` 离线压测）|
 | `KT_MAX_TREE_DEPTH` | — | 树最大深度 |

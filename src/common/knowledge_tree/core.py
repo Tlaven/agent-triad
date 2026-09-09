@@ -138,6 +138,16 @@ class KnowledgeTree:
         """根据 config 选择 embedder。返回 (embedder, type_name)。"""
         etype = config.embedder_type
 
+        # embedding_model="hash" 是本地 n-gram hash 嵌入的信号。若 embedder_type
+        # 残留为 api/local（例如 chat.py --kt-embedding-model hash 只覆盖模型名），
+        # 强制回落 hash，避免把 "hash" 当远端模型名发送（SiliconFlow 400 code 20015）。
+        if etype != "hash" and config.embedding_model == "hash":
+            logger.info(
+                "embedding_model='hash' overrides embedder_type=%r → hash",
+                etype,
+            )
+            return _default_embedder(config.embedding_dimension), "hash"
+
         if etype == "hash":
             return _default_embedder(config.embedding_dimension), "hash"
 
@@ -196,6 +206,7 @@ class KnowledgeTree:
             embedder=self.embedder,
             threshold=self.config.rag_similarity_threshold,
             anchor_boost_threshold=self.config.ingest_attach_threshold,
+            k_rrf=self.config.rag_k_rrf,
         )
 
         log.rag_results = [(n.node_id, s) for n, s in results]
