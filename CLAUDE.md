@@ -20,11 +20,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Agent | 默认模型 | 定位 |
 |-------|---------|------|
-| Supervisor | `openai:kimi-k2.6` | 工具调度 + 决策路由 |
-| Planner | `anthropic:qwen3.7-max` | 最强推理做意图分解 |
-| Executor | `openai:deepseek-v4-flash` | 快速工具执行 |
+| Supervisor | `siliconflow:Pro/moonshotai/Kimi-K2.6` | 工具调度 + 决策路由 |
+| Planner | `siliconflow:Qwen/Qwen3.5-397B-A17B` | 最强推理做意图分解 |
+| Executor | `siliconflow:deepseek-ai/DeepSeek-V4-Flash` | 快速工具执行 |
 
-Supervisor 和 Executor 走 OpenAI 兼容接口（`OPENAI_BASE_URL`）；Planner 走 Anthropic 兼容接口（`ANTHROPIC_BASE_URL`）。不同 provider 的模型通过 `load_chat_model("provider:model")` 统一加载。
+三 Agent 统一走 SiliconFlow(`siliconflow:` provider,`SILICONFLOW_API_KEY` + `REGION` 决定端点,OpenAI 兼容接口)。不同 provider 的模型通过 `load_chat_model("provider:model")` 统一加载。
+
+> **Planner 模型选型实测(2026-09-08)**:候选 `DeepSeek-V4-Pro`(AA Intelligence 36,推理最强)与 `GLM-5.3` 在真实 Planner 图(bind_tools 5 只读工具)下均 **25 轮工具循环不收敛 / 超时**(reasoning 模型与工具调用解析不兼容),唯 `Qwen3.5-397B-A17B` 25s 内收敛产出合格 Plan。选型优先真实收敛性。
 
 长期目标之一：让 Agent 能够管理自己的上下文。V4 知识树是该目标的核心承载，负责记忆沉淀、检索、结构演化与后续上下文治理；当前权威设计见 `docs/v4-kt-core-design.md`。
 
@@ -194,14 +196,10 @@ uv run pytest tests/unit_tests/supervisor_agent/test_dynamic_tools_node.py::test
 
 测试命令入口：[`tests/README.md`](tests/README.md)；环境、代理与分层细节：[`tests/TESTING.md`](tests/TESTING.md)。环境变量示例：[`.env`](.env) / `.env.example`。
 
-### 多模型环境变量
+### SiliconFlow 配置
 
 ```bash
-# Supervisor + Executor（OpenAI 兼容接口）
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://opencode.ai/zen/go/v1
-
-# Planner（Anthropic 兼容接口）
-ANTHROPIC_API_KEY=sk-xxx        # 同一 Go 密钥
-ANTHROPIC_BASE_URL=https://opencode.ai/zen/go
+# 三 Agent + KT embedder 统一走 SiliconFlow（OpenAI 兼容）
+SILICONFLOW_API_KEY=sk-xxx
+REGION=prc                     # prc → https://api.siliconflow.cn/v1
 ```

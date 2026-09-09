@@ -1,7 +1,7 @@
 [models]
-supervisor = "openai:kimi-k2.6"
-planner = "anthropic:qwen3.7-max"
-executor = "openai:deepseek-v4-flash"
+supervisor = "siliconflow:Pro/moonshotai/Kimi-K2.6"
+planner = "siliconflow:Qwen/Qwen3.5-397B-A17B"
+executor = "siliconflow:deepseek-ai/DeepSeek-V4-Flash"
 
 [sampling.supervisor]
 temperature = -1

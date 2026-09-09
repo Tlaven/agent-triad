@@ -11,8 +11,7 @@
 ```bash
 uv sync --dev
 cp .env.example .env   # 填入 Key，至少：
-# SILICONFLOW_API_KEY  — Planner / Executor
-# DASHSCOPE_API_KEY    — Supervisor（若用默认配置）
+# SILICONFLOW_API_KEY  — 三 Agent + KT embedder（REGION=prc）
 make dev_ui            # LangGraph Studio（推荐）；无 UI：`make dev`
 make test_automated       # 单元+集成（Mock LLM），日常回归
 make test_lint_coverage   # lint + 单元/集成覆盖率（Mock LLM，不含 E2E），合并前/发版前

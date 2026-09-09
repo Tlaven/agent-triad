@@ -524,27 +524,35 @@ def main():
     )
     session.reset_each_turn = args.reset_each_turn
 
-    # API 预热：避免首次调用冷启动耗时过长
-    if not args.no_warmup:
+    # API 预热 + 主流程收敛到同一个 event loop。多次 asyncio.run 会让
+    # langchain fire-and-forget 的 httpx AsyncClient.aclose() 在 loop 关闭后
+    # 才执行，打印 "Task exception was never retrieved / Event loop is closed" 噪音。
+    async def _amain() -> int:
+        if not args.no_warmup:
+            await warmup_apis(ctx)
+        if args.script:
+            return await run_script(
+                session,
+                Path(args.script),
+                Path(args.report) if args.report else None,
+            )
+        await repl(session)
+        return 0
+
+    async def _run_with_drain() -> int:
         try:
-            asyncio.run(warmup_apis(ctx))
-        except KeyboardInterrupt:
-            print()
-            return
+            return await _amain()
+        finally:
+            # 在 loop 存活期内给迟到的 aclose 任务一个完成机会，避免退出噪音
+            await asyncio.sleep(0.2)
 
     try:
-        if args.script:
-            exit_code = asyncio.run(
-                run_script(
-                    session,
-                    Path(args.script),
-                    Path(args.report) if args.report else None,
-                )
-            )
-            raise SystemExit(exit_code)
-        asyncio.run(repl(session))
+        exit_code = asyncio.run(_run_with_drain())
     except KeyboardInterrupt:
         print()
+        return
+    if args.script:
+        raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":
